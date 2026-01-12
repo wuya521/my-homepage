@@ -461,14 +461,45 @@ async function handleRequest(request, env) {
     return jsonResponse({ success: true, message: '黄V认证已删除' });
   }
 
+  // 主页路由
+  if (path === '/' || path === '/index.html') {
+    const html = await fetch('https://raw.githubusercontent.com/wuya521/my-homepage/main/index.html')
+      .then(res => res.text())
+      .catch(() => '<h1>页面加载失败</h1>');
+    
+    return new Response(html, {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    });
+  }
+
   // 后台管理页面路由
-  if (path === '/manage' || path === '/manage/') {
-    const html = await fetch('https://raw.githubusercontent.com/IonRh/HomePage/main/index.html')
+  if (path === '/manage' || path === '/manage.html') {
+    const html = await fetch('https://raw.githubusercontent.com/wuya521/my-homepage/main/manage.html')
       .then(res => res.text())
       .catch(() => '<h1>管理页面加载失败</h1>');
     
     return new Response(html, {
       headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    });
+  }
+
+  // 静态资源路由 (CSS/JS)
+  if (path.startsWith('/static/')) {
+    const fileName = path.split('/').pop();
+    const fileUrl = `https://raw.githubusercontent.com/wuya521/my-homepage/main/static/${fileName}`;
+    
+    const response = await fetch(fileUrl);
+    const content = await response.text();
+    
+    let contentType = 'text/plain';
+    if (fileName.endsWith('.css')) contentType = 'text/css';
+    if (fileName.endsWith('.js')) contentType = 'application/javascript';
+    
+    return new Response(content, {
+      headers: { 
+        'Content-Type': contentType,
+        'Access-Control-Allow-Origin': '*'
+      }
     });
   }
 
