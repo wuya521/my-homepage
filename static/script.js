@@ -1,0 +1,939 @@
+// ==================== 全局配置 ====================
+// 重要：请将下面的 API_BASE 修改为你的 Cloudflare Worker 域名
+const API_BASE = window.API_BASE || 'https://your-worker-domain.workers.dev';
+
+// 全局状态
+let authToken = null;
+let currentPortals = [];
+
+// ==================== 工具函数 ====================
+
+// 显示消息
+function showMessage(elementId, message, type = 'success') {
+    const messageEl = document.getElementById(elementId);
+    if (!messageEl) return;
+    
+    messageEl.textContent = message;
+    messageEl.className = `message ${type}`;
+    messageEl.style.display = 'block';
+    
+    setTimeout(() => {
+        messageEl.style.display = 'none';
+    }, 5000);
+}
+
+// API 请求封装
+async function apiRequest(endpoint, options = {}) {
+    try {
+        const headers = {
+            'Content-Type': 'application/json',
+            ...options.headers
+        };
+
+        // 添加认证头
+        if (authToken) {
+            headers['Authorization'] = authToken;
+        }
+
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            ...options,
+            headers
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || '请求失败');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('API 请求错误:', error);
+        throw error;
+    }
+}
+
+// 格式化日期
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// ==================== 主页功能 ====================
+
+// 加载个人资料
+async function loadProfile() {
+    try {
+        const profile = await apiRequest('/api/profile');
+        
+        // 更新头像
+        const avatarEl = document.getElementById('avatar');
+        if (avatarEl && profile.avatar) {
+            avatarEl.src = profile.avatar;
+        }
+
+        // 更新名字
+        const nameEl = document.getElementById('name');
+        if (nameEl && profile.name) {
+            nameEl.textContent = profile.name;
+        }
+
+        // 更新简介
+        const bioEl = document.getElementById('bio');
+        if (bioEl && profile.bio) {
+            bioEl.textContent = profile.bio;
+        }
+
+        // 更新社交链接
+        updateSocialLink('email-link', profile.email, `mailto:${profile.email}`);
+        updateSocialLink('github-link', profile.github, profile.github);
+        updateSocialLink('twitter-link', profile.twitter, profile.twitter);
+        updateSocialLink('website-link', profile.website, profile.website);
+
+    } catch (error) {
+        console.error('加载个人资料失败:', error);
+    }
+}
+
+// 更新社交链接
+function updateSocialLink(elementId, value, href) {
+    const linkEl = document.getElementById(elementId);
+    if (linkEl) {
+        if (value) {
+            linkEl.href = href;
+            linkEl.style.display = 'flex';
+        } else {
+            linkEl.style.display = 'none';
+        }
+    }
+}
+
+// 加载公告
+async function loadAnnouncement() {
+    try {
+        const announcement = await apiRequest('/api/announcement');
+        
+        const section = document.getElementById('announcement-section');
+        const titleEl = document.getElementById('announcement-title');
+        const contentEl = document.getElementById('announcement-content');
+        const timeEl = document.getElementById('announcement-time');
+
+        if (announcement && announcement.enabled) {
+            if (titleEl) titleEl.textContent = announcement.title || '公告';
+            if (contentEl) contentEl.textContent = announcement.content || '';
+            if (timeEl) timeEl.textContent = `更新于 ${formatDate(announcement.updatedAt)}`;
+            if (section) section.style.display = 'block';
+        } else {
+            if (section) section.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('加载公告失败:', error);
+    }
+}
+
+// 加载门户链接
+async function loadPortals() {
+    try {
+        const portals = await apiRequest('/api/portals');
+        const container = document.getElementById('portals-container');
+        
+        if (!container) return;
+
+        if (portals.length === 0) {
+            container.innerHTML = '<p class="empty-state-text">暂无门户链接</p>';
+            return;
+        }
+
+        container.innerHTML = portals.map(portal => `
+            <a href="${portal.url}" target="_blank" class="portal-card">
+                <div class="portal-icon">${portal.icon || '🔗'}</div>
+                <div class="portal-info">
+                    <h3 class="portal-name">${portal.name}</h3>
+                    <p class="portal-desc">${portal.description || ''}</p>
+                </div>
+            </a>
+        `).join('');
+    } catch (error) {
+        console.error('加载门户链接失败:', error);
+    }
+}
+
+// 兑换码提交
+async function handleRedeemSubmit(e) {
+    e.preventDefault();
+    
+    const codeInput = document.getElementById('redeem-code');
+    const emailInput = document.getElementById('redeem-email');
+    const code = codeInput.value.trim();
+    const email = emailInput.value.trim();
+
+    try {
+        const result = await apiRequest('/api/redeem', {
+            method: 'POST',
+            body: JSON.stringify({ code, email })
+        });
+
+        showMessage('redeem-message', result.message, 'success');
+        codeInput.value = '';
+        emailInput.value = '';
+    } catch (error) {
+        showMessage('redeem-message', error.message, 'error');
+    }
+}
+
+// VIP 状态查询
+async function handleVipCheckSubmit(e) {
+    e.preventDefault();
+    
+    const emailInput = document.getElementById('vip-check-email');
+    const email = emailInput.value.trim();
+
+    try {
+        const result = await apiRequest(`/api/vip/check?email=${encodeURIComponent(email)}`);
+        
+        if (result.isVip) {
+            showMessage('vip-status-message', 
+                `您是 ${result.level} 会员，到期时间：${formatDate(result.expiryDate)}`, 
+                'success');
+        } else {
+            showMessage('vip-status-message', '该邮箱尚未开通 VIP 会员', 'info');
+        }
+    } catch (error) {
+        showMessage('vip-status-message', error.message, 'error');
+    }
+}
+
+// VIP 购买弹窗
+function showVipPurchase(level, price) {
+    const modal = document.getElementById('vip-modal');
+    const levelEl = document.getElementById('modal-vip-level');
+    const priceEl = document.getElementById('modal-vip-price');
+    
+    if (modal) modal.style.display = 'flex';
+    if (levelEl) levelEl.textContent = level;
+    if (priceEl) priceEl.textContent = price;
+}
+
+function closeVipModal() {
+    const modal = document.getElementById('vip-modal');
+    if (modal) modal.style.display = 'none';
+    
+    const form = document.getElementById('vip-purchase-form');
+    if (form) form.reset();
+    
+    const messageEl = document.getElementById('purchase-message');
+    if (messageEl) messageEl.style.display = 'none';
+}
+
+// VIP 购买提交（演示功能）
+async function handleVipPurchaseSubmit(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('purchase-email').value.trim();
+    const name = document.getElementById('purchase-name').value.trim();
+    const level = document.getElementById('modal-vip-level').textContent;
+    
+    // 这里只是演示，实际需要接入支付系统
+    showMessage('purchase-message', 
+        `感谢 ${name} 的购买！实际使用时，请接入支付系统完成支付流程。`, 
+        'info');
+    
+    setTimeout(() => {
+        closeVipModal();
+    }, 3000);
+}
+
+// ==================== 管理后台功能 ====================
+
+// 登录处理
+async function handleLogin(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+
+    try {
+        // 创建 Basic Auth token
+        authToken = 'Basic ' + btoa(`${username}:${password}`);
+        
+        await apiRequest('/api/admin/login', {
+            method: 'POST',
+            headers: {
+                'Authorization': authToken
+            }
+        });
+
+        // 保存 token
+        sessionStorage.setItem('authToken', authToken);
+        
+        // 切换到管理页面
+        document.getElementById('login-page').style.display = 'none';
+        document.getElementById('admin-page').style.display = 'flex';
+        
+        // 加载管理数据
+        loadAdminData();
+    } catch (error) {
+        showMessage('login-message', error.message || '登录失败', 'error');
+        authToken = null;
+    }
+}
+
+// 退出登录
+function handleLogout() {
+    authToken = null;
+    sessionStorage.removeItem('authToken');
+    
+    document.getElementById('admin-page').style.display = 'none';
+    document.getElementById('login-page').style.display = 'flex';
+}
+
+// 切换侧边栏菜单
+function switchSection(sectionName) {
+    // 移除所有活动状态
+    document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+
+    // 激活选中的部分
+    const section = document.getElementById(`${sectionName}-section`);
+    if (section) {
+        section.classList.add('active');
+    }
+
+    const navItem = document.querySelector(`[data-section="${sectionName}"]`);
+    if (navItem) {
+        navItem.classList.add('active');
+    }
+
+    // 更新标题
+    const titles = {
+        'profile': '个人资料',
+        'announcement': '公告管理',
+        'portals': '门户管理',
+        'redeem-codes': '兑换码管理',
+        'vip-users': 'VIP 用户',
+        'verified-users': '黄V认证',
+        'settings': '系统设置'
+    };
+
+    const titleEl = document.getElementById('page-title');
+    if (titleEl) {
+        titleEl.textContent = titles[sectionName] || '管理后台';
+    }
+}
+
+// 加载管理数据
+async function loadAdminData() {
+    await loadAdminProfile();
+    await loadAdminAnnouncement();
+    await loadAdminPortals();
+    await loadRedeemCodes();
+    await loadVipUsers();
+    await loadVerifiedUsers();
+}
+
+// 加载管理员个人资料
+async function loadAdminProfile() {
+    try {
+        const profile = await apiRequest('/api/profile');
+        
+        document.getElementById('profile-name').value = profile.name || '';
+        document.getElementById('profile-email').value = profile.email || '';
+        document.getElementById('profile-avatar').value = profile.avatar || '';
+        document.getElementById('profile-bio').value = profile.bio || '';
+        document.getElementById('profile-github').value = profile.github || '';
+        document.getElementById('profile-twitter').value = profile.twitter || '';
+        document.getElementById('profile-website').value = profile.website || '';
+    } catch (error) {
+        console.error('加载个人资料失败:', error);
+    }
+}
+
+// 保存个人资料
+async function handleProfileSubmit(e) {
+    e.preventDefault();
+    
+    const profile = {
+        name: document.getElementById('profile-name').value.trim(),
+        email: document.getElementById('profile-email').value.trim(),
+        avatar: document.getElementById('profile-avatar').value.trim(),
+        bio: document.getElementById('profile-bio').value.trim(),
+        github: document.getElementById('profile-github').value.trim(),
+        twitter: document.getElementById('profile-twitter').value.trim(),
+        website: document.getElementById('profile-website').value.trim()
+    };
+
+    try {
+        await apiRequest('/api/profile', {
+            method: 'PUT',
+            body: JSON.stringify(profile)
+        });
+
+        showMessage('profile-message', '个人资料保存成功！', 'success');
+    } catch (error) {
+        showMessage('profile-message', error.message, 'error');
+    }
+}
+
+// 加载管理员公告
+async function loadAdminAnnouncement() {
+    try {
+        const announcement = await apiRequest('/api/announcement');
+        
+        document.getElementById('announcement-title').value = announcement.title || '';
+        document.getElementById('announcement-content').value = announcement.content || '';
+        document.getElementById('announcement-enabled').checked = announcement.enabled || false;
+    } catch (error) {
+        console.error('加载公告失败:', error);
+    }
+}
+
+// 保存公告
+async function handleAnnouncementSubmit(e) {
+    e.preventDefault();
+    
+    const announcement = {
+        title: document.getElementById('announcement-title').value.trim(),
+        content: document.getElementById('announcement-content').value.trim(),
+        enabled: document.getElementById('announcement-enabled').checked
+    };
+
+    try {
+        await apiRequest('/api/announcement', {
+            method: 'PUT',
+            body: JSON.stringify(announcement)
+        });
+
+        showMessage('announcement-message', '公告保存成功！', 'success');
+    } catch (error) {
+        showMessage('announcement-message', error.message, 'error');
+    }
+}
+
+// 加载管理员门户列表
+async function loadAdminPortals() {
+    try {
+        currentPortals = await apiRequest('/api/admin/portals');
+        renderPortalsList();
+    } catch (error) {
+        console.error('加载门户列表失败:', error);
+    }
+}
+
+// 渲染门户列表
+function renderPortalsList() {
+    const container = document.getElementById('portals-list');
+    if (!container) return;
+
+    if (currentPortals.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p class="empty-state-text">暂无门户链接</p></div>';
+        return;
+    }
+
+    container.innerHTML = currentPortals.map((portal, index) => `
+        <div class="item-card">
+            <div class="item-icon">${portal.icon || '🔗'}</div>
+            <div class="item-info">
+                <div class="item-name">${portal.name}</div>
+                <div class="item-url">${portal.url}</div>
+                <div class="item-desc">${portal.description || ''}</div>
+            </div>
+            <span class="item-badge ${portal.enabled ? 'enabled' : 'disabled'}">
+                ${portal.enabled ? '启用' : '禁用'}
+            </span>
+            <div class="item-actions">
+                <button class="btn-secondary" onclick="editPortal(${index})">编辑</button>
+                <button class="btn-danger" onclick="deletePortal(${index})">删除</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 打开门户编辑弹窗
+function openPortalModal(portal = null, index = null) {
+    const modal = document.getElementById('portal-modal');
+    const form = document.getElementById('portal-form');
+    const title = document.getElementById('portal-modal-title');
+    
+    if (portal) {
+        title.textContent = '编辑门户';
+        document.getElementById('portal-id').value = index;
+        document.getElementById('portal-name').value = portal.name;
+        document.getElementById('portal-url').value = portal.url;
+        document.getElementById('portal-icon').value = portal.icon;
+        document.getElementById('portal-description').value = portal.description || '';
+        document.getElementById('portal-enabled').checked = portal.enabled;
+    } else {
+        title.textContent = '添加门户';
+        form.reset();
+        document.getElementById('portal-id').value = '';
+        document.getElementById('portal-enabled').checked = true;
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function closePortalModal() {
+    const modal = document.getElementById('portal-modal');
+    modal.style.display = 'none';
+}
+
+function editPortal(index) {
+    openPortalModal(currentPortals[index], index);
+}
+
+async function deletePortal(index) {
+    if (!confirm('确定要删除这个门户吗？')) return;
+    
+    currentPortals.splice(index, 1);
+    await savePortals();
+}
+
+// 保存门户
+async function handlePortalSubmit(e) {
+    e.preventDefault();
+    
+    const index = document.getElementById('portal-id').value;
+    const portal = {
+        id: index || Date.now().toString(),
+        name: document.getElementById('portal-name').value.trim(),
+        url: document.getElementById('portal-url').value.trim(),
+        icon: document.getElementById('portal-icon').value.trim(),
+        description: document.getElementById('portal-description').value.trim(),
+        enabled: document.getElementById('portal-enabled').checked
+    };
+
+    if (index !== '') {
+        currentPortals[parseInt(index)] = portal;
+    } else {
+        currentPortals.push(portal);
+    }
+
+    await savePortals();
+    closePortalModal();
+}
+
+async function savePortals() {
+    try {
+        await apiRequest('/api/portals', {
+            method: 'PUT',
+            body: JSON.stringify(currentPortals)
+        });
+
+        showMessage('portals-message', '门户列表保存成功！', 'success');
+        renderPortalsList();
+    } catch (error) {
+        showMessage('portals-message', error.message, 'error');
+    }
+}
+
+// 兑换码管理
+async function loadRedeemCodes() {
+    try {
+        const codes = await apiRequest('/api/admin/redeem-codes');
+        renderRedeemCodes(codes);
+    } catch (error) {
+        console.error('加载兑换码失败:', error);
+    }
+}
+
+function renderRedeemCodes(codes) {
+    const tbody = document.getElementById('codes-tbody');
+    if (!tbody) return;
+
+    if (codes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state-text">暂无兑换码</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = codes.map(code => `
+        <tr>
+            <td><code>${code.code}</code></td>
+            <td>${code.type}</td>
+            <td>${code.value}</td>
+            <td><span class="status-badge ${code.used ? 'used' : 'unused'}">${code.used ? '已使用' : '未使用'}</span></td>
+            <td>${code.usedBy || '-'}</td>
+            <td>${formatDate(code.createdAt)}</td>
+            <td>
+                <button class="btn-danger" onclick="deleteRedeemCode('${code.code}')">删除</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function openGenerateCodeModal() {
+    const modal = document.getElementById('generate-code-modal');
+    const form = document.getElementById('generate-code-form');
+    form.reset();
+    modal.style.display = 'flex';
+}
+
+function closeGenerateCodeModal() {
+    const modal = document.getElementById('generate-code-modal');
+    modal.style.display = 'none';
+}
+
+async function handleGenerateCodeSubmit(e) {
+    e.preventDefault();
+    
+    const data = {
+        type: document.getElementById('code-type').value,
+        value: document.getElementById('code-value').value.trim(),
+        count: parseInt(document.getElementById('code-count').value),
+        description: document.getElementById('code-description').value.trim()
+    };
+
+    try {
+        const result = await apiRequest('/api/admin/redeem-codes', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        showMessage('codes-message', result.message, 'success');
+        closeGenerateCodeModal();
+        loadRedeemCodes();
+    } catch (error) {
+        showMessage('codes-message', error.message, 'error');
+    }
+}
+
+async function deleteRedeemCode(code) {
+    if (!confirm('确定要删除这个兑换码吗？')) return;
+    
+    try {
+        await apiRequest('/api/admin/redeem-codes', {
+            method: 'DELETE',
+            body: JSON.stringify({ code })
+        });
+
+        showMessage('codes-message', '兑换码删除成功！', 'success');
+        loadRedeemCodes();
+    } catch (error) {
+        showMessage('codes-message', error.message, 'error');
+    }
+}
+
+// VIP 用户管理
+async function loadVipUsers() {
+    try {
+        const users = await apiRequest('/api/admin/vip-users');
+        renderVipUsers(users);
+    } catch (error) {
+        console.error('加载 VIP 用户失败:', error);
+    }
+}
+
+function renderVipUsers(users) {
+    const tbody = document.getElementById('vip-tbody');
+    if (!tbody) return;
+
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state-text">暂无 VIP 用户</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = users.map(user => `
+        <tr>
+            <td>${user.email}</td>
+            <td><span class="status-badge enabled">${user.level}</span></td>
+            <td>${formatDate(user.expiryDate)}</td>
+            <td>${formatDate(user.createdAt)}</td>
+            <td>
+                <button class="btn-danger" onclick="deleteVipUser('${user.email}')">删除</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function openAddVipModal() {
+    const modal = document.getElementById('add-vip-modal');
+    const form = document.getElementById('add-vip-form');
+    form.reset();
+    modal.style.display = 'flex';
+}
+
+function closeAddVipModal() {
+    const modal = document.getElementById('add-vip-modal');
+    modal.style.display = 'none';
+}
+
+async function handleAddVipSubmit(e) {
+    e.preventDefault();
+    
+    const data = {
+        email: document.getElementById('vip-email').value.trim(),
+        level: document.getElementById('vip-level').value,
+        days: parseInt(document.getElementById('vip-days').value)
+    };
+
+    try {
+        await apiRequest('/api/admin/vip-users', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        showMessage('vip-message', 'VIP 用户添加成功！', 'success');
+        closeAddVipModal();
+        loadVipUsers();
+    } catch (error) {
+        showMessage('vip-message', error.message, 'error');
+    }
+}
+
+async function deleteVipUser(email) {
+    if (!confirm('确定要删除这个 VIP 用户吗？')) return;
+    
+    try {
+        await apiRequest('/api/admin/vip-users', {
+            method: 'DELETE',
+            body: JSON.stringify({ email })
+        });
+
+        showMessage('vip-message', 'VIP 用户删除成功！', 'success');
+        loadVipUsers();
+    } catch (error) {
+        showMessage('vip-message', error.message, 'error');
+    }
+}
+
+// 黄V认证管理
+async function loadVerifiedUsers() {
+    try {
+        const users = await apiRequest('/api/admin/verified-users');
+        renderVerifiedUsers(users);
+    } catch (error) {
+        console.error('加载认证用户失败:', error);
+    }
+}
+
+function renderVerifiedUsers(users) {
+    const tbody = document.getElementById('verified-tbody');
+    if (!tbody) return;
+
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state-text">暂无认证用户</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = users.map(user => `
+        <tr>
+            <td>${user.email}</td>
+            <td>${user.name}</td>
+            <td>${formatDate(user.verifiedAt)}</td>
+            <td>
+                <button class="btn-danger" onclick="deleteVerifiedUser('${user.email}')">删除</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function openAddVerifiedModal() {
+    const modal = document.getElementById('add-verified-modal');
+    const form = document.getElementById('add-verified-form');
+    form.reset();
+    modal.style.display = 'flex';
+}
+
+function closeAddVerifiedModal() {
+    const modal = document.getElementById('add-verified-modal');
+    modal.style.display = 'none';
+}
+
+async function handleAddVerifiedSubmit(e) {
+    e.preventDefault();
+    
+    const data = {
+        email: document.getElementById('verified-email').value.trim(),
+        name: document.getElementById('verified-name').value.trim()
+    };
+
+    try {
+        await apiRequest('/api/admin/verified-users', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        showMessage('verified-message', '黄V认证添加成功！', 'success');
+        closeAddVerifiedModal();
+        loadVerifiedUsers();
+    } catch (error) {
+        showMessage('verified-message', error.message, 'error');
+    }
+}
+
+async function deleteVerifiedUser(email) {
+    if (!confirm('确定要删除这个认证用户吗？')) return;
+    
+    try {
+        await apiRequest('/api/admin/verified-users', {
+            method: 'DELETE',
+            body: JSON.stringify({ email })
+        });
+
+        showMessage('verified-message', '认证用户删除成功！', 'success');
+        loadVerifiedUsers();
+    } catch (error) {
+        showMessage('verified-message', error.message, 'error');
+    }
+}
+
+// 修改密码
+async function handlePasswordSubmit(e) {
+    e.preventDefault();
+    
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+
+    if (newPassword !== confirmPassword) {
+        showMessage('password-message', '两次输入的新密码不一致！', 'error');
+        return;
+    }
+
+    if (newPassword.length < 6) {
+        showMessage('password-message', '新密码长度至少为 6 位！', 'error');
+        return;
+    }
+
+    try {
+        await apiRequest('/api/admin/password', {
+            method: 'PUT',
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+
+        showMessage('password-message', '密码修改成功！请重新登录。', 'success');
+        
+        setTimeout(() => {
+            handleLogout();
+        }, 2000);
+    } catch (error) {
+        showMessage('password-message', error.message, 'error');
+    }
+}
+
+// ==================== 页面初始化 ====================
+
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', () => {
+    // 检查是否在管理页面
+    const isAdminPage = document.getElementById('admin-page') !== null;
+    const isIndexPage = document.getElementById('portals-container') !== null;
+
+    if (isAdminPage) {
+        // 管理后台初始化
+        const savedToken = sessionStorage.getItem('authToken');
+        if (savedToken) {
+            authToken = savedToken;
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('admin-page').style.display = 'flex';
+            loadAdminData();
+        }
+
+        // 登录表单
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', handleLogin);
+        }
+
+        // 退出登录
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', handleLogout);
+        }
+
+        // 侧边栏导航
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = item.getAttribute('data-section');
+                switchSection(section);
+            });
+        });
+
+        // 表单监听
+        const profileForm = document.getElementById('profile-form');
+        if (profileForm) profileForm.addEventListener('submit', handleProfileSubmit);
+
+        const announcementForm = document.getElementById('announcement-form');
+        if (announcementForm) announcementForm.addEventListener('submit', handleAnnouncementSubmit);
+
+        const portalForm = document.getElementById('portal-form');
+        if (portalForm) portalForm.addEventListener('submit', handlePortalSubmit);
+
+        const generateCodeForm = document.getElementById('generate-code-form');
+        if (generateCodeForm) generateCodeForm.addEventListener('submit', handleGenerateCodeSubmit);
+
+        const addVipForm = document.getElementById('add-vip-form');
+        if (addVipForm) addVipForm.addEventListener('submit', handleAddVipSubmit);
+
+        const addVerifiedForm = document.getElementById('add-verified-form');
+        if (addVerifiedForm) addVerifiedForm.addEventListener('submit', handleAddVerifiedSubmit);
+
+        const passwordForm = document.getElementById('password-form');
+        if (passwordForm) passwordForm.addEventListener('submit', handlePasswordSubmit);
+
+        // 按钮监听
+        const addPortalBtn = document.getElementById('add-portal-btn');
+        if (addPortalBtn) addPortalBtn.addEventListener('click', () => openPortalModal());
+
+        const generateCodeBtn = document.getElementById('generate-code-btn');
+        if (generateCodeBtn) generateCodeBtn.addEventListener('click', openGenerateCodeModal);
+
+        const addVipBtn = document.getElementById('add-vip-btn');
+        if (addVipBtn) addVipBtn.addEventListener('click', openAddVipModal);
+
+        const addVerifiedBtn = document.getElementById('add-verified-btn');
+        if (addVerifiedBtn) addVerifiedBtn.addEventListener('click', openAddVerifiedModal);
+
+    } else if (isIndexPage) {
+        // 主页初始化
+        loadProfile();
+        loadAnnouncement();
+        loadPortals();
+
+        // 兑换码表单
+        const redeemForm = document.getElementById('redeem-form');
+        if (redeemForm) {
+            redeemForm.addEventListener('submit', handleRedeemSubmit);
+        }
+
+        // VIP 查询表单
+        const vipCheckForm = document.getElementById('vip-check-form');
+        if (vipCheckForm) {
+            vipCheckForm.addEventListener('submit', handleVipCheckSubmit);
+        }
+
+        // VIP 购买表单
+        const vipPurchaseForm = document.getElementById('vip-purchase-form');
+        if (vipPurchaseForm) {
+            vipPurchaseForm.addEventListener('submit', handleVipPurchaseSubmit);
+        }
+
+        // 兑换码输入格式化（自动添加横线）
+        const redeemCodeInput = document.getElementById('redeem-code');
+        if (redeemCodeInput) {
+            redeemCodeInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/[^A-Z0-9]/g, '');
+                let formatted = '';
+                for (let i = 0; i < value.length && i < 16; i++) {
+                    if (i > 0 && i % 4 === 0) {
+                        formatted += '-';
+                    }
+                    formatted += value[i];
+                }
+                e.target.value = formatted;
+            });
+        }
+    }
+});
+
