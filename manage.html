@@ -433,8 +433,8 @@
     <!-- 加载管理脚本 -->
     <script>
         // API 配置 - 请修改为你的 Worker 域名
-        const API_BASE = 'https://yahoohhblog.zalkbodenstein.workers.dev';
-        console.log('✅ API_BASE 已配置:', API_BASE);
+        window.API_BASE = 'https://yahoohhblog.zalkbodenstein.workers.dev';
+        console.log('✅ API_BASE 已配置:', window.API_BASE);
     </script>
     <script src="/static/script.js" onerror="console.error('❌ 脚本加载失败');" onload="console.log('✅ 脚本加载成功');"></script>
 </body>
