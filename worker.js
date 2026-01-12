@@ -300,9 +300,9 @@ async function handleRequest(request, env) {
     });
   }
 
-  // ==================== 管理员 API（需要认证）====================
+  // ==================== 管理员 API ====================
 
-  // 验证管理员登录
+  // 验证管理员登录（不需要提前认证）
   if (path === '/api/admin/login' && method === 'POST') {
     const isValid = await verifyAdmin(request, env.MY_HOME_KV);
     
@@ -313,6 +313,7 @@ async function handleRequest(request, env) {
     }
   }
 
+  // ==================== 需要认证的管理员 API ====================
   // 以下所有接口都需要管理员认证
   const isAdmin = await verifyAdmin(request, env.MY_HOME_KV);
   if (!isAdmin) {
