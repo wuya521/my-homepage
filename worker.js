@@ -260,30 +260,42 @@ async function handleRequest(request, env) {
 
   // 主页路由
   if (path === '/' || path === '/index.html') {
-    const html = await fetch('https://raw.githubusercontent.com/wuya521/my-homepage/main/index.html')
+    // 添加时间戳绕过 GitHub CDN 缓存
+    const cacheBuster = `?t=${Date.now()}`;
+    const html = await fetch(`https://raw.githubusercontent.com/wuya521/my-homepage/main/index.html${cacheBuster}`)
       .then(res => res.text())
       .catch(() => '<h1>页面加载失败</h1>');
     
     return new Response(html, {
-      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+      headers: { 
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
     });
   }
 
   // 后台管理页面路由
   if (path === '/manage' || path === '/manage.html') {
-    const html = await fetch('https://raw.githubusercontent.com/wuya521/my-homepage/main/manage.html')
+    // 添加时间戳绕过 GitHub CDN 缓存
+    const cacheBuster = `?t=${Date.now()}`;
+    const html = await fetch(`https://raw.githubusercontent.com/wuya521/my-homepage/main/manage.html${cacheBuster}`)
       .then(res => res.text())
       .catch(() => '<h1>管理页面加载失败</h1>');
     
     return new Response(html, {
-      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+      headers: { 
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
     });
   }
 
   // 静态资源路由 (CSS/JS)
   if (path.startsWith('/static/')) {
     const fileName = path.split('/').pop();
-    const fileUrl = `https://raw.githubusercontent.com/wuya521/my-homepage/main/static/${fileName}`;
+    // 添加时间戳绕过 GitHub CDN 缓存
+    const cacheBuster = `?t=${Date.now()}`;
+    const fileUrl = `https://raw.githubusercontent.com/wuya521/my-homepage/main/static/${fileName}${cacheBuster}`;
     
     const response = await fetch(fileUrl);
     const content = await response.text();
@@ -295,7 +307,8 @@ async function handleRequest(request, env) {
     return new Response(content, {
       headers: { 
         'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
   }
