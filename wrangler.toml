@@ -4,9 +4,8 @@ compatibility_date = "2026-01-12"
 workers_dev = true
 account_id = "53009350329b4c0b9b99c911943e09f8"
 
-# 绑定 KV：将 id/preview_id 替换为你实际创建的 namespace id
+# 绑定 KV Namespace
 [[kv_namespaces]]
 binding = "MY_HOME_KV"
-id = "<replace-with-kv-id>"
-# preview_id = "<optional-preview-kv-id>"
+id = "53009350329b4c0b9b99c911943e09f8"
 
