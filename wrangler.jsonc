@@ -1,7 +1,7 @@
 {
   // Cloudflare Workers 配置文件
   // 项目名称（部署到 Cloudflare 时的 Worker 名称）
-  "name": "homepage22",
+  "name": "my-homepage",
   
   // 兼容性日期（使用最新的 Workers 运行时特性）
   "compatibility_date": "2026-01-09",
