@@ -1,6 +1,6 @@
 // ==================== 全局配置 ====================
 // 重要：请将下面的 API_BASE 修改为你的 Cloudflare Worker 域名
-const API_BASE = window.API_BASE || 'https://your-worker-domain.workers.dev';
+const API_BASE = window.API_BASE || 'https://yahoohhblog.zalkbodenstein.workers.dev/';
 
 // 全局状态
 let authToken = null;
