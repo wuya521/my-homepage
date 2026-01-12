@@ -1,0 +1,12 @@
+{
+  "name": "my-homepage",
+  "version": "1.0.0",
+  "description": "个人主页 - 纯静态网站",
+  "scripts": {
+    "build": "echo 'No build needed - static site'"
+  },
+  "keywords": ["homepage", "cloudflare-pages"],
+  "author": "wuya521",
+  "license": "MIT"
+}
+
