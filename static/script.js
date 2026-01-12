@@ -255,9 +255,11 @@ async function handleVipPurchaseSubmit(e) {
 // 登录处理
 async function handleLogin(e) {
     e.preventDefault();
+    console.log('🔐 登录函数被调用');
     
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
+    console.log('📝 用户名:', username);
 
     try {
         // 创建 Basic Auth token
@@ -825,9 +827,11 @@ async function handlePasswordSubmit(e) {
 
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOMContentLoaded 事件触发');
     // 检查是否在管理页面
     const isAdminPage = document.getElementById('admin-page') !== null;
     const isIndexPage = document.getElementById('portals-container') !== null;
+    console.log('🔍 页面类型检测 - 管理页面:', isAdminPage, '首页:', isIndexPage);
 
     if (isAdminPage) {
         // 管理后台初始化
@@ -841,8 +845,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 登录表单
         const loginForm = document.getElementById('login-form');
+        console.log('🔍 查找登录表单:', loginForm);
         if (loginForm) {
             loginForm.addEventListener('submit', handleLogin);
+            console.log('✅ 登录表单事件已绑定');
+        } else {
+            console.error('❌ 未找到登录表单');
         }
 
         // 退出登录

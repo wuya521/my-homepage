@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>后台管理系统</title>
-    <link rel="stylesheet" href="./static/manage.css">
+    <link rel="stylesheet" href="/static/manage.css">
 </head>
 <body>
     <!-- 登录页面 -->
@@ -38,7 +38,7 @@
             <div id="login-message" class="message" style="display: none;"></div>
             <p class="login-hint">默认账号：admin / admin123</p>
             <p class="login-footer">
-                <a href="./index.html" class="back-link">← 返回主页</a>
+                <a href="/" class="back-link">← 返回主页</a>
             </p>
         </div>
     </div>
@@ -434,8 +434,9 @@
     <script>
         // API 配置 - 请修改为你的 Worker 域名
         const API_BASE = 'https://yahoohhblog.zalkbodenstein.workers.dev';
+        console.log('✅ API_BASE 已配置:', API_BASE);
     </script>
-    <script src="./static/script.js"></script>
+    <script src="/static/script.js" onerror="console.error('❌ 脚本加载失败');" onload="console.log('✅ 脚本加载成功');"></script>
 </body>
 </html>
 
