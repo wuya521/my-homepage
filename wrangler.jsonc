@@ -1,0 +1,30 @@
+{
+  // Cloudflare Workers 配置文件
+  // 项目名称（部署到 Cloudflare 时的 Worker 名称）
+  "name": "homepage22",
+  
+  // 兼容性日期（使用最新的 Workers 运行时特性）
+  "compatibility_date": "2026-01-09",
+  
+  // 静态资源目录配置
+  "assets": {
+    "directory": "./"
+  },
+  
+  // KV 命名空间绑定
+  "kv_namespaces": [
+    {
+      "binding": "MY_HOME_KV",
+      "id": "your-kv-namespace-id"
+    }
+  ],
+  
+  // 主入口文件
+  "main": "worker.js",
+  
+  // 环境变量（可选）
+  "vars": {
+    // 在这里添加环境变量
+  }
+}
+

@@ -43,5 +43,6 @@ desktop.ini
 # Cloudflare Workers 本地开发
 .dev.vars
 .wrangler/
-wrangler.toml
+# 注意：wrangler.jsonc 包含配置，可以提交到 Git
+# 但如果包含敏感信息，请添加到 .gitignore
 
