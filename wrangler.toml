@@ -1,8 +1,8 @@
-name = "my-homepage-worker"
+name = "my-homepage"
 main = "worker.js"
 compatibility_date = "2026-01-12"
 workers_dev = true
-account_id = "53009350329b4c0b9b99c911943e09f8"
+account_id = "e2c242e6e8e8e923b2926353ebf17b33"
 
 # 绑定 KV Namespace
 [[kv_namespaces]]
