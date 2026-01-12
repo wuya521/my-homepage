@@ -1,0 +1,16 @@
+# Cloudflare Pages 部署忽略文件
+# 这些文件不需要部署到前端
+
+# Worker 相关文件（后端才需要）
+worker.js
+wrangler.jsonc
+wrangler.toml
+
+# 开发文件
+push-to-github.ps1
+.git/
+.gitignore
+
+# 文档
+README.md
+
