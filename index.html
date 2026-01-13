@@ -53,6 +53,98 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- 等级签到系统 -->
+                <section class="level-checkin-section">
+                    <div class="level-checkin-card">
+                        <div class="level-checkin-header">
+                            <span class="level-icon">⭐</span>
+                            <h3>等级系统</h3>
+                        </div>
+                        <div class="level-info">
+                            <div class="level-display">
+                                <span class="level-label">等级</span>
+                                <span id="user-level" class="level-value">Lv.1</span>
+                            </div>
+                            <div class="exp-display">
+                                <div class="exp-bar-wrapper">
+                                    <div class="exp-bar">
+                                        <div id="exp-progress" class="exp-progress" style="width: 0%"></div>
+                                    </div>
+                                    <div class="exp-text">
+                                        <span id="current-exp">0</span> / <span id="next-level-exp">100</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="checkin-btn" class="btn-checkin" disabled>
+                            <span class="btn-text">今日已签到</span>
+                        </button>
+                        <div id="checkin-message" class="checkin-message" style="display: none;"></div>
+                    </div>
+                </section>
+
+                <!-- 勋章展示 -->
+                <section class="badges-section">
+                    <div class="badges-card">
+                        <div class="badges-header">
+                            <span class="badges-icon">🏆</span>
+                            <h3>我的勋章</h3>
+                        </div>
+                        <div id="badges-container" class="badges-container">
+                            <p class="empty-badges">暂无勋章</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 兑换码激活区域 -->
+                <section class="redeem-section-sidebar">
+                    <div class="redeem-card-sidebar">
+                        <div class="card-header">
+                            <span class="card-icon">🎟️</span>
+                            <h3>兑换码激活</h3>
+                        </div>
+                        <form id="redeem-form-sidebar" class="redeem-form-sidebar">
+                            <input 
+                                type="text" 
+                                id="redeem-code-sidebar" 
+                                placeholder="请输入兑换码" 
+                                class="input-field"
+                                maxlength="19"
+                                required
+                            >
+                            <input 
+                                type="email" 
+                                id="redeem-email-sidebar" 
+                                placeholder="请输入您的邮箱" 
+                                class="input-field"
+                                required
+                            >
+                            <div id="redeem-content-selector-sidebar" style="display: none;">
+                                <select id="redeem-content-select-sidebar" class="input-field">
+                                    <!-- 选项将通过JS动态加载 -->
+                                </select>
+                            </div>
+                            <button type="submit" class="btn-primary">
+                                <span class="btn-text">立即兑换</span>
+                            </button>
+                        </form>
+                        <div id="redeem-message-sidebar" class="message" style="display: none;"></div>
+                    </div>
+                </section>
+
+                <!-- 重要事件时间线 -->
+                <section class="timeline-section">
+                    <div class="timeline-card">
+                        <div class="timeline-header">
+                            <span class="timeline-icon">📅</span>
+                            <h3>重要事件</h3>
+                        </div>
+                        <div id="timeline-container" class="timeline-container">
+                            <p class="empty-timeline">暂无事件</p>
+                        </div>
+                    </div>
+                </section>
             </aside>
 
             <!-- 右侧：门户内容区域 -->
@@ -91,43 +183,6 @@
                     </div>
                 </section>
 
-                <!-- 兑换码激活区域 -->
-                <section class="redeem-section">
-                    <div class="redeem-card">
-                        <div class="card-header">
-                            <span class="card-icon">🎟️</span>
-                            <h3>兑换码激活</h3>
-                        </div>
-                        <p class="card-description">拥有兑换码？在这里激活你的特权！</p>
-                        <form id="redeem-form" class="redeem-form">
-                            <input 
-                                type="text" 
-                                id="redeem-code" 
-                                placeholder="请输入兑换码（例如：XXXX-XXXX-XXXX-XXXX）" 
-                                class="input-field"
-                                maxlength="19"
-                                required
-                            >
-                            <input 
-                                type="email" 
-                                id="redeem-email" 
-                                placeholder="请输入您的邮箱" 
-                                class="input-field"
-                                required
-                            >
-                            <div id="redeem-content-selector" style="display: none;">
-                                <label for="redeem-content-select" style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem;">选择兑换内容：</label>
-                                <select id="redeem-content-select" class="input-field">
-                                    <!-- 选项将通过JS动态加载 -->
-                                </select>
-                            </div>
-                            <button type="submit" class="btn-primary">
-                                <span class="btn-text">立即兑换</span>
-                            </button>
-                        </form>
-                        <div id="redeem-message" class="message" style="display: none;"></div>
-                    </div>
-                </section>
             </main>
         </div>
 

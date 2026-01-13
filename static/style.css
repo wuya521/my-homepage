@@ -1000,6 +1000,331 @@ body {
     color: var(--text-muted);
 }
 
+/* ==================== 等级签到系统样式 ==================== */
+.level-checkin-section {
+    margin-top: var(--spacing-lg);
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+.level-checkin-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.level-checkin-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.level-icon {
+    font-size: 24px;
+}
+
+.level-checkin-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.level-info {
+    margin-bottom: var(--spacing-md);
+}
+
+.level-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.level-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.level-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.exp-display {
+    margin-top: var(--spacing-sm);
+}
+
+.exp-bar-wrapper {
+    position: relative;
+}
+
+.exp-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: var(--spacing-xs);
+}
+
+.exp-progress {
+    height: 100%;
+    background: var(--primary-gradient);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.exp-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.btn-checkin {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: var(--primary-gradient);
+    color: #FFFFFF;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-checkin:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-checkin:disabled {
+    background: var(--bg-primary);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.checkin-message {
+    margin-top: var(--spacing-sm);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+}
+
+.checkin-message.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.checkin-message.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+/* ==================== 勋章展示样式 ==================== */
+.badges-section {
+    margin-top: var(--spacing-lg);
+    animation: fadeInUp 0.6s ease-out 0.25s both;
+}
+
+.badges-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.badges-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.badges-icon {
+    font-size: 24px;
+}
+
+.badges-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.badges-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    min-height: 60px;
+}
+
+.badge-item {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.badge-item:hover {
+    transform: scale(1.1);
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.badge-item::after {
+    content: attr(data-badge-name);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.85);
+    color: #FFFFFF;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 100;
+}
+
+.badge-item:hover::after {
+    opacity: 1;
+}
+
+.empty-badges {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: var(--spacing-md) 0;
+}
+
+/* ==================== 左侧兑换码样式 ==================== */
+.redeem-section-sidebar {
+    margin-top: var(--spacing-lg);
+    animation: fadeInUp 0.6s ease-out 0.3s both;
+}
+
+.redeem-card-sidebar {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.redeem-form-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+/* ==================== 时间线样式 ==================== */
+.timeline-section {
+    margin-top: var(--spacing-lg);
+    animation: fadeInUp 0.6s ease-out 0.35s both;
+}
+
+.timeline-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.timeline-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 10;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.timeline-icon {
+    font-size: 24px;
+}
+
+.timeline-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.timeline-container {
+    position: relative;
+    padding-left: var(--spacing-md);
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-left: 2px solid var(--border-color);
+}
+
+.timeline-item:last-child {
+    border-left: none;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    border: 2px solid var(--bg-card);
+}
+
+.timeline-item-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+.timeline-item-content {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.empty-timeline {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: var(--spacing-md) 0;
+}
+
 /* ==================== 页脚 ==================== */
 .footer {
     text-align: center;

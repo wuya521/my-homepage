@@ -87,6 +87,18 @@
                     <span class="nav-icon">👥</span>
                     <span>人气设置</span>
                 </a>
+                <a href="#badges" class="nav-item" data-section="badges">
+                    <span class="nav-icon">🏆</span>
+                    <span>勋章管理</span>
+                </a>
+                <a href="#user-levels" class="nav-item" data-section="user-levels">
+                    <span class="nav-icon">⭐</span>
+                    <span>等级管理</span>
+                </a>
+                <a href="#timeline" class="nav-item" data-section="timeline">
+                    <span class="nav-icon">📅</span>
+                    <span>时间线管理</span>
+                </a>
                 <a href="#settings" class="nav-item" data-section="settings">
                     <span class="nav-icon">⚙️</span>
                     <span>系统设置</span>
@@ -374,6 +386,96 @@
                 </div>
             </section>
 
+            <!-- 勋章管理 -->
+            <section id="badges-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>勋章管理</h3>
+                        <p class="card-description">授予或移除用户勋章</p>
+                        <button id="grant-badge-btn" class="btn-secondary">+ 授予勋章</button>
+                    </div>
+                    <div id="badges-list" class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>邮箱</th>
+                                    <th>勋章</th>
+                                    <th>授予时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="badges-tbody">
+                                <!-- 数据将通过 JS 动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="badges-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
+            <!-- 等级管理 -->
+            <section id="user-levels-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>用户等级管理</h3>
+                        <p class="card-description">查看和管理用户等级，发放经验</p>
+                        <button id="add-exp-btn" class="btn-secondary">+ 发放经验</button>
+                    </div>
+                    <div id="user-levels-list" class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>邮箱</th>
+                                    <th>等级</th>
+                                    <th>经验</th>
+                                    <th>签到次数</th>
+                                    <th>最后签到</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="user-levels-tbody">
+                                <!-- 数据将通过 JS 动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="user-levels-message" class="message" style="display: none;"></div>
+                </div>
+                <div class="card" style="margin-top: var(--spacing-lg);">
+                    <div class="card-header">
+                        <h3>等级配置</h3>
+                        <p class="card-description">配置等级经验和签到奖励</p>
+                    </div>
+                    <form id="level-config-form" class="form">
+                        <div class="form-group">
+                            <label for="checkin-exp">签到获得经验</label>
+                            <input type="number" id="checkin-exp" placeholder="10" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="level-levels">等级配置（JSON格式）</label>
+                            <textarea id="level-levels" rows="10" placeholder='[{"level": 1, "exp": 0}, {"level": 2, "exp": 100}, ...]' required></textarea>
+                            <span class="form-hint">每级格式：{"level": 等级, "exp": 所需经验}</span>
+                        </div>
+                        <button type="submit" class="btn-primary">保存配置</button>
+                    </form>
+                    <div id="level-config-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
+            <!-- 时间线管理 -->
+            <section id="timeline-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>时间线事件管理</h3>
+                        <p class="card-description">管理重要事件时间线</p>
+                        <button id="add-timeline-btn" class="btn-secondary">+ 添加事件</button>
+                    </div>
+                    <div id="timeline-list" class="items-list">
+                        <!-- 事件列表将通过 JS 动态加载 -->
+                    </div>
+                    <div id="timeline-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
             <!-- 系统设置 -->
             <section id="settings-section" class="content-section">
                 <div class="card">
@@ -544,6 +646,96 @@
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="closeAddVerifiedModal()">取消</button>
+                    <button type="submit" class="btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 授予勋章弹窗 -->
+    <div id="grant-badge-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>授予勋章</h3>
+                <span class="modal-close" onclick="closeGrantBadgeModal()">&times;</span>
+            </div>
+            <form id="grant-badge-form" class="form">
+                <div class="form-group">
+                    <label for="grant-badge-email">邮箱</label>
+                    <input type="email" id="grant-badge-email" placeholder="user@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="grant-badge-id">勋章</label>
+                    <select id="grant-badge-id" required>
+                        <option value="emperor">👑 皇上</option>
+                        <option value="empress">👸 皇后</option>
+                        <option value="treasurer">💰 财政大臣</option>
+                        <option value="ritual_master">📜 礼部尚书</option>
+                        <option value="hero">🦸 逆行者</option>
+                        <option value="skill_master">🎯 技能达人</option>
+                        <option value="emotion_master">💝 情感大师</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeGrantBadgeModal()">取消</button>
+                    <button type="submit" class="btn-primary">授予</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 发放经验弹窗 -->
+    <div id="add-exp-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>发放经验</h3>
+                <span class="modal-close" onclick="closeAddExpModal()">&times;</span>
+            </div>
+            <form id="add-exp-form" class="form">
+                <div class="form-group">
+                    <label for="add-exp-email">邮箱</label>
+                    <input type="email" id="add-exp-email" placeholder="user@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="add-exp-amount">经验值</label>
+                    <input type="number" id="add-exp-amount" placeholder="100" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="add-exp-reason">原因（可选）</label>
+                    <input type="text" id="add-exp-reason" placeholder="例如：活动奖励">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeAddExpModal()">取消</button>
+                    <button type="submit" class="btn-primary">发放</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 添加时间线事件弹窗 -->
+    <div id="add-timeline-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>添加时间线事件</h3>
+                <span class="modal-close" onclick="closeAddTimelineModal()">&times;</span>
+            </div>
+            <form id="add-timeline-form" class="form">
+                <div class="form-group">
+                    <label for="timeline-date">日期</label>
+                    <input type="date" id="timeline-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="timeline-content">内容</label>
+                    <textarea id="timeline-content" rows="4" placeholder="事件描述..." required></textarea>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="timeline-enabled" checked>
+                        <span>启用</span>
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeAddTimelineModal()">取消</button>
                     <button type="submit" class="btn-primary">添加</button>
                 </div>
             </form>

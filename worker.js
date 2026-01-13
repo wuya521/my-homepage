@@ -27,7 +27,12 @@ const STORAGE_KEYS = {
   VIP_USERS: 'vip_users',
   VERIFIED_USERS: 'verified_users',
   ONLINE_COUNT_CONFIG: 'online_count_config',
-  ONLINE_USERS: 'online_users'
+  ONLINE_USERS: 'online_users',
+  BADGES: 'badges',
+  USER_BADGES: 'user_badges',
+  USER_LEVELS: 'user_levels',
+  LEVEL_CONFIG: 'level_config',
+  TIMELINE_EVENTS: 'timeline_events'
 };
 
 // 初始化默认数据
@@ -120,6 +125,45 @@ async function initializeDefaultData(KV) {
 
     // 初始化在线用户列表
     await KV.put(STORAGE_KEYS.ONLINE_USERS, JSON.stringify([]));
+
+    // 初始化勋章定义
+    const defaultBadges = {
+      'emperor': { name: '皇上', icon: '👑', color: '#FFD700', description: '至高无上的统治者' },
+      'empress': { name: '皇后', icon: '👸', color: '#FF69B4', description: '母仪天下的皇后' },
+      'treasurer': { name: '财政大臣', icon: '💰', color: '#32CD32', description: '掌管财政大权' },
+      'ritual_master': { name: '礼部尚书', icon: '📜', color: '#9370DB', description: '掌管礼仪制度' },
+      'hero': { name: '逆行者', icon: '🦸', color: '#FF4500', description: '勇敢的逆行者' },
+      'skill_master': { name: '技能达人', icon: '🎯', color: '#00CED1', description: '技能超群的达人' },
+      'emotion_master': { name: '情感大师', icon: '💝', color: '#FF1493', description: '情感专家' }
+    };
+    await KV.put(STORAGE_KEYS.BADGES, JSON.stringify(defaultBadges));
+
+    // 初始化用户勋章
+    await KV.put(STORAGE_KEYS.USER_BADGES, JSON.stringify([]));
+
+    // 初始化用户等级
+    await KV.put(STORAGE_KEYS.USER_LEVELS, JSON.stringify([]));
+
+    // 初始化等级配置
+    const defaultLevelConfig = {
+      checkinExp: 10, // 签到获得经验
+      levels: [
+        { level: 1, exp: 0 },
+        { level: 2, exp: 100 },
+        { level: 3, exp: 300 },
+        { level: 4, exp: 600 },
+        { level: 5, exp: 1000 },
+        { level: 6, exp: 1500 },
+        { level: 7, exp: 2100 },
+        { level: 8, exp: 2800 },
+        { level: 9, exp: 3600 },
+        { level: 10, exp: 4500 }
+      ]
+    };
+    await KV.put(STORAGE_KEYS.LEVEL_CONFIG, JSON.stringify(defaultLevelConfig));
+
+    // 初始化时间线事件
+    await KV.put(STORAGE_KEYS.TIMELINE_EVENTS, JSON.stringify([]));
 
     console.log('默认数据初始化完成');
   } catch (error) {
@@ -490,6 +534,123 @@ async function handleRequest(request, env) {
     return jsonResponse({ success: true });
   }
 
+  // 获取用户勋章
+  if (path === '/api/badges/user' && method === 'GET') {
+    const email = url.searchParams.get('email');
+    if (!email) {
+      return jsonResponse({ badges: [] });
+    }
+
+    const userBadgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_BADGES);
+    const userBadges = userBadgesData ? JSON.parse(userBadgesData) : [];
+    const badgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.BADGES);
+    const badges = badgesData ? JSON.parse(badgesData) : {};
+
+    const userBadgeList = userBadges
+      .filter(ub => ub.email === email)
+      .map(ub => ({
+        id: ub.badgeId,
+        ...badges[ub.badgeId],
+        grantedAt: ub.grantedAt
+      }));
+
+    return jsonResponse({ badges: userBadgeList });
+  }
+
+  // 获取用户等级和经验
+  if (path === '/api/level/user' && method === 'GET') {
+    const email = url.searchParams.get('email');
+    if (!email) {
+      return jsonResponse({ level: 1, exp: 0, nextLevelExp: 100 });
+    }
+
+    const userLevelsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_LEVELS);
+    const userLevels = userLevelsData ? JSON.parse(userLevelsData) : [];
+    const levelConfigData = await env.MY_HOME_KV.get(STORAGE_KEYS.LEVEL_CONFIG);
+    const levelConfig = levelConfigData ? JSON.parse(levelConfigData) : {
+      checkinExp: 10,
+      levels: [{ level: 1, exp: 0 }, { level: 2, exp: 100 }]
+    };
+
+    const userLevel = userLevels.find(ul => ul.email === email) || { email, level: 1, exp: 0 };
+    
+    // 计算当前等级和下一级所需经验
+    let currentLevel = 1;
+    let nextLevelExp = 100;
+    for (let i = levelConfig.levels.length - 1; i >= 0; i--) {
+      if (userLevel.exp >= levelConfig.levels[i].exp) {
+        currentLevel = levelConfig.levels[i].level;
+        if (i < levelConfig.levels.length - 1) {
+          nextLevelExp = levelConfig.levels[i + 1].exp;
+        } else {
+          nextLevelExp = levelConfig.levels[i].exp + 500; // 最高级后每500经验升一级
+        }
+        break;
+      }
+    }
+
+    return jsonResponse({
+      level: currentLevel,
+      exp: userLevel.exp,
+      nextLevelExp: nextLevelExp
+    });
+  }
+
+  // 签到
+  if (path === '/api/level/checkin' && method === 'POST') {
+    const { email } = await request.json();
+    if (!email) {
+      return jsonResponse({ success: false, message: '请提供邮箱' }, 400);
+    }
+
+    const userLevelsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_LEVELS);
+    const userLevels = userLevelsData ? JSON.parse(userLevelsData) : [];
+    const levelConfigData = await env.MY_HOME_KV.get(STORAGE_KEYS.LEVEL_CONFIG);
+    const levelConfig = levelConfigData ? JSON.parse(levelConfigData) : { checkinExp: 10 };
+
+    const userIndex = userLevels.findIndex(ul => ul.email === email);
+    const today = new Date().toDateString();
+    
+    if (userIndex === -1) {
+      userLevels.push({
+        email,
+        level: 1,
+        exp: levelConfig.checkinExp,
+        lastCheckin: today,
+        checkinCount: 1
+      });
+    } else {
+      // 检查今天是否已签到
+      if (userLevels[userIndex].lastCheckin === today) {
+        return jsonResponse({ success: false, message: '今日已签到' }, 400);
+      }
+      
+      userLevels[userIndex].exp += levelConfig.checkinExp;
+      userLevels[userIndex].lastCheckin = today;
+      userLevels[userIndex].checkinCount = (userLevels[userIndex].checkinCount || 0) + 1;
+    }
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USER_LEVELS, JSON.stringify(userLevels));
+
+    return jsonResponse({
+      success: true,
+      message: `签到成功！获得 ${levelConfig.checkinExp} 经验`,
+      exp: levelConfig.checkinExp
+    });
+  }
+
+  // 获取时间线事件
+  if (path === '/api/timeline' && method === 'GET') {
+    const eventsData = await env.MY_HOME_KV.get(STORAGE_KEYS.TIMELINE_EVENTS);
+    const events = eventsData ? JSON.parse(eventsData) : [];
+    // 按时间倒序排列，只返回启用的
+    const enabledEvents = events
+      .filter(e => e.enabled !== false)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 20); // 最多返回20条
+    return jsonResponse({ events: enabledEvents });
+  }
+
   // ==================== 前端页面路由（无需认证）====================
 
   // 主页路由
@@ -840,6 +1001,180 @@ async function handleRequest(request, env) {
       console.error('更新在线人数配置失败:', error);
       return jsonResponse({ error: '更新配置失败', message: error.message }, 500);
     }
+  }
+
+  // 获取所有勋章定义
+  if (path === '/api/admin/badges' && method === 'GET') {
+    const badgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.BADGES);
+    return jsonResponse(badgesData ? JSON.parse(badgesData) : {});
+  }
+
+  // 获取所有用户勋章列表
+  if (path === '/api/admin/user-badges' && method === 'GET') {
+    const userBadgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_BADGES);
+    const userBadges = userBadgesData ? JSON.parse(userBadgesData) : [];
+    const badgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.BADGES);
+    const badges = badgesData ? JSON.parse(badgesData) : {};
+
+    const badgeList = userBadges.map(ub => ({
+      email: ub.email,
+      badgeId: ub.badgeId,
+      badgeName: badges[ub.badgeId]?.name || ub.badgeId,
+      grantedAt: ub.grantedAt
+    }));
+
+    return jsonResponse(badgeList);
+  }
+
+  // 授予勋章
+  if (path === '/api/admin/badges/grant' && method === 'POST') {
+    const { email, badgeId } = await request.json();
+    if (!email || !badgeId) {
+      return jsonResponse({ success: false, message: '请提供邮箱和勋章ID' }, 400);
+    }
+
+    const userBadgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_BADGES);
+    const userBadges = userBadgesData ? JSON.parse(userBadgesData) : [];
+
+    // 检查是否已授予
+    if (userBadges.some(ub => ub.email === email && ub.badgeId === badgeId)) {
+      return jsonResponse({ success: false, message: '该用户已拥有此勋章' }, 400);
+    }
+
+    userBadges.push({
+      email,
+      badgeId,
+      grantedAt: new Date().toISOString()
+    });
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USER_BADGES, JSON.stringify(userBadges));
+    return jsonResponse({ success: true, message: '勋章授予成功' });
+  }
+
+  // 移除勋章
+  if (path === '/api/admin/badges/revoke' && method === 'POST') {
+    const { email, badgeId } = await request.json();
+    if (!email || !badgeId) {
+      return jsonResponse({ success: false, message: '请提供邮箱和勋章ID' }, 400);
+    }
+
+    const userBadgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_BADGES);
+    const userBadges = userBadgesData ? JSON.parse(userBadgesData) : [];
+
+    const filtered = userBadges.filter(ub => !(ub.email === email && ub.badgeId === badgeId));
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USER_BADGES, JSON.stringify(filtered));
+    return jsonResponse({ success: true, message: '勋章已移除' });
+  }
+
+  // 获取所有用户等级
+  if (path === '/api/admin/user-levels' && method === 'GET') {
+    const userLevelsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_LEVELS);
+    return jsonResponse(userLevelsData ? JSON.parse(userLevelsData) : []);
+  }
+
+  // 发放经验
+  if (path === '/api/admin/user-levels/add-exp' && method === 'POST') {
+    const { email, exp, reason } = await request.json();
+    if (!email || !exp) {
+      return jsonResponse({ success: false, message: '请提供邮箱和经验值' }, 400);
+    }
+
+    const userLevelsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_LEVELS);
+    const userLevels = userLevelsData ? JSON.parse(userLevelsData) : [];
+
+    const userIndex = userLevels.findIndex(ul => ul.email === email);
+    if (userIndex === -1) {
+      userLevels.push({
+        email,
+        level: 1,
+        exp: parseInt(exp),
+        checkinCount: 0
+      });
+    } else {
+      userLevels[userIndex].exp += parseInt(exp);
+    }
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USER_LEVELS, JSON.stringify(userLevels));
+    return jsonResponse({ success: true, message: `成功发放 ${exp} 经验` });
+  }
+
+  // 获取等级配置
+  if (path === '/api/admin/level-config' && method === 'GET') {
+    const levelConfigData = await env.MY_HOME_KV.get(STORAGE_KEYS.LEVEL_CONFIG);
+    return jsonResponse(levelConfigData ? JSON.parse(levelConfigData) : { checkinExp: 10, levels: [] });
+  }
+
+  // 更新等级配置
+  if (path === '/api/admin/level-config' && method === 'PUT') {
+    const config = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.LEVEL_CONFIG, JSON.stringify(config));
+    return jsonResponse({ success: true, message: '等级配置更新成功' });
+  }
+
+  // 获取所有时间线事件
+  if (path === '/api/admin/timeline' && method === 'GET') {
+    const eventsData = await env.MY_HOME_KV.get(STORAGE_KEYS.TIMELINE_EVENTS);
+    return jsonResponse(eventsData ? JSON.parse(eventsData) : []);
+  }
+
+  // 添加时间线事件
+  if (path === '/api/admin/timeline' && method === 'POST') {
+    const { date, content, enabled } = await request.json();
+    if (!date || !content) {
+      return jsonResponse({ success: false, message: '请提供日期和内容' }, 400);
+    }
+
+    const eventsData = await env.MY_HOME_KV.get(STORAGE_KEYS.TIMELINE_EVENTS);
+    const events = eventsData ? JSON.parse(eventsData) : [];
+
+    events.push({
+      id: Date.now().toString(),
+      date,
+      content,
+      enabled: enabled !== false,
+      createdAt: new Date().toISOString()
+    });
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.TIMELINE_EVENTS, JSON.stringify(events));
+    return jsonResponse({ success: true, message: '事件添加成功' });
+  }
+
+  // 更新时间线事件
+  if (path === '/api/admin/timeline' && method === 'PUT') {
+    const { id, date, content, enabled } = await request.json();
+    if (!id) {
+      return jsonResponse({ success: false, message: '请提供事件ID' }, 400);
+    }
+
+    const eventsData = await env.MY_HOME_KV.get(STORAGE_KEYS.TIMELINE_EVENTS);
+    const events = eventsData ? JSON.parse(eventsData) : [];
+
+    const eventIndex = events.findIndex(e => e.id === id);
+    if (eventIndex === -1) {
+      return jsonResponse({ success: false, message: '事件不存在' }, 404);
+    }
+
+    if (date) events[eventIndex].date = date;
+    if (content) events[eventIndex].content = content;
+    if (enabled !== undefined) events[eventIndex].enabled = enabled;
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.TIMELINE_EVENTS, JSON.stringify(events));
+    return jsonResponse({ success: true, message: '事件更新成功' });
+  }
+
+  // 删除时间线事件
+  if (path === '/api/admin/timeline' && method === 'DELETE') {
+    const { id } = await request.json();
+    if (!id) {
+      return jsonResponse({ success: false, message: '请提供事件ID' }, 400);
+    }
+
+    const eventsData = await env.MY_HOME_KV.get(STORAGE_KEYS.TIMELINE_EVENTS);
+    const events = eventsData ? JSON.parse(eventsData) : [];
+
+    const filtered = events.filter(e => e.id !== id);
+    await env.MY_HOME_KV.put(STORAGE_KEYS.TIMELINE_EVENTS, JSON.stringify(filtered));
+    return jsonResponse({ success: true, message: '事件删除成功' });
   }
 
   // 404 响应

@@ -149,6 +149,10 @@ async function loadProfile() {
             await checkAndShowGoldVerified(profile.email);
             // 检查并显示VIP状态
             await checkAndShowVipStatus(profile.email);
+            // 加载用户勋章
+            await loadUserBadges(profile.email);
+            // 加载用户等级
+            await loadUserLevel(profile.email);
         } else {
             // 即使没有邮箱，也显示VIP状态为未开通
             const vipStatusText = document.querySelector('#vip-status-info .vip-status-text');
@@ -157,6 +161,9 @@ async function loadProfile() {
                 vipStatusText.className = 'vip-status-text';
             }
         }
+
+        // 加载时间线事件
+        await loadTimeline();
 
     } catch (error) {
         console.error('加载个人资料失败:', error);
@@ -496,6 +503,186 @@ function startOnlineCountUpdate() {
     setInterval(pingOnlineCount, 60000);
 }
 
+// ==================== 勋章系统 ====================
+
+// 加载用户勋章
+async function loadUserBadges(email) {
+    try {
+        const result = await apiRequest(`/api/badges/user?email=${encodeURIComponent(email)}`);
+        const container = document.getElementById('badges-container');
+        if (!container) return;
+
+        if (result.badges && result.badges.length > 0) {
+            container.innerHTML = result.badges.map(badge => `
+                <div class="badge-item" data-badge-name="${badge.name || badge.id}" title="${badge.description || ''}">
+                    ${badge.icon || '🏆'}
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<p class="empty-badges">暂无勋章</p>';
+        }
+    } catch (error) {
+        console.error('加载用户勋章失败:', error);
+    }
+}
+
+// ==================== 等级系统 ====================
+
+// 加载用户等级
+async function loadUserLevel(email) {
+    try {
+        const result = await apiRequest(`/api/level/user?email=${encodeURIComponent(email)}`);
+        const levelEl = document.getElementById('user-level');
+        const currentExpEl = document.getElementById('current-exp');
+        const nextLevelExpEl = document.getElementById('next-level-exp');
+        const expProgressEl = document.getElementById('exp-progress');
+        const checkinBtn = document.getElementById('checkin-btn');
+
+        if (levelEl) {
+            levelEl.textContent = `Lv.${result.level || 1}`;
+        }
+        if (currentExpEl) {
+            currentExpEl.textContent = result.exp || 0;
+        }
+        if (nextLevelExpEl) {
+            nextLevelExpEl.textContent = result.nextLevelExp || 100;
+        }
+        if (expProgressEl) {
+            const progress = result.nextLevelExp > 0 
+                ? ((result.exp || 0) / result.nextLevelExp * 100) 
+                : 0;
+            expProgressEl.style.width = `${Math.min(progress, 100)}%`;
+        }
+
+        // 检查是否可以签到（需要检查今天是否已签到）
+        if (checkinBtn) {
+            checkinBtn.disabled = false;
+            checkinBtn.querySelector('.btn-text').textContent = '立即签到';
+        }
+    } catch (error) {
+        console.error('加载用户等级失败:', error);
+    }
+}
+
+// 处理签到
+async function handleCheckin() {
+    const profile = await apiRequest('/api/profile').catch(() => ({}));
+    if (!profile.email) {
+        showMessage('checkin-message', '请先设置邮箱', 'error');
+        return;
+    }
+
+    const checkinBtn = document.getElementById('checkin-btn');
+    if (checkinBtn) {
+        checkinBtn.disabled = true;
+        checkinBtn.querySelector('.btn-text').textContent = '签到中...';
+    }
+
+    try {
+        const result = await apiRequest('/api/level/checkin', {
+            method: 'POST',
+            body: JSON.stringify({ email: profile.email })
+        });
+
+        const messageEl = document.getElementById('checkin-message');
+        if (messageEl) {
+            messageEl.textContent = result.message;
+            messageEl.className = 'checkin-message success';
+            messageEl.style.display = 'block';
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+
+        // 重新加载等级信息
+        await loadUserLevel(profile.email);
+
+        // 更新按钮状态
+        if (checkinBtn) {
+            checkinBtn.disabled = true;
+            checkinBtn.querySelector('.btn-text').textContent = '今日已签到';
+        }
+    } catch (error) {
+        const messageEl = document.getElementById('checkin-message');
+        if (messageEl) {
+            messageEl.textContent = error.message || '签到失败';
+            messageEl.className = 'checkin-message error';
+            messageEl.style.display = 'block';
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+
+        if (checkinBtn) {
+            checkinBtn.disabled = false;
+            checkinBtn.querySelector('.btn-text').textContent = '立即签到';
+        }
+    }
+}
+
+// ==================== 时间线系统 ====================
+
+// 加载时间线事件
+async function loadTimeline() {
+    try {
+        const result = await apiRequest('/api/timeline');
+        const container = document.getElementById('timeline-container');
+        if (!container) return;
+
+        if (result.events && result.events.length > 0) {
+            container.innerHTML = result.events.map(event => `
+                <div class="timeline-item">
+                    <div class="timeline-item-date">${formatDate(event.date)}</div>
+                    <div class="timeline-item-content">${event.content}</div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<p class="empty-timeline">暂无事件</p>';
+        }
+    } catch (error) {
+        console.error('加载时间线失败:', error);
+    }
+}
+
+// ==================== 左侧兑换码处理 ====================
+
+// 左侧兑换码提交
+async function handleRedeemSubmitSidebar(e) {
+    e.preventDefault();
+    
+    const codeInput = document.getElementById('redeem-code-sidebar');
+    const emailInput = document.getElementById('redeem-email-sidebar');
+    const contentSelector = document.getElementById('redeem-content-selector-sidebar');
+    const contentSelect = document.getElementById('redeem-content-select-sidebar');
+    
+    const code = codeInput.value.trim();
+    const email = emailInput.value.trim();
+    const selectedContent = contentSelector.style.display !== 'none' ? contentSelect.value : null;
+
+    try {
+        const result = await apiRequest('/api/redeem', {
+            method: 'POST',
+            body: JSON.stringify({ code, email, selectedContent })
+        });
+
+        showMessage('redeem-message-sidebar', result.message, 'success');
+        codeInput.value = '';
+        emailInput.value = '';
+        contentSelector.style.display = 'none';
+        contentSelect.innerHTML = '';
+        currentRedeemCodeInfo = null;
+
+        // 重新加载用户信息（可能获得了VIP或认证）
+        await loadProfile();
+    } catch (error) {
+        if (error.message && error.message.includes('无效')) {
+            contentSelector.style.display = 'none';
+            contentSelect.innerHTML = '';
+        }
+        showMessage('redeem-message-sidebar', error.message, 'error');
+    }
+}
+
 // ==================== 管理后台功能 ====================
 
 // 登录处理
@@ -573,6 +760,9 @@ function switchSection(sectionName) {
         'vip-users': 'VIP 用户',
         'verified-users': '金V认证',
         'online-count': '人气设置',
+        'badges': '勋章管理',
+        'user-levels': '等级管理',
+        'timeline': '时间线管理',
         'settings': '系统设置'
     };
 
@@ -593,6 +783,10 @@ async function loadAdminData() {
     await loadVipUsers();
     await loadVerifiedUsers();
     await loadOnlineCountConfig();
+    await loadBadges();
+    await loadUserLevels();
+    await loadLevelConfig();
+    await loadTimelineEvents();
 }
 
 // 加载管理员个人资料
@@ -1324,6 +1518,293 @@ async function handlePasswordSubmit(e) {
     }
 }
 
+// ==================== 勋章管理 ====================
+
+async function loadBadges() {
+    try {
+        const userBadges = await apiRequest('/api/admin/user-badges');
+        renderBadges(userBadges);
+    } catch (error) {
+        console.error('加载勋章失败:', error);
+        renderBadges([]);
+    }
+}
+
+function renderBadges(userBadges) {
+    const tbody = document.getElementById('badges-tbody');
+    if (!tbody) return;
+
+    if (userBadges.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state-text">暂无勋章记录，授予勋章后会自动显示</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = userBadges.map(ub => `
+        <tr>
+            <td>${ub.email}</td>
+            <td>${ub.badgeName || ub.badgeId}</td>
+            <td>${formatDate(ub.grantedAt)}</td>
+            <td>
+                <button class="btn-danger" onclick="revokeBadge('${ub.email}', '${ub.badgeId}')">移除</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function revokeBadge(email, badgeId) {
+    if (!confirm('确定要移除这个勋章吗？')) return;
+    
+    try {
+        await apiRequest('/api/admin/badges/revoke', {
+            method: 'POST',
+            body: JSON.stringify({ email, badgeId })
+        });
+
+        showMessage('badges-message', '勋章已移除', 'success');
+        loadBadges();
+    } catch (error) {
+        showMessage('badges-message', error.message, 'error');
+    }
+}
+
+function openGrantBadgeModal() {
+    const modal = document.getElementById('grant-badge-modal');
+    const form = document.getElementById('grant-badge-form');
+    form.reset();
+    modal.style.display = 'flex';
+}
+
+function closeGrantBadgeModal() {
+    const modal = document.getElementById('grant-badge-modal');
+    modal.style.display = 'none';
+}
+
+async function handleGrantBadgeSubmit(e) {
+    e.preventDefault();
+    
+    const data = {
+        email: document.getElementById('grant-badge-email').value.trim(),
+        badgeId: document.getElementById('grant-badge-id').value
+    };
+
+    try {
+        await apiRequest('/api/admin/badges/grant', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        showMessage('badges-message', '勋章授予成功！', 'success');
+        closeGrantBadgeModal();
+        loadBadges();
+    } catch (error) {
+        showMessage('badges-message', error.message, 'error');
+    }
+}
+
+// ==================== 等级管理 ====================
+
+async function loadUserLevels() {
+    try {
+        const users = await apiRequest('/api/admin/user-levels');
+        renderUserLevels(users);
+    } catch (error) {
+        console.error('加载用户等级失败:', error);
+    }
+}
+
+function renderUserLevels(users) {
+    const tbody = document.getElementById('user-levels-tbody');
+    if (!tbody) return;
+
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state-text">暂无用户等级记录</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = users.map(user => `
+        <tr>
+            <td>${user.email}</td>
+            <td>Lv.${user.level || 1}</td>
+            <td>${user.exp || 0}</td>
+            <td>${user.checkinCount || 0}</td>
+            <td>${user.lastCheckin ? formatDate(user.lastCheckin) : '-'}</td>
+            <td>
+                <button class="btn-secondary" onclick="openAddExpModalForUser('${user.email}')">发放经验</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function openAddExpModal(userEmail = '') {
+    const modal = document.getElementById('add-exp-modal');
+    const form = document.getElementById('add-exp-form');
+    form.reset();
+    if (userEmail) {
+        document.getElementById('add-exp-email').value = userEmail;
+    }
+    modal.style.display = 'flex';
+}
+
+function openAddExpModalForUser(email) {
+    openAddExpModal(email);
+}
+
+function closeAddExpModal() {
+    const modal = document.getElementById('add-exp-modal');
+    modal.style.display = 'none';
+}
+
+async function handleAddExpSubmit(e) {
+    e.preventDefault();
+    
+    const data = {
+        email: document.getElementById('add-exp-email').value.trim(),
+        exp: parseInt(document.getElementById('add-exp-amount').value),
+        reason: document.getElementById('add-exp-reason').value.trim()
+    };
+
+    try {
+        await apiRequest('/api/admin/user-levels/add-exp', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        showMessage('user-levels-message', `成功发放 ${data.exp} 经验！`, 'success');
+        closeAddExpModal();
+        loadUserLevels();
+    } catch (error) {
+        showMessage('user-levels-message', error.message, 'error');
+    }
+}
+
+async function loadLevelConfig() {
+    try {
+        const config = await apiRequest('/api/admin/level-config');
+        document.getElementById('checkin-exp').value = config.checkinExp || 10;
+        document.getElementById('level-levels').value = JSON.stringify(config.levels || [], null, 2);
+    } catch (error) {
+        console.error('加载等级配置失败:', error);
+    }
+}
+
+async function handleLevelConfigSubmit(e) {
+    e.preventDefault();
+    
+    let levels;
+    try {
+        levels = JSON.parse(document.getElementById('level-levels').value);
+    } catch (error) {
+        showMessage('level-config-message', '等级配置JSON格式错误！', 'error');
+        return;
+    }
+
+    const config = {
+        checkinExp: parseInt(document.getElementById('checkin-exp').value) || 10,
+        levels: levels
+    };
+
+    try {
+        await apiRequest('/api/admin/level-config', {
+            method: 'PUT',
+            body: JSON.stringify(config)
+        });
+
+        showMessage('level-config-message', '等级配置保存成功！', 'success');
+    } catch (error) {
+        showMessage('level-config-message', error.message, 'error');
+    }
+}
+
+// ==================== 时间线管理 ====================
+
+async function loadTimelineEvents() {
+    try {
+        const result = await apiRequest('/api/admin/timeline');
+        const events = Array.isArray(result) ? result : (result.events || []);
+        renderTimelineEvents(events);
+    } catch (error) {
+        console.error('加载时间线事件失败:', error);
+    }
+}
+
+function renderTimelineEvents(events) {
+    const container = document.getElementById('timeline-list');
+    if (!container) return;
+
+    if (events.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p class="empty-state-text">暂无时间线事件</p></div>';
+        return;
+    }
+
+    container.innerHTML = events.map(event => `
+        <div class="item-card">
+            <div class="item-info">
+                <div class="item-name">${formatDate(event.date)}</div>
+                <div class="item-desc">${event.content}</div>
+            </div>
+            <span class="item-badge ${event.enabled !== false ? 'enabled' : 'disabled'}">
+                ${event.enabled !== false ? '启用' : '禁用'}
+            </span>
+            <div class="item-actions">
+                <button class="btn-secondary" onclick="editTimelineEvent('${event.id}')">编辑</button>
+                <button class="btn-danger" onclick="deleteTimelineEvent('${event.id}')">删除</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function openAddTimelineModal() {
+    const modal = document.getElementById('add-timeline-modal');
+    const form = document.getElementById('add-timeline-form');
+    form.reset();
+    document.getElementById('timeline-date').value = new Date().toISOString().split('T')[0];
+    modal.style.display = 'flex';
+}
+
+function closeAddTimelineModal() {
+    const modal = document.getElementById('add-timeline-modal');
+    modal.style.display = 'none';
+}
+
+async function handleAddTimelineSubmit(e) {
+    e.preventDefault();
+    
+    const data = {
+        date: document.getElementById('timeline-date').value,
+        content: document.getElementById('timeline-content').value.trim(),
+        enabled: document.getElementById('timeline-enabled').checked
+    };
+
+    try {
+        await apiRequest('/api/admin/timeline', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        showMessage('timeline-message', '事件添加成功！', 'success');
+        closeAddTimelineModal();
+        loadTimelineEvents();
+    } catch (error) {
+        showMessage('timeline-message', error.message, 'error');
+    }
+}
+
+async function deleteTimelineEvent(id) {
+    if (!confirm('确定要删除这个事件吗？')) return;
+    
+    try {
+        await apiRequest('/api/admin/timeline', {
+            method: 'DELETE',
+            body: JSON.stringify({ id })
+        });
+
+        showMessage('timeline-message', '事件删除成功！', 'success');
+        loadTimelineEvents();
+    } catch (error) {
+        showMessage('timeline-message', error.message, 'error');
+    }
+}
+
 // ==================== 页面初始化 ====================
 
 // 页面加载完成后执行
@@ -1400,6 +1881,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const passwordForm = document.getElementById('password-form');
         if (passwordForm) passwordForm.addEventListener('submit', handlePasswordSubmit);
 
+        const grantBadgeForm = document.getElementById('grant-badge-form');
+        if (grantBadgeForm) grantBadgeForm.addEventListener('submit', handleGrantBadgeSubmit);
+
+        const addExpForm = document.getElementById('add-exp-form');
+        if (addExpForm) addExpForm.addEventListener('submit', handleAddExpSubmit);
+
+        const levelConfigForm = document.getElementById('level-config-form');
+        if (levelConfigForm) levelConfigForm.addEventListener('submit', handleLevelConfigSubmit);
+
+        const addTimelineForm = document.getElementById('add-timeline-form');
+        if (addTimelineForm) addTimelineForm.addEventListener('submit', handleAddTimelineSubmit);
+
+        const grantBadgeBtn = document.getElementById('grant-badge-btn');
+        if (grantBadgeBtn) grantBadgeBtn.addEventListener('click', openGrantBadgeModal);
+
+        const addExpBtn = document.getElementById('add-exp-btn');
+        if (addExpBtn) addExpBtn.addEventListener('click', () => openAddExpModal());
+
+        const addTimelineBtn = document.getElementById('add-timeline-btn');
+        if (addTimelineBtn) addTimelineBtn.addEventListener('click', openAddTimelineModal);
+
         // 按钮监听
         const addPortalBtn = document.getElementById('add-portal-btn');
         if (addPortalBtn) addPortalBtn.addEventListener('click', () => openPortalModal());
@@ -1427,16 +1929,81 @@ document.addEventListener('DOMContentLoaded', () => {
             loadPopupAd();
         }, 1000);
 
-        // 兑换码表单
-        const redeemForm = document.getElementById('redeem-form');
-        if (redeemForm) {
-            redeemForm.addEventListener('submit', handleRedeemSubmit);
+        // 兑换码表单（左侧）
+        const redeemFormSidebar = document.getElementById('redeem-form-sidebar');
+        if (redeemFormSidebar) {
+            redeemFormSidebar.addEventListener('submit', handleRedeemSubmitSidebar);
+        }
+
+        // 签到按钮
+        const checkinBtn = document.getElementById('checkin-btn');
+        if (checkinBtn) {
+            checkinBtn.addEventListener('click', handleCheckin);
         }
 
         // 加载并定期更新在线人数
         startOnlineCountUpdate();
 
-        // 兑换码输入格式化（自动添加横线）并检查可选内容
+        // 兑换码输入格式化（自动添加横线）并检查可选内容（左侧）
+        const redeemCodeInputSidebar = document.getElementById('redeem-code-sidebar');
+        if (redeemCodeInputSidebar) {
+            let checkTimeoutSidebar = null;
+            redeemCodeInputSidebar.addEventListener('input', async (e) => {
+                let value = e.target.value.replace(/[^A-Z0-9]/g, '');
+                let formatted = '';
+                for (let i = 0; i < value.length && i < 16; i++) {
+                    if (i > 0 && i % 4 === 0) {
+                        formatted += '-';
+                    }
+                    formatted += value[i];
+                }
+                e.target.value = formatted;
+                
+                // 延迟检查兑换码（避免频繁请求）
+                clearTimeout(checkTimeoutSidebar);
+                checkTimeoutSidebar = setTimeout(async () => {
+                    const code = formatted.replace(/-/g, '');
+                    if (code.length === 16) {
+                        const codeInfo = await checkRedeemCode(formatted);
+                        if (codeInfo && codeInfo.success) {
+                            currentRedeemCodeInfo = codeInfo;
+                            const contentSelector = document.getElementById('redeem-content-selector-sidebar');
+                            const contentSelect = document.getElementById('redeem-content-select-sidebar');
+                            
+                            // 如果有可选内容，显示选择器
+                            if (codeInfo.availableContents && codeInfo.availableContents.length > 0) {
+                                contentSelector.style.display = 'block';
+                                contentSelect.innerHTML = '';
+                                
+                                // 添加默认选项
+                                const defaultOption = document.createElement('option');
+                                defaultOption.value = codeInfo.value;
+                                defaultOption.textContent = `默认：${codeInfo.value}`;
+                                contentSelect.appendChild(defaultOption);
+                                
+                                // 添加可选内容
+                                codeInfo.availableContents.forEach(content => {
+                                    const option = document.createElement('option');
+                                    option.value = content;
+                                    option.textContent = content;
+                                    contentSelect.appendChild(option);
+                                });
+                            } else {
+                                contentSelector.style.display = 'none';
+                            }
+                        } else {
+                            currentRedeemCodeInfo = null;
+                            document.getElementById('redeem-content-selector-sidebar').style.display = 'none';
+                        }
+                    } else {
+                        currentRedeemCodeInfo = null;
+                        document.getElementById('redeem-content-selector-sidebar').style.display = 'none';
+                    }
+                }, 500);
+            });
+        }
+
+        // 兑换码输入格式化（自动添加横线）并检查可选内容（保留原右侧的，以防万一）
         const redeemCodeInput = document.getElementById('redeem-code');
         if (redeemCodeInput) {
             let checkTimeout = null;
