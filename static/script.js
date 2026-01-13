@@ -980,6 +980,7 @@ async function loadAdminData() {
     await loadUserLevels();
     await loadLevelConfig();
     await loadTimelineEvents();
+    await loadFishTankConfig();
 }
 
 // 加载管理员个人资料
