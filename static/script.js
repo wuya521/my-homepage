@@ -78,8 +78,23 @@ function generateRandomAvatar(name = '') {
     // 使用 DiceBear API 生成随机头像
     // 使用名字作为种子，确保同一用户头像一致
     const seed = name || Math.random().toString(36).substring(7);
-    const style = 'avataaars'; // 可以选择：avataaars, personas, initials, bottts 等
-    return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+    
+    // 使用多种风格，根据种子选择，确保同一用户使用相同风格
+    // adventurer: 帅气风格, lorelei: 可爱风格, notionists: 抽象风格, shapes: 几何风格
+    const styles = ['adventurer', 'lorelei', 'notionists', 'shapes'];
+    const styleIndex = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % styles.length;
+    const style = styles[styleIndex];
+    
+    // 使用友好的背景色（浅色系：蓝色、紫色、粉色、米色等）
+    const backgroundColor = 'b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,a8d5e2,e0f2fe,ddd6fe';
+    
+    // 构建URL参数
+    const params = new URLSearchParams({
+        seed: seed,
+        backgroundColor: backgroundColor,
+    });
+    
+    return `https://api.dicebear.com/7.x/${style}/svg?${params.toString()}`;
 }
 
 // 加载个人资料
@@ -699,39 +714,54 @@ async function deleteAdvertisement(index) {
 async function handleAdvertisementSubmit(e) {
     e.preventDefault();
     
-    const index = document.getElementById('advertisement-id').value;
-    const advertisement = {
-        id: index !== '' ? currentAdvertisements[parseInt(index)].id : Date.now().toString(),
-        title: document.getElementById('advertisement-title').value.trim(),
-        description: document.getElementById('advertisement-description').value.trim(),
-        link: document.getElementById('advertisement-link').value.trim(),
-        image: document.getElementById('advertisement-image').value.trim(),
-        icon: document.getElementById('advertisement-icon').value.trim() || '📢',
-        order: parseInt(document.getElementById('advertisement-order').value) || 0,
-        enabled: document.getElementById('advertisement-enabled').checked
-    };
+    try {
+        const index = document.getElementById('advertisement-id').value;
+        const link = document.getElementById('advertisement-link').value.trim();
+        
+        // 验证必填字段
+        if (!link) {
+            showMessage('advertisements-message', '链接是必填项，请填写', 'error');
+            return;
+        }
+        
+        const advertisement = {
+            id: index !== '' ? currentAdvertisements[parseInt(index)].id : Date.now().toString(),
+            title: document.getElementById('advertisement-title').value.trim(),
+            description: document.getElementById('advertisement-description').value.trim(),
+            link: link,
+            image: document.getElementById('advertisement-image').value.trim(),
+            icon: document.getElementById('advertisement-icon').value.trim() || '📢',
+            order: parseInt(document.getElementById('advertisement-order').value) || 0,
+            enabled: document.getElementById('advertisement-enabled').checked
+        };
 
-    if (index !== '') {
-        currentAdvertisements[parseInt(index)] = advertisement;
-    } else {
-        currentAdvertisements.push(advertisement);
+        if (index !== '') {
+            currentAdvertisements[parseInt(index)] = advertisement;
+        } else {
+            currentAdvertisements.push(advertisement);
+        }
+
+        await saveAdvertisements();
+        closeAdvertisementModal();
+    } catch (error) {
+        console.error('保存广告位失败:', error);
+        showMessage('advertisements-message', error.message || '保存失败，请重试', 'error');
     }
-
-    await saveAdvertisements();
-    closeAdvertisementModal();
 }
 
 async function saveAdvertisements() {
     try {
-        await apiRequest('/api/admin/advertisements', {
+        const result = await apiRequest('/api/admin/advertisements', {
             method: 'PUT',
             body: JSON.stringify(currentAdvertisements)
         });
 
-        showMessage('advertisements-message', '广告位列表保存成功！', 'success');
+        showMessage('advertisements-message', result.message || '广告位列表保存成功！', 'success');
         renderAdvertisementsList();
     } catch (error) {
-        showMessage('advertisements-message', error.message, 'error');
+        console.error('保存广告位失败:', error);
+        const errorMsg = error.message || '保存失败，请检查网络连接或稍后重试';
+        showMessage('advertisements-message', errorMsg, 'error');
     }
 }
 
