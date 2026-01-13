@@ -48,12 +48,25 @@ async function apiRequest(endpoint, options = {}) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || '请求失败');
+            // 提供更详细的错误信息
+            let errorMessage = data.message || data.error || '请求失败';
+            if (response.status === 401) {
+                errorMessage = '未授权访问，请重新登录';
+            } else if (response.status === 404) {
+                errorMessage = '接口不存在，请检查API路径';
+            } else if (response.status >= 500) {
+                errorMessage = '服务器错误，请稍后重试';
+            }
+            throw new Error(errorMessage);
         }
 
         return data;
     } catch (error) {
-        console.error('API 请求错误:', error);
+        console.error('API 请求错误:', {
+            endpoint,
+            error: error.message,
+            status: error.status
+        });
         throw error;
     }
 }
@@ -218,6 +231,93 @@ async function loadAdvertisements() {
         console.error('加载广告位失败:', error);
     }
 }
+
+// 加载弹窗广告
+async function loadPopupAd() {
+    try {
+        const popupAd = await apiRequest('/api/popup-ad');
+        if (popupAd && popupAd.enabled) {
+            // 检查是否需要显示弹窗
+            const shouldShow = await shouldShowPopupAd(popupAd);
+            if (shouldShow) {
+                showPopupAd(popupAd);
+                // 记录显示时间
+                if (popupAd.frequency === 'daily') {
+                    localStorage.setItem('popupAdLastShown', Date.now().toString());
+                }
+            }
+        }
+    } catch (error) {
+        console.error('加载弹窗广告失败:', error);
+    }
+}
+
+// 判断是否应该显示弹窗
+async function shouldShowPopupAd(popupAd) {
+    if (!popupAd || !popupAd.enabled) {
+        return false;
+    }
+    
+    if (popupAd.frequency === 'manual') {
+        // 手动推送：检查是否有新的推送标记
+        const lastManualId = localStorage.getItem('popupAdLastManualId');
+        const currentId = popupAd.id || popupAd.updatedAt || 'default';
+        if (lastManualId !== currentId) {
+            return true;
+        }
+        return false;
+    } else if (popupAd.frequency === 'daily') {
+        // 一天一次：检查今天是否已显示
+        const lastShown = localStorage.getItem('popupAdLastShown');
+        if (!lastShown) {
+            return true;
+        }
+        const lastShownTime = parseInt(lastShown);
+        const now = Date.now();
+        const oneDay = 24 * 60 * 60 * 1000;
+        return (now - lastShownTime) >= oneDay;
+    }
+    return false;
+}
+
+// 显示弹窗广告
+function showPopupAd(popupAd) {
+    const overlay = document.getElementById('popup-ad-overlay');
+    const content = document.getElementById('popup-ad-content');
+    
+    if (!overlay || !content) return;
+    
+    // 支持HTML格式
+    content.innerHTML = popupAd.content || '';
+    
+    overlay.style.display = 'flex';
+    
+    // 记录手动推送的ID
+    if (popupAd.frequency === 'manual') {
+        const currentId = popupAd.id || popupAd.updatedAt || Date.now().toString();
+        localStorage.setItem('popupAdLastManualId', currentId);
+    }
+}
+
+// 关闭弹窗广告
+function closePopupAd() {
+    const overlay = document.getElementById('popup-ad-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+// 点击遮罩层关闭弹窗
+document.addEventListener('DOMContentLoaded', () => {
+    const overlay = document.getElementById('popup-ad-overlay');
+    if (overlay) {
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closePopupAd();
+            }
+        });
+    }
+});
 
 // 加载门户链接
 async function loadPortals() {
@@ -423,6 +523,7 @@ async function loadAdminData() {
     await loadAdminAnnouncement();
     await loadAdminPortals();
     await loadAdminAdvertisements();
+    await loadAdminPopupAd();
     await loadRedeemCodes();
     await loadVipUsers();
     await loadVerifiedUsers();
@@ -762,6 +863,40 @@ async function saveAdvertisements() {
         console.error('保存广告位失败:', error);
         const errorMsg = error.message || '保存失败，请检查网络连接或稍后重试';
         showMessage('advertisements-message', errorMsg, 'error');
+    }
+}
+
+// 弹窗广告管理
+async function loadAdminPopupAd() {
+    try {
+        const popupAd = await apiRequest('/api/admin/popup-ad');
+        document.getElementById('popup-ad-enabled').checked = popupAd.enabled || false;
+        document.getElementById('popup-ad-frequency').value = popupAd.frequency || 'daily';
+        document.getElementById('popup-ad-content').value = popupAd.content || '';
+    } catch (error) {
+        console.error('加载弹窗广告失败:', error);
+    }
+}
+
+async function handlePopupAdSubmit(e) {
+    e.preventDefault();
+    
+    const popupAd = {
+        id: Date.now().toString(),
+        enabled: document.getElementById('popup-ad-enabled').checked,
+        frequency: document.getElementById('popup-ad-frequency').value,
+        content: document.getElementById('popup-ad-content').value.trim()
+    };
+
+    try {
+        await apiRequest('/api/admin/popup-ad', {
+            method: 'PUT',
+            body: JSON.stringify(popupAd)
+        });
+
+        showMessage('popup-ad-message', '弹窗广告保存成功！', 'success');
+    } catch (error) {
+        showMessage('popup-ad-message', error.message, 'error');
     }
 }
 
@@ -1107,6 +1242,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const advertisementForm = document.getElementById('advertisement-form');
         if (advertisementForm) advertisementForm.addEventListener('submit', handleAdvertisementSubmit);
 
+        const popupAdForm = document.getElementById('popup-ad-form');
+        if (popupAdForm) popupAdForm.addEventListener('submit', handlePopupAdSubmit);
+
         const generateCodeForm = document.getElementById('generate-code-form');
         if (generateCodeForm) generateCodeForm.addEventListener('submit', handleGenerateCodeSubmit);
 
@@ -1141,6 +1279,10 @@ document.addEventListener('DOMContentLoaded', () => {
         loadAnnouncement();
         loadAdvertisements();
         loadPortals();
+        // 延迟加载弹窗广告，避免影响页面加载
+        setTimeout(() => {
+            loadPopupAd();
+        }, 1000);
 
         // 兑换码表单
         const redeemForm = document.getElementById('redeem-form');

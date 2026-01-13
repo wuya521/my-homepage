@@ -22,6 +22,7 @@ const STORAGE_KEYS = {
   ANNOUNCEMENT: 'announcement',
   PORTALS: 'portals',
   ADVERTISEMENTS: 'advertisements',
+  POPUP_AD: 'popup_ad',
   REDEEM_CODES: 'redeem_codes',
   VIP_USERS: 'vip_users',
   VERIFIED_USERS: 'verified_users'
@@ -85,6 +86,16 @@ async function initializeDefaultData(KV) {
 
     // 初始化广告位列表
     await KV.put(STORAGE_KEYS.ADVERTISEMENTS, JSON.stringify([]));
+
+    // 初始化弹窗广告
+    const defaultPopupAd = {
+      id: 'default',
+      enabled: false,
+      content: '',
+      frequency: 'daily', // 'daily' 或 'manual'
+      createdAt: new Date().toISOString()
+    };
+    await KV.put(STORAGE_KEYS.POPUP_AD, JSON.stringify(defaultPopupAd));
 
     // 初始化兑换码列表
     await KV.put(STORAGE_KEYS.REDEEM_CODES, JSON.stringify([]));
@@ -278,6 +289,12 @@ async function handleRequest(request, env) {
     const isVerified = verifiedUsers.some(u => u.email === email);
     
     return jsonResponse({ isVerified });
+  }
+
+  // 获取弹窗广告
+  if (path === '/api/popup-ad' && method === 'GET') {
+    const popupAd = await env.MY_HOME_KV.get(STORAGE_KEYS.POPUP_AD);
+    return jsonResponse(popupAd ? JSON.parse(popupAd) : { enabled: false });
   }
 
   // ==================== 前端页面路由（无需认证）====================
@@ -545,15 +562,51 @@ async function handleRequest(request, env) {
 
   // 获取所有广告位（包括禁用的）
   if (path === '/api/admin/advertisements' && method === 'GET') {
-    const ads = await env.MY_HOME_KV.get(STORAGE_KEYS.ADVERTISEMENTS);
-    return jsonResponse(ads ? JSON.parse(ads) : []);
+    try {
+      const ads = await env.MY_HOME_KV.get(STORAGE_KEYS.ADVERTISEMENTS);
+      return jsonResponse(ads ? JSON.parse(ads) : []);
+    } catch (error) {
+      console.error('获取广告位失败:', error);
+      return jsonResponse({ error: '获取广告位失败', message: error.message }, 500);
+    }
   }
 
   // 更新广告位列表
   if (path === '/api/admin/advertisements' && method === 'PUT') {
-    const advertisements = await request.json();
-    await env.MY_HOME_KV.put(STORAGE_KEYS.ADVERTISEMENTS, JSON.stringify(advertisements));
-    return jsonResponse({ success: true, message: '广告位列表更新成功' });
+    try {
+      const advertisements = await request.json();
+      await env.MY_HOME_KV.put(STORAGE_KEYS.ADVERTISEMENTS, JSON.stringify(advertisements));
+      return jsonResponse({ success: true, message: '广告位列表更新成功' });
+    } catch (error) {
+      console.error('更新广告位失败:', error);
+      return jsonResponse({ error: '更新广告位失败', message: error.message }, 500);
+    }
+  }
+
+  // 获取弹窗广告（管理员）
+  if (path === '/api/admin/popup-ad' && method === 'GET') {
+    try {
+      const popupAd = await env.MY_HOME_KV.get(STORAGE_KEYS.POPUP_AD);
+      return jsonResponse(popupAd ? JSON.parse(popupAd) : { enabled: false, content: '', frequency: 'daily' });
+    } catch (error) {
+      console.error('获取弹窗广告失败:', error);
+      return jsonResponse({ error: '获取弹窗广告失败', message: error.message }, 500);
+    }
+  }
+
+  // 更新弹窗广告
+  if (path === '/api/admin/popup-ad' && method === 'PUT') {
+    try {
+      const popupAd = await request.json();
+      // 更新ID和时间戳
+      popupAd.id = popupAd.id || Date.now().toString();
+      popupAd.updatedAt = new Date().toISOString();
+      await env.MY_HOME_KV.put(STORAGE_KEYS.POPUP_AD, JSON.stringify(popupAd));
+      return jsonResponse({ success: true, message: '弹窗广告更新成功' });
+    } catch (error) {
+      console.error('更新弹窗广告失败:', error);
+      return jsonResponse({ error: '更新弹窗广告失败', message: error.message }, 500);
+    }
   }
 
   // 404 响应
