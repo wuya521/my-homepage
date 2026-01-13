@@ -25,7 +25,9 @@ const STORAGE_KEYS = {
   POPUP_AD: 'popup_ad',
   REDEEM_CODES: 'redeem_codes',
   VIP_USERS: 'vip_users',
-  VERIFIED_USERS: 'verified_users'
+  VERIFIED_USERS: 'verified_users',
+  ONLINE_COUNT_CONFIG: 'online_count_config',
+  ONLINE_USERS: 'online_users'
 };
 
 // 初始化默认数据
@@ -105,6 +107,19 @@ async function initializeDefaultData(KV) {
 
     // 初始化认证用户列表
     await KV.put(STORAGE_KEYS.VERIFIED_USERS, JSON.stringify([]));
+
+    // 初始化在线人数配置
+    const defaultOnlineConfig = {
+      realCountEnabled: false,
+      fakeCountEnabled: false,
+      fakeCountMin: 100,
+      fakeCountMax: 500,
+      fakeCountBase: 200
+    };
+    await KV.put(STORAGE_KEYS.ONLINE_COUNT_CONFIG, JSON.stringify(defaultOnlineConfig));
+
+    // 初始化在线用户列表
+    await KV.put(STORAGE_KEYS.ONLINE_USERS, JSON.stringify([]));
 
     console.log('默认数据初始化完成');
   } catch (error) {
@@ -396,6 +411,83 @@ async function handleRequest(request, env) {
   if (path === '/api/popup-ad' && method === 'GET') {
     const popupAd = await env.MY_HOME_KV.get(STORAGE_KEYS.POPUP_AD);
     return jsonResponse(popupAd ? JSON.parse(popupAd) : { enabled: false });
+  }
+
+  // 获取在线人数
+  if (path === '/api/online-count' && method === 'GET') {
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.ONLINE_COUNT_CONFIG);
+    const config = configData ? JSON.parse(configData) : {
+      realCountEnabled: false,
+      fakeCountEnabled: false,
+      fakeCountMin: 100,
+      fakeCountMax: 500,
+      fakeCountBase: 200
+    };
+
+    let count = 0;
+
+    // 真实在线人数（基于访问记录）
+    if (config.realCountEnabled) {
+      const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.ONLINE_USERS);
+      const users = usersData ? JSON.parse(usersData) : [];
+      
+      // 清理过期用户（5分钟内无活动视为离线）
+      const now = Date.now();
+      const activeUsers = users.filter(user => (now - user.lastSeen) < 5 * 60 * 1000);
+      
+      // 更新在线用户列表
+      if (activeUsers.length !== users.length) {
+        await env.MY_HOME_KV.put(STORAGE_KEYS.ONLINE_USERS, JSON.stringify(activeUsers));
+      }
+      
+      count = activeUsers.length;
+    }
+
+    // 虚假人气（随机生成）
+    if (config.fakeCountEnabled) {
+      // 使用时间戳作为种子，确保同一分钟内数值相对稳定
+      const timeSeed = Math.floor(Date.now() / 60000); // 每分钟变化
+      const random = ((timeSeed * 9301 + 49297) % 233280) / 233280; // 伪随机数生成器
+      
+      // 在最小值和最大值之间随机
+      const fakeCount = Math.floor(
+        config.fakeCountBase + 
+        (config.fakeCountMax - config.fakeCountMin) * random * 0.5
+      );
+      
+      count = Math.max(count, fakeCount);
+    }
+
+    return jsonResponse({ count });
+  }
+
+  // 记录用户访问（用于真实在线人数统计）
+  if (path === '/api/online-count/ping' && method === 'POST') {
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.ONLINE_COUNT_CONFIG);
+    const config = configData ? JSON.parse(configData) : { realCountEnabled: false };
+    
+    if (config.realCountEnabled) {
+      const { clientId } = await request.json().catch(() => ({}));
+      if (clientId) {
+        const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.ONLINE_USERS);
+        const users = usersData ? JSON.parse(usersData) : [];
+        
+        const now = Date.now();
+        const existingIndex = users.findIndex(u => u.clientId === clientId);
+        
+        if (existingIndex !== -1) {
+          users[existingIndex].lastSeen = now;
+        } else {
+          users.push({ clientId, lastSeen: now });
+        }
+        
+        // 清理过期用户
+        const activeUsers = users.filter(user => (now - user.lastSeen) < 5 * 60 * 1000);
+        await env.MY_HOME_KV.put(STORAGE_KEYS.ONLINE_USERS, JSON.stringify(activeUsers));
+      }
+    }
+    
+    return jsonResponse({ success: true });
   }
 
   // ==================== 前端页面路由（无需认证）====================
@@ -709,6 +801,44 @@ async function handleRequest(request, env) {
     } catch (error) {
       console.error('更新弹窗广告失败:', error);
       return jsonResponse({ error: '更新弹窗广告失败', message: error.message }, 500);
+    }
+  }
+
+  // 获取在线人数配置
+  if (path === '/api/admin/online-count-config' && method === 'GET') {
+    try {
+      const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.ONLINE_COUNT_CONFIG);
+      const config = configData ? JSON.parse(configData) : {
+        realCountEnabled: false,
+        fakeCountEnabled: false,
+        fakeCountMin: 100,
+        fakeCountMax: 500,
+        fakeCountBase: 200
+      };
+      return jsonResponse(config);
+    } catch (error) {
+      console.error('获取在线人数配置失败:', error);
+      return jsonResponse({ error: '获取配置失败', message: error.message }, 500);
+    }
+  }
+
+  // 更新在线人数配置
+  if (path === '/api/admin/online-count-config' && method === 'PUT') {
+    try {
+      const config = await request.json();
+      // 验证配置
+      if (config.fakeCountMin < 0 || config.fakeCountMax < 0 || config.fakeCountBase < 0) {
+        return jsonResponse({ error: '配置值不能为负数' }, 400);
+      }
+      if (config.fakeCountMin > config.fakeCountMax) {
+        return jsonResponse({ error: '最小值不能大于最大值' }, 400);
+      }
+      
+      await env.MY_HOME_KV.put(STORAGE_KEYS.ONLINE_COUNT_CONFIG, JSON.stringify(config));
+      return jsonResponse({ success: true, message: '在线人数配置更新成功' });
+    } catch (error) {
+      console.error('更新在线人数配置失败:', error);
+      return jsonResponse({ error: '更新配置失败', message: error.message }, 500);
     }
   }
 

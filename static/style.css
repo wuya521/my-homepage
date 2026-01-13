@@ -624,18 +624,20 @@ body {
     50% { opacity: 0.8; }
 }
 
-/* ==================== 交易区域 ==================== */
-.transaction-section {
-    animation: fadeInUp 0.6s ease-out 0.3s both;
+/* ==================== 兑换码区域 ==================== */
+.redeem-section {
+    margin-bottom: var(--spacing-xl);
+    animation: fadeInUp 0.6s ease-out 0.25s both;
 }
 
-.transaction-card {
+.redeem-card {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     padding: var(--spacing-xl);
-    margin-bottom: var(--spacing-xl);
     box-shadow: var(--shadow-sm);
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 .card-header {
@@ -948,6 +950,56 @@ body {
     }
 }
 
+/* ==================== VIP 卡片样式 ==================== */
+.vip-card-section {
+    margin-top: var(--spacing-lg);
+    animation: fadeInUp 0.6s ease-out 0.15s both;
+}
+
+.vip-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.vip-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.vip-icon {
+    font-size: 24px;
+}
+
+.vip-card-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.vip-status-info {
+    text-align: center;
+}
+
+.vip-status-text {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.vip-status-text.active {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.vip-status-text.expired {
+    color: var(--text-muted);
+}
+
 /* ==================== 页脚 ==================== */
 .footer {
     text-align: center;
@@ -962,6 +1014,42 @@ body {
     margin: var(--spacing-xs) 0;
     font-style: italic;
     color: var(--text-muted);
+}
+
+.footer-stats {
+    margin: var(--spacing-md) 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.online-count {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.online-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    animation: pulse-dot 2s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(251, 114, 153, 0.5);
+}
+
+@keyframes pulse-dot {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.2);
+    }
 }
 
 .footer-link {

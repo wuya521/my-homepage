@@ -40,6 +40,19 @@
                         </a>
                     </div>
                 </section>
+
+                <!-- VIP 卡片 -->
+                <section class="vip-card-section">
+                    <div class="vip-card">
+                        <div class="vip-card-header">
+                            <span class="vip-icon">👑</span>
+                            <h3>VIP 会员</h3>
+                        </div>
+                        <div id="vip-status-info" class="vip-status-info">
+                            <p class="vip-status-text">未开通</p>
+                        </div>
+                    </div>
+                </section>
             </aside>
 
             <!-- 右侧：门户内容区域 -->
@@ -77,157 +90,62 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- 兑换码激活区域 -->
+                <section class="redeem-section">
+                    <div class="redeem-card">
+                        <div class="card-header">
+                            <span class="card-icon">🎟️</span>
+                            <h3>兑换码激活</h3>
+                        </div>
+                        <p class="card-description">拥有兑换码？在这里激活你的特权！</p>
+                        <form id="redeem-form" class="redeem-form">
+                            <input 
+                                type="text" 
+                                id="redeem-code" 
+                                placeholder="请输入兑换码（例如：XXXX-XXXX-XXXX-XXXX）" 
+                                class="input-field"
+                                maxlength="19"
+                                required
+                            >
+                            <input 
+                                type="email" 
+                                id="redeem-email" 
+                                placeholder="请输入您的邮箱" 
+                                class="input-field"
+                                required
+                            >
+                            <div id="redeem-content-selector" style="display: none;">
+                                <label for="redeem-content-select" style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem;">选择兑换内容：</label>
+                                <select id="redeem-content-select" class="input-field">
+                                    <!-- 选项将通过JS动态加载 -->
+                                </select>
+                            </div>
+                            <button type="submit" class="btn-primary">
+                                <span class="btn-text">立即兑换</span>
+                            </button>
+                        </form>
+                        <div id="redeem-message" class="message" style="display: none;"></div>
+                    </div>
+                </section>
             </main>
         </div>
-
-        <!-- 交易区域 -->
-        <section class="transaction-section">
-            <h2 class="section-title">💎 特权服务</h2>
-            
-            <!-- 兑换码区域 -->
-            <div class="transaction-card">
-                <div class="card-header">
-                    <span class="card-icon">🎟️</span>
-                    <h3>兑换码激活</h3>
-                </div>
-                <p class="card-description">拥有兑换码？在这里激活你的特权！</p>
-                <form id="redeem-form" class="redeem-form">
-                    <input 
-                        type="text" 
-                        id="redeem-code" 
-                        placeholder="请输入兑换码（例如：XXXX-XXXX-XXXX-XXXX）" 
-                        class="input-field"
-                        maxlength="19"
-                        required
-                    >
-                    <input 
-                        type="email" 
-                        id="redeem-email" 
-                        placeholder="请输入您的邮箱" 
-                        class="input-field"
-                        required
-                    >
-                    <div id="redeem-content-selector" style="display: none;">
-                        <label for="redeem-content-select" style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem;">选择兑换内容：</label>
-                        <select id="redeem-content-select" class="input-field">
-                            <!-- 选项将通过JS动态加载 -->
-                        </select>
-                    </div>
-                    <button type="submit" class="btn-primary">
-                        <span class="btn-text">立即兑换</span>
-                    </button>
-                </form>
-                <div id="redeem-message" class="message" style="display: none;"></div>
-            </div>
-
-            <!-- VIP 购买区域 -->
-            <div class="transaction-card">
-                <div class="card-header">
-                    <span class="card-icon">👑</span>
-                    <h3>VIP 会员</h3>
-                </div>
-                <p class="card-description">升级 VIP，享受更多专属特权和服务！</p>
-                
-                <div class="vip-plans">
-                    <div class="vip-plan">
-                        <div class="plan-badge">VIP 1</div>
-                        <div class="plan-name">基础会员</div>
-                        <div class="plan-price">¥29<span>/月</span></div>
-                        <ul class="plan-features">
-                            <li>✓ 专属标识</li>
-                            <li>✓ 优先响应</li>
-                            <li>✓ 基础功能</li>
-                        </ul>
-                        <button class="btn-vip" onclick="showVipPurchase('VIP1', 29)">立即购买</button>
-                    </div>
-
-                    <div class="vip-plan featured">
-                        <div class="featured-label">推荐</div>
-                        <div class="plan-badge gold">VIP 2</div>
-                        <div class="plan-name">高级会员</div>
-                        <div class="plan-price">¥99<span>/月</span></div>
-                        <ul class="plan-features">
-                            <li>✓ 包含 VIP 1 所有特权</li>
-                            <li>✓ 金V认证</li>
-                            <li>✓ 高级功能</li>
-                            <li>✓ 专属客服</li>
-                        </ul>
-                        <button class="btn-vip" onclick="showVipPurchase('VIP2', 99)">立即购买</button>
-                    </div>
-
-                    <div class="vip-plan">
-                        <div class="plan-badge platinum">VIP 3</div>
-                        <div class="plan-name">至尊会员</div>
-                        <div class="plan-price">¥299<span>/月</span></div>
-                        <ul class="plan-features">
-                            <li>✓ 包含 VIP 2 所有特权</li>
-                            <li>✓ 定制服务</li>
-                            <li>✓ 全部功能</li>
-                            <li>✓ 优先支持</li>
-                        </ul>
-                        <button class="btn-vip" onclick="showVipPurchase('VIP3', 299)">立即购买</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- VIP 状态查询 -->
-            <div class="transaction-card">
-                <div class="card-header">
-                    <span class="card-icon">🔍</span>
-                    <h3>查询 VIP 状态</h3>
-                </div>
-                <form id="vip-check-form" class="vip-check-form">
-                    <input 
-                        type="email" 
-                        id="vip-check-email" 
-                        placeholder="输入邮箱查询 VIP 状态" 
-                        class="input-field"
-                        required
-                    >
-                    <button type="submit" class="btn-secondary">查询状态</button>
-                </form>
-                <div id="vip-status-message" class="message" style="display: none;"></div>
-            </div>
-        </section>
 
         <!-- 页脚 -->
         <footer class="footer">
             <p>✨ 每一份努力，都是未来的自己向现在的你致敬 ✨</p>
+            <div class="footer-stats">
+                <span class="online-count">
+                    <span class="online-dot"></span>
+                    <span id="online-count-text">在线人数：加载中...</span>
+                </span>
+            </div>
             <p>
                 <a href="/manage" class="footer-link">后台管理</a>
             </p>
         </footer>
     </div>
 
-    <!-- VIP 购买弹窗 -->
-    <div id="vip-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="modal-close" onclick="closeVipModal()">&times;</span>
-            <h2>购买 <span id="modal-vip-level"></span></h2>
-            <p class="modal-price">¥<span id="modal-vip-price"></span>/月</p>
-            <p class="modal-description">
-                本功能为演示功能。实际使用时，您需要接入支付系统（如支付宝、微信支付等）。
-            </p>
-            <form id="vip-purchase-form" class="modal-form">
-                <input 
-                    type="email" 
-                    id="purchase-email" 
-                    placeholder="请输入您的邮箱" 
-                    class="input-field"
-                    required
-                >
-                <input 
-                    type="text" 
-                    id="purchase-name" 
-                    placeholder="请输入您的姓名" 
-                    class="input-field"
-                    required
-                >
-                <button type="submit" class="btn-primary">确认购买</button>
-            </form>
-            <div id="purchase-message" class="message" style="display: none;"></div>
-        </div>
-    </div>
 
     <!-- 弹窗广告 -->
     <div id="popup-ad-overlay" class="popup-ad-overlay" style="display: none;">

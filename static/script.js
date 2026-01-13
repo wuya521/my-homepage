@@ -147,6 +147,15 @@ async function loadProfile() {
         // 检查并显示金V认证标识
         if (profile.email) {
             await checkAndShowGoldVerified(profile.email);
+            // 检查并显示VIP状态
+            await checkAndShowVipStatus(profile.email);
+        } else {
+            // 即使没有邮箱，也显示VIP状态为未开通
+            const vipStatusText = document.querySelector('#vip-status-info .vip-status-text');
+            if (vipStatusText) {
+                vipStatusText.textContent = '未开通';
+                vipStatusText.className = 'vip-status-text';
+            }
         }
 
     } catch (error) {
@@ -403,66 +412,88 @@ async function handleRedeemSubmit(e) {
     }
 }
 
-// VIP 状态查询
-async function handleVipCheckSubmit(e) {
-    e.preventDefault();
-    
-    const emailInput = document.getElementById('vip-check-email');
-    const email = emailInput.value.trim();
-
+// 检查并显示VIP状态（用于左侧VIP卡片）
+async function checkAndShowVipStatus(email) {
     try {
         const result = await apiRequest(`/api/vip/check?email=${encodeURIComponent(email)}`);
+        const vipStatusEl = document.getElementById('vip-status-info');
+        const vipStatusText = vipStatusEl?.querySelector('.vip-status-text');
+        
+        if (!vipStatusEl || !vipStatusText) return;
         
         if (result.isVip) {
-            showMessage('vip-status-message', 
-                `您是 ${result.level} 会员，到期时间：${formatDate(result.expiryDate)}`, 
-                'success');
+            const expiryDate = new Date(result.expiryDate);
+            const now = new Date();
+            const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+            
+            if (daysLeft > 0) {
+                vipStatusText.textContent = `${result.level} · 剩余 ${daysLeft} 天`;
+                vipStatusText.className = 'vip-status-text active';
+            } else {
+                vipStatusText.textContent = '已过期';
+                vipStatusText.className = 'vip-status-text expired';
+            }
         } else {
-            showMessage('vip-status-message', '该邮箱尚未开通 VIP 会员', 'info');
+            vipStatusText.textContent = '未开通';
+            vipStatusText.className = 'vip-status-text';
         }
     } catch (error) {
-        showMessage('vip-status-message', error.message, 'error');
+        console.error('检查VIP状态失败:', error);
     }
 }
 
-// VIP 购买弹窗
-function showVipPurchase(level, price) {
-    const modal = document.getElementById('vip-modal');
-    const levelEl = document.getElementById('modal-vip-level');
-    const priceEl = document.getElementById('modal-vip-price');
-    
-    if (modal) modal.style.display = 'flex';
-    if (levelEl) levelEl.textContent = level;
-    if (priceEl) priceEl.textContent = price;
+// 生成客户端ID（用于真实在线人数统计）
+function getClientId() {
+    let clientId = localStorage.getItem('clientId');
+    if (!clientId) {
+        clientId = 'client_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('clientId', clientId);
+    }
+    return clientId;
 }
 
-function closeVipModal() {
-    const modal = document.getElementById('vip-modal');
-    if (modal) modal.style.display = 'none';
-    
-    const form = document.getElementById('vip-purchase-form');
-    if (form) form.reset();
-    
-    const messageEl = document.getElementById('purchase-message');
-    if (messageEl) messageEl.style.display = 'none';
+// 发送ping请求（记录真实在线人数）
+async function pingOnlineCount() {
+    try {
+        const clientId = getClientId();
+        await apiRequest('/api/online-count/ping', {
+            method: 'POST',
+            body: JSON.stringify({ clientId })
+        });
+    } catch (error) {
+        // 静默失败，不影响用户体验
+        console.error('发送在线人数ping失败:', error);
+    }
 }
 
-// VIP 购买提交（演示功能）
-async function handleVipPurchaseSubmit(e) {
-    e.preventDefault();
+// 加载在线人数
+async function loadOnlineCount() {
+    try {
+        const result = await apiRequest('/api/online-count');
+        const onlineCountEl = document.getElementById('online-count-text');
+        if (onlineCountEl) {
+            onlineCountEl.textContent = `在线人数：${result.count || 0}`;
+        }
+    } catch (error) {
+        console.error('加载在线人数失败:', error);
+        const onlineCountEl = document.getElementById('online-count-text');
+        if (onlineCountEl) {
+            onlineCountEl.textContent = '在线人数：--';
+        }
+    }
+}
+
+// 定期更新在线人数
+function startOnlineCountUpdate() {
+    // 立即发送ping和加载人数
+    pingOnlineCount();
+    loadOnlineCount();
     
-    const email = document.getElementById('purchase-email').value.trim();
-    const name = document.getElementById('purchase-name').value.trim();
-    const level = document.getElementById('modal-vip-level').textContent;
+    // 每30秒更新一次在线人数显示
+    setInterval(loadOnlineCount, 30000);
     
-    // 这里只是演示，实际需要接入支付系统
-    showMessage('purchase-message', 
-        `感谢 ${name} 的购买！实际使用时，请接入支付系统完成支付流程。`, 
-        'info');
-    
-    setTimeout(() => {
-        closeVipModal();
-    }, 3000);
+    // 每60秒发送一次ping（记录真实在线）
+    setInterval(pingOnlineCount, 60000);
 }
 
 // ==================== 管理后台功能 ====================
@@ -541,6 +572,7 @@ function switchSection(sectionName) {
         'redeem-codes': '兑换码管理',
         'vip-users': 'VIP 用户',
         'verified-users': '金V认证',
+        'online-count': '人气设置',
         'settings': '系统设置'
     };
 
@@ -560,6 +592,7 @@ async function loadAdminData() {
     await loadRedeemCodes();
     await loadVipUsers();
     await loadVerifiedUsers();
+    await loadOnlineCountConfig();
 }
 
 // 加载管理员个人资料
@@ -1209,6 +1242,54 @@ async function deleteVerifiedUser(email) {
     }
 }
 
+// 加载在线人数配置
+async function loadOnlineCountConfig() {
+    try {
+        const config = await apiRequest('/api/admin/online-count-config');
+        document.getElementById('real-count-enabled').checked = config.realCountEnabled || false;
+        document.getElementById('fake-count-enabled').checked = config.fakeCountEnabled || false;
+        document.getElementById('fake-count-base').value = config.fakeCountBase || 200;
+        document.getElementById('fake-count-min').value = config.fakeCountMin || 100;
+        document.getElementById('fake-count-max').value = config.fakeCountMax || 500;
+    } catch (error) {
+        console.error('加载在线人数配置失败:', error);
+    }
+}
+
+// 保存在线人数配置
+async function handleOnlineCountSubmit(e) {
+    e.preventDefault();
+    
+    const config = {
+        realCountEnabled: document.getElementById('real-count-enabled').checked,
+        fakeCountEnabled: document.getElementById('fake-count-enabled').checked,
+        fakeCountBase: parseInt(document.getElementById('fake-count-base').value) || 200,
+        fakeCountMin: parseInt(document.getElementById('fake-count-min').value) || 100,
+        fakeCountMax: parseInt(document.getElementById('fake-count-max').value) || 500
+    };
+
+    if (config.fakeCountMin < 0 || config.fakeCountMax < 0 || config.fakeCountBase < 0) {
+        showMessage('online-count-message', '配置值不能为负数！', 'error');
+        return;
+    }
+
+    if (config.fakeCountMin > config.fakeCountMax) {
+        showMessage('online-count-message', '最小值不能大于最大值！', 'error');
+        return;
+    }
+
+    try {
+        await apiRequest('/api/admin/online-count-config', {
+            method: 'PUT',
+            body: JSON.stringify(config)
+        });
+
+        showMessage('online-count-message', '在线人数配置保存成功！', 'success');
+    } catch (error) {
+        showMessage('online-count-message', error.message, 'error');
+    }
+}
+
 // 修改密码
 async function handlePasswordSubmit(e) {
     e.preventDefault();
@@ -1313,6 +1394,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const addVerifiedForm = document.getElementById('add-verified-form');
         if (addVerifiedForm) addVerifiedForm.addEventListener('submit', handleAddVerifiedSubmit);
 
+        const onlineCountForm = document.getElementById('online-count-form');
+        if (onlineCountForm) onlineCountForm.addEventListener('submit', handleOnlineCountSubmit);
+
         const passwordForm = document.getElementById('password-form');
         if (passwordForm) passwordForm.addEventListener('submit', handlePasswordSubmit);
 
@@ -1349,17 +1433,8 @@ document.addEventListener('DOMContentLoaded', () => {
             redeemForm.addEventListener('submit', handleRedeemSubmit);
         }
 
-        // VIP 查询表单
-        const vipCheckForm = document.getElementById('vip-check-form');
-        if (vipCheckForm) {
-            vipCheckForm.addEventListener('submit', handleVipCheckSubmit);
-        }
-
-        // VIP 购买表单
-        const vipPurchaseForm = document.getElementById('vip-purchase-form');
-        if (vipPurchaseForm) {
-            vipPurchaseForm.addEventListener('submit', handleVipPurchaseSubmit);
-        }
+        // 加载并定期更新在线人数
+        startOnlineCountUpdate();
 
         // 兑换码输入格式化（自动添加横线）并检查可选内容
         const redeemCodeInput = document.getElementById('redeem-code');
