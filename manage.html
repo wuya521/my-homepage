@@ -407,16 +407,27 @@
             <form id="generate-code-form" class="form">
                 <div class="form-group">
                     <label for="code-type">类型</label>
-                    <select id="code-type" required>
+                    <select id="code-type" required onchange="updateCodeTypeOptions()">
                         <option value="vip">VIP 会员</option>
                         <option value="verified">金V认证</option>
+                        <option value="document">文档账号密码</option>
                         <option value="custom">自定义</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="code-value">价值</label>
-                    <input type="text" id="code-value" placeholder="例如：VIP1、30天" required>
-                    <span class="form-hint">对于 VIP 类型，输入等级（VIP1/VIP2/VIP3）；对于自定义类型，输入描述</span>
+                    <label for="code-value">默认价值</label>
+                    <input type="text" id="code-value" placeholder="例如：VIP1 30天、认证名称" required>
+                    <span class="form-hint">默认兑换内容，如果设置了可选内容，用户可以选择</span>
+                </div>
+                <div class="form-group" id="available-contents-group" style="display: none;">
+                    <label for="available-contents">可选内容列表（每行一个，留空则只有默认值）</label>
+                    <textarea id="available-contents" rows="4" placeholder="例如：&#10;VIP1 30天&#10;VIP2 30天&#10;VIP3 30天"></textarea>
+                    <span class="form-hint">每行一个选项，用户兑换时可以选择</span>
+                </div>
+                <div class="form-group" id="document-content-group" style="display: none;">
+                    <label for="document-content">文档内容（账号密码等）</label>
+                    <textarea id="document-content" rows="6" placeholder="输入文档内容，例如账号密码信息..."></textarea>
+                    <span class="form-hint">此内容将在兑换成功后提供给用户</span>
                 </div>
                 <div class="form-group">
                     <label for="code-count">生成数量</label>

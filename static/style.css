@@ -170,6 +170,52 @@ body {
     box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4), 0 0 0 2px rgba(255, 215, 0, 0.2);
     animation: goldShine 3s ease-in-out infinite, pulse 2s ease-in-out infinite;
     z-index: 10;
+    cursor: pointer;
+}
+
+/* 认证名称tooltip */
+.gold-verified-badge::after {
+    content: attr(data-verified-name);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.85);
+    color: #FFFFFF;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: translateX(-50%) translateY(-5px);
+    z-index: 1000;
+}
+
+.gold-verified-badge::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 2px;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid rgba(0, 0, 0, 0.85);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+}
+
+.gold-verified-badge:hover::after,
+.gold-verified-badge:hover::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
 
 @keyframes goldShine {
@@ -242,6 +288,7 @@ body {
 .announcement-section {
     margin-bottom: var(--spacing-xl);
     animation: fadeInUp 0.6s ease-out 0.1s both;
+    align-self: start; /* 与用户栏顶部对齐 */
 }
 
 .announcement-card {
@@ -250,6 +297,10 @@ body {
     border-radius: var(--radius-lg);
     padding: var(--spacing-lg);
     box-shadow: var(--shadow-sm);
+    max-height: calc(100vh - 200px); /* 限制最大高度，留出空间 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .announcement-header {
@@ -283,6 +334,29 @@ body {
     line-height: 1.8;
     white-space: pre-wrap;
     word-wrap: break-word;
+    overflow-y: auto; /* 内容多时支持滚动 */
+    flex: 1; /* 占据剩余空间 */
+    padding-right: var(--spacing-xs); /* 为滚动条留出空间 */
+    max-height: 400px; /* 限制最大高度 */
+}
+
+/* 公告内容滚动条样式 */
+.announcement-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.announcement-content::-webkit-scrollbar-track {
+    background: rgba(251, 114, 153, 0.1);
+    border-radius: 3px;
+}
+
+.announcement-content::-webkit-scrollbar-thumb {
+    background: rgba(251, 114, 153, 0.3);
+    border-radius: 3px;
+}
+
+.announcement-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(251, 114, 153, 0.5);
 }
 
 .announcement-content p {
@@ -886,6 +960,8 @@ body {
 
 .footer p {
     margin: var(--spacing-xs) 0;
+    font-style: italic;
+    color: var(--text-muted);
 }
 
 .footer-link {

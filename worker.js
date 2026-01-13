@@ -213,9 +213,36 @@ async function handleRequest(request, env) {
     return jsonResponse(enabledAds);
   }
 
+  // 检查兑换码信息（公开接口，用于前端显示可选内容）
+  if (path === '/api/redeem/check' && method === 'GET') {
+    const code = url.searchParams.get('code');
+    
+    if (!code) {
+      return jsonResponse({ success: false, message: '请提供兑换码' }, 400);
+    }
+
+    const codesData = await env.MY_HOME_KV.get(STORAGE_KEYS.REDEEM_CODES);
+    const codes = codesData ? JSON.parse(codesData) : [];
+    
+    const redeemCode = codes.find(c => c.code === code && !c.used);
+    
+    if (!redeemCode) {
+      return jsonResponse({ success: false, message: '兑换码无效或已被使用' }, 400);
+    }
+
+    // 只返回公开信息，不返回敏感内容
+    return jsonResponse({ 
+      success: true,
+      type: redeemCode.type,
+      value: redeemCode.value,
+      availableContents: redeemCode.availableContents || [],
+      hasDocumentContent: !!redeemCode.documentContent
+    });
+  }
+
   // 使用兑换码
   if (path === '/api/redeem' && method === 'POST') {
-    const { code, email } = await request.json();
+    const { code, email, selectedContent } = await request.json();
     
     if (!code || !email) {
       return jsonResponse({ success: false, message: '请提供兑换码和邮箱' }, 400);
@@ -230,18 +257,85 @@ async function handleRequest(request, env) {
       return jsonResponse({ success: false, message: '兑换码无效或已被使用' }, 400);
     }
 
+    const redeemCode = codes[codeIndex];
+    
+    // 如果兑换码支持多种内容，使用用户选择的内容
+    let contentToRedeem = selectedContent || redeemCode.value;
+    
+    // 根据类型自动发货
+    if (redeemCode.type === 'vip') {
+      // VIP类型：自动添加VIP用户
+      const vipData = await env.MY_HOME_KV.get(STORAGE_KEYS.VIP_USERS);
+      const vipUsers = vipData ? JSON.parse(vipData) : [];
+      
+      // 解析VIP等级和天数
+      const vipLevel = contentToRedeem.match(/VIP[123]/)?.[0] || 'VIP1';
+      const daysMatch = contentToRedeem.match(/(\d+)\s*天/);
+      const days = daysMatch ? parseInt(daysMatch[1]) : 30;
+      
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + days);
+      
+      const existingIndex = vipUsers.findIndex(u => u.email === email);
+      const vipUser = {
+        email,
+        level: vipLevel,
+        expiryDate: expiryDate.toISOString(),
+        createdAt: new Date().toISOString()
+      };
+      
+      if (existingIndex !== -1) {
+        vipUsers[existingIndex] = vipUser;
+      } else {
+        vipUsers.push(vipUser);
+      }
+      
+      await env.MY_HOME_KV.put(STORAGE_KEYS.VIP_USERS, JSON.stringify(vipUsers));
+    } else if (redeemCode.type === 'verified') {
+      // 认证类型：自动添加认证用户
+      const verifiedData = await env.MY_HOME_KV.get(STORAGE_KEYS.VERIFIED_USERS);
+      const verifiedUsers = verifiedData ? JSON.parse(verifiedData) : [];
+      
+      // 解析认证名称
+      const verifiedName = contentToRedeem || '认证用户';
+      
+      if (!verifiedUsers.some(u => u.email === email)) {
+        verifiedUsers.push({
+          email,
+          name: verifiedName,
+          verifiedAt: new Date().toISOString()
+        });
+        
+        await env.MY_HOME_KV.put(STORAGE_KEYS.VERIFIED_USERS, JSON.stringify(verifiedUsers));
+      }
+    } else if (redeemCode.type === 'document') {
+      // 文档类型：返回文档内容（账号密码等）
+      // 这里可以存储文档内容，实际使用时可以从数据库或文件系统获取
+      contentToRedeem = redeemCode.documentContent || contentToRedeem;
+    }
+
     // 标记为已使用
     codes[codeIndex].used = true;
     codes[codeIndex].usedBy = email;
     codes[codeIndex].usedAt = new Date().toISOString();
+    codes[codeIndex].redeemedContent = contentToRedeem;
     
     await env.MY_HOME_KV.put(STORAGE_KEYS.REDEEM_CODES, JSON.stringify(codes));
 
+    let successMessage = '兑换成功！';
+    if (redeemCode.type === 'vip') {
+      successMessage = `VIP会员开通成功！等级：${contentToRedeem.match(/VIP[123]/)?.[0] || 'VIP1'}，有效期：${daysMatch ? daysMatch[1] : 30}天`;
+    } else if (redeemCode.type === 'verified') {
+      successMessage = `金V认证开通成功！认证名称：${contentToRedeem}`;
+    } else if (redeemCode.type === 'document') {
+      successMessage = '兑换成功！请查看您的邮箱或联系管理员获取文档内容。';
+    }
+
     return jsonResponse({ 
       success: true, 
-      message: '兑换成功！',
-      type: codes[codeIndex].type,
-      value: codes[codeIndex].value
+      message: successMessage,
+      type: redeemCode.type,
+      value: contentToRedeem
     });
   }
 
@@ -286,9 +380,16 @@ async function handleRequest(request, env) {
     const verifiedData = await env.MY_HOME_KV.get(STORAGE_KEYS.VERIFIED_USERS);
     const verifiedUsers = verifiedData ? JSON.parse(verifiedData) : [];
     
-    const isVerified = verifiedUsers.some(u => u.email === email);
+    const verifiedUser = verifiedUsers.find(u => u.email === email);
     
-    return jsonResponse({ isVerified });
+    if (verifiedUser) {
+      return jsonResponse({ 
+        isVerified: true,
+        name: verifiedUser.name || '认证用户'
+      });
+    }
+    
+    return jsonResponse({ isVerified: false });
   }
 
   // 获取弹窗广告
@@ -427,7 +528,7 @@ async function handleRequest(request, env) {
 
   // 生成新兑换码
   if (path === '/api/admin/redeem-codes' && method === 'POST') {
-    const { type, value, count = 1, description = '' } = await request.json();
+    const { type, value, count = 1, description = '', availableContents = [], documentContent = '' } = await request.json();
     
     const codesData = await env.MY_HOME_KV.get(STORAGE_KEYS.REDEEM_CODES);
     const codes = codesData ? JSON.parse(codesData) : [];
@@ -436,9 +537,11 @@ async function handleRequest(request, env) {
     for (let i = 0; i < count; i++) {
       const code = {
         code: generateRedeemCode(),
-        type, // 'vip' 或 'verified' 或其他自定义类型
-        value, // 例如 'VIP1'、'VIP2' 或天数
+        type, // 'vip'、'verified'、'document' 或其他自定义类型
+        value, // 默认值
         description,
+        availableContents, // 可选内容列表，前端可以选择
+        documentContent, // 文档类型的内容（账号密码等）
         used: false,
         createdAt: new Date().toISOString()
       };

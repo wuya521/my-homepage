@@ -161,6 +161,10 @@ async function checkAndShowGoldVerified(email) {
         const badgeEl = document.getElementById('gold-verified-badge');
         if (badgeEl && result.isVerified) {
             badgeEl.style.display = 'flex';
+            // 设置认证名称用于tooltip显示
+            if (result.name) {
+                badgeEl.setAttribute('data-verified-name', result.name);
+            }
         }
     } catch (error) {
         console.error('检查认证状态失败:', error);
@@ -347,25 +351,54 @@ async function loadPortals() {
     }
 }
 
+// 检查兑换码并加载可选内容
+async function checkRedeemCode(code) {
+    if (!code || code.replace(/-/g, '').length < 16) {
+        return null;
+    }
+    
+    try {
+        const result = await apiRequest(`/api/redeem/check?code=${encodeURIComponent(code)}`);
+        return result;
+    } catch (error) {
+        return null;
+    }
+}
+
+// 兑换码输入时检查并显示可选内容
+let currentRedeemCodeInfo = null;
+
 // 兑换码提交
 async function handleRedeemSubmit(e) {
     e.preventDefault();
     
     const codeInput = document.getElementById('redeem-code');
     const emailInput = document.getElementById('redeem-email');
+    const contentSelector = document.getElementById('redeem-content-selector');
+    const contentSelect = document.getElementById('redeem-content-select');
+    
     const code = codeInput.value.trim();
     const email = emailInput.value.trim();
+    const selectedContent = contentSelector.style.display !== 'none' ? contentSelect.value : null;
 
     try {
         const result = await apiRequest('/api/redeem', {
             method: 'POST',
-            body: JSON.stringify({ code, email })
+            body: JSON.stringify({ code, email, selectedContent })
         });
 
         showMessage('redeem-message', result.message, 'success');
         codeInput.value = '';
         emailInput.value = '';
+        contentSelector.style.display = 'none';
+        contentSelect.innerHTML = '';
+        currentRedeemCodeInfo = null;
     } catch (error) {
+        // 如果是兑换码无效，尝试解析错误信息
+        if (error.message && error.message.includes('无效')) {
+            contentSelector.style.display = 'none';
+            contentSelect.innerHTML = '';
+        }
         showMessage('redeem-message', error.message, 'error');
     }
 }
@@ -938,6 +971,7 @@ function openGenerateCodeModal() {
     const modal = document.getElementById('generate-code-modal');
     const form = document.getElementById('generate-code-form');
     form.reset();
+    updateCodeTypeOptions(); // 初始化选项显示
     modal.style.display = 'flex';
 }
 
@@ -946,14 +980,39 @@ function closeGenerateCodeModal() {
     modal.style.display = 'none';
 }
 
+// 更新兑换码类型选项
+function updateCodeTypeOptions() {
+    const type = document.getElementById('code-type').value;
+    const availableContentsGroup = document.getElementById('available-contents-group');
+    const documentContentGroup = document.getElementById('document-content-group');
+    
+    if (type === 'document') {
+        documentContentGroup.style.display = 'block';
+        availableContentsGroup.style.display = 'none';
+    } else if (type === 'vip' || type === 'verified') {
+        availableContentsGroup.style.display = 'block';
+        documentContentGroup.style.display = 'none';
+    } else {
+        availableContentsGroup.style.display = 'none';
+        documentContentGroup.style.display = 'none';
+    }
+}
+
 async function handleGenerateCodeSubmit(e) {
     e.preventDefault();
     
+    const type = document.getElementById('code-type').value;
+    const availableContentsText = document.getElementById('available-contents').value.trim();
+    const availableContents = availableContentsText ? availableContentsText.split('\n').filter(line => line.trim()) : [];
+    const documentContent = document.getElementById('document-content').value.trim();
+    
     const data = {
-        type: document.getElementById('code-type').value,
+        type: type,
         value: document.getElementById('code-value').value.trim(),
         count: parseInt(document.getElementById('code-count').value),
-        description: document.getElementById('code-description').value.trim()
+        description: document.getElementById('code-description').value.trim(),
+        availableContents: availableContents,
+        documentContent: documentContent
     };
 
     try {
@@ -1302,10 +1361,11 @@ document.addEventListener('DOMContentLoaded', () => {
             vipPurchaseForm.addEventListener('submit', handleVipPurchaseSubmit);
         }
 
-        // 兑换码输入格式化（自动添加横线）
+        // 兑换码输入格式化（自动添加横线）并检查可选内容
         const redeemCodeInput = document.getElementById('redeem-code');
         if (redeemCodeInput) {
-            redeemCodeInput.addEventListener('input', (e) => {
+            let checkTimeout = null;
+            redeemCodeInput.addEventListener('input', async (e) => {
                 let value = e.target.value.replace(/[^A-Z0-9]/g, '');
                 let formatted = '';
                 for (let i = 0; i < value.length && i < 16; i++) {
@@ -1315,6 +1375,48 @@ document.addEventListener('DOMContentLoaded', () => {
                     formatted += value[i];
                 }
                 e.target.value = formatted;
+                
+                // 延迟检查兑换码（避免频繁请求）
+                clearTimeout(checkTimeout);
+                checkTimeout = setTimeout(async () => {
+                    const code = formatted.replace(/-/g, '');
+                    if (code.length === 16) {
+                        const codeInfo = await checkRedeemCode(formatted);
+                        if (codeInfo && codeInfo.success) {
+                            currentRedeemCodeInfo = codeInfo;
+                            const contentSelector = document.getElementById('redeem-content-selector');
+                            const contentSelect = document.getElementById('redeem-content-select');
+                            
+                            // 如果有可选内容，显示选择器
+                            if (codeInfo.availableContents && codeInfo.availableContents.length > 0) {
+                                contentSelector.style.display = 'block';
+                                contentSelect.innerHTML = '';
+                                
+                                // 添加默认选项
+                                const defaultOption = document.createElement('option');
+                                defaultOption.value = codeInfo.value;
+                                defaultOption.textContent = `默认：${codeInfo.value}`;
+                                contentSelect.appendChild(defaultOption);
+                                
+                                // 添加可选内容
+                                codeInfo.availableContents.forEach(content => {
+                                    const option = document.createElement('option');
+                                    option.value = content;
+                                    option.textContent = content;
+                                    contentSelect.appendChild(option);
+                                });
+                            } else {
+                                contentSelector.style.display = 'none';
+                            }
+                        } else {
+                            currentRedeemCodeInfo = null;
+                            document.getElementById('redeem-content-selector').style.display = 'none';
+                        }
+                    } else {
+                        currentRedeemCodeInfo = null;
+                        document.getElementById('redeem-content-selector').style.display = 'none';
+                    }
+                }, 500);
             });
         }
     }

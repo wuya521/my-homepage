@@ -107,6 +107,12 @@
                         class="input-field"
                         required
                     >
+                    <div id="redeem-content-selector" style="display: none;">
+                        <label for="redeem-content-select" style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem;">选择兑换内容：</label>
+                        <select id="redeem-content-select" class="input-field">
+                            <!-- 选项将通过JS动态加载 -->
+                        </select>
+                    </div>
                     <button type="submit" class="btn-primary">
                         <span class="btn-text">立即兑换</span>
                     </button>
@@ -186,7 +192,7 @@
 
         <!-- 页脚 -->
         <footer class="footer">
-            <p>© 2026 个人主页 | 使用纯原生 HTML 构建</p>
+            <p>✨ 每一份努力，都是未来的自己向现在的你致敬 ✨</p>
             <p>
                 <a href="/manage" class="footer-link">后台管理</a>
             </p>
