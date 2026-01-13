@@ -552,6 +552,8 @@ body {
     display: flex;
     flex-direction: column;
     flex: 1;
+    /* 确保鱼缸容器有足够的空间 */
+    min-height: 0;
 }
 
 .portals-grid {
@@ -559,6 +561,7 @@ body {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: var(--spacing-md);
     flex: 0 0 auto; /* 不自动伸缩，保持内容大小 */
+    width: 100%; /* 确保宽度为100% */
 }
 
 .portal-card {
@@ -648,14 +651,16 @@ body {
     display: flex;
     justify-content: center;
     animation: fadeInUp 0.6s ease-out 0.3s both;
-    /* 对齐时间线底部 */
-    align-self: flex-end;
-    margin-top: auto;
+    /* 对齐门户网格宽度，与门户卡片同宽 */
+    align-self: stretch;
+    /* 确保底部靠近footer，留出适当间距 */
+    margin-bottom: var(--spacing-md);
 }
 
 .fish-tank {
     width: 100%;
-    max-width: 600px;
+    /* 对齐门户网格的宽度，与门户卡片区域同宽 */
+    max-width: 100%;
     /* 自动调整高度，根据视口高度动态调整 */
     height: clamp(250px, 30vh, 400px);
     background: linear-gradient(to bottom, #E3F2FD 0%, #BBDEFB 50%, #90CAF9 100%);

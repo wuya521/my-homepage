@@ -381,7 +381,8 @@ async function loadPortals() {
                 await loadFishTankConfigForFrontend();
                 const minPortals = fishTankConfig.minPortalsToHide || 3;
                 console.log(`门户数量: 0, 阈值: ${minPortals}, 配置启用: ${fishTankConfig.enabled}`);
-                if (fishTankConfig.enabled && (minPortals === 0 || minPortals > 0)) {
+                // 如果 minPortals === 0，始终显示；否则当门户数量 < 阈值时显示
+                if (fishTankConfig.enabled && (minPortals === 0 || 0 < minPortals)) {
                     console.log('显示鱼缸（无门户）');
                     showFishTank();
                 } else {
@@ -399,7 +400,8 @@ async function loadPortals() {
             await loadFishTankConfigForFrontend();
             const minPortals = fishTankConfig.minPortalsToHide || 3;
             console.log(`门户数量: ${portals.length}, 阈值: ${minPortals}, 配置启用: ${fishTankConfig.enabled}`);
-            if (fishTankConfig.enabled && portals.length < minPortals) {
+            // 如果 minPortals === 0，始终显示；否则当门户数量 < 阈值时显示
+            if (fishTankConfig.enabled && (minPortals === 0 || portals.length < minPortals)) {
                 console.log('显示鱼缸');
                 showFishTank();
             } else {
@@ -484,27 +486,8 @@ async function showFishTank() {
     
     let fishTankContainer = document.getElementById('fish-tank-container');
     if (!fishTankContainer) {
-        // 创建鱼缸容器
-        fishTankContainer = document.createElement('div');
-        fishTankContainer.id = 'fish-tank-container';
-        fishTankContainer.className = 'fish-tank-container';
-        
-        // 插入到门户区域后面
-        const portalsSection = document.querySelector('.portals-section');
-        if (portalsSection) {
-            portalsSection.appendChild(fishTankContainer);
-            console.log('鱼缸容器已添加到门户区域');
-        } else {
-            // 如果找不到门户区域，插入到主内容区域
-            const contentMain = document.querySelector('.content-main');
-            if (contentMain) {
-                contentMain.appendChild(fishTankContainer);
-                console.log('鱼缸容器已添加到主内容区域');
-            } else {
-                console.error('找不到门户区域或主内容区域');
-                return;
-            }
-        }
+        console.error('找不到鱼缸容器');
+        return;
     }
     
     // 随机生成2-4条鱼
