@@ -378,11 +378,14 @@ async function loadPortals() {
             container.innerHTML = '';
             // 根据配置决定是否显示鱼缸
             setTimeout(async () => {
-                await loadFishTankConfig();
+                await loadFishTankConfigForFrontend();
                 const minPortals = fishTankConfig.minPortalsToHide || 3;
-                if (minPortals > 0) {
+                console.log(`门户数量: 0, 阈值: ${minPortals}, 配置启用: ${fishTankConfig.enabled}`);
+                if (fishTankConfig.enabled && (minPortals === 0 || minPortals > 0)) {
+                    console.log('显示鱼缸（无门户）');
                     showFishTank();
                 } else {
+                    console.log('隐藏鱼缸（无门户）');
                     hideFishTank();
                 }
             }, 100);
@@ -393,11 +396,14 @@ async function loadPortals() {
         
         // 根据配置决定是否显示鱼缸
         setTimeout(async () => {
-            await loadFishTankConfig();
+            await loadFishTankConfigForFrontend();
             const minPortals = fishTankConfig.minPortalsToHide || 3;
-            if (portals.length < minPortals) {
+            console.log(`门户数量: ${portals.length}, 阈值: ${minPortals}, 配置启用: ${fishTankConfig.enabled}`);
+            if (fishTankConfig.enabled && portals.length < minPortals) {
+                console.log('显示鱼缸');
                 showFishTank();
             } else {
+                console.log('隐藏鱼缸');
                 hideFishTank();
             }
         }, 100);
@@ -434,27 +440,44 @@ let fishTankConfig = {
     minPortalsToHide: 3
 };
 
-// 加载鱼缸配置（前端公开接口）
-async function loadFishTankConfig() {
-    try {
-        fishTankConfig = await apiRequest('/api/fish-tank-config');
-    } catch (error) {
-        console.error('加载鱼缸配置失败:', error);
-        // 使用默认值
+// 确保配置始终有默认值
+function ensureFishTankConfig() {
+    if (!fishTankConfig || typeof fishTankConfig !== 'object') {
         fishTankConfig = {
             enabled: true,
             minPortalsToHide: 3
         };
     }
+    if (fishTankConfig.enabled === undefined) {
+        fishTankConfig.enabled = true;
+    }
+    if (fishTankConfig.minPortalsToHide === undefined) {
+        fishTankConfig.minPortalsToHide = 3;
+    }
+}
+
+// 加载鱼缸配置（前端公开接口，用于主页显示）
+async function loadFishTankConfigForFrontend() {
+    try {
+        fishTankConfig = await apiRequest('/api/fish-tank-config');
+        ensureFishTankConfig();
+    } catch (error) {
+        console.error('加载鱼缸配置失败:', error);
+        // 使用默认值
+        ensureFishTankConfig();
+    }
 }
 
 // 显示鱼缸动画
 async function showFishTank() {
-    // 先加载配置
-    await loadFishTankConfig();
+    // 先加载配置（使用前端公开接口）
+    await loadFishTankConfigForFrontend();
+    
+    console.log('鱼缸配置:', fishTankConfig);
     
     // 如果未启用，不显示
     if (!fishTankConfig.enabled) {
+        console.log('鱼缸未启用，隐藏');
         hideFishTank();
         return;
     }
@@ -470,11 +493,16 @@ async function showFishTank() {
         const portalsSection = document.querySelector('.portals-section');
         if (portalsSection) {
             portalsSection.appendChild(fishTankContainer);
+            console.log('鱼缸容器已添加到门户区域');
         } else {
             // 如果找不到门户区域，插入到主内容区域
             const contentMain = document.querySelector('.content-main');
             if (contentMain) {
                 contentMain.appendChild(fishTankContainer);
+                console.log('鱼缸容器已添加到主内容区域');
+            } else {
+                console.error('找不到门户区域或主内容区域');
+                return;
             }
         }
     }
@@ -2236,15 +2264,26 @@ async function deleteTimelineEvent(id) {
     }
 }
 
-// ==================== 鱼缸设置 ====================
+// ==================== 鱼缸设置（管理后台）====================
 
+// 加载鱼缸配置（管理后台专用，使用管理员API）
 async function loadFishTankConfig() {
     try {
         const config = await apiRequest('/api/admin/fish-tank-config');
-        document.getElementById('fish-tank-enabled').checked = config.enabled !== false;
-        document.getElementById('fish-tank-min-portals').value = config.minPortalsToHide || 3;
+        
+        // 更新表单
+        const enabledCheckbox = document.getElementById('fish-tank-enabled');
+        const minPortalsInput = document.getElementById('fish-tank-min-portals');
+        if (enabledCheckbox) enabledCheckbox.checked = config.enabled !== false;
+        if (minPortalsInput) minPortalsInput.value = config.minPortalsToHide || 3;
+        
+        // 更新全局配置
+        fishTankConfig = config;
+        ensureFishTankConfig();
     } catch (error) {
         console.error('加载鱼缸配置失败:', error);
+        // 使用默认值
+        ensureFishTankConfig();
     }
 }
 
