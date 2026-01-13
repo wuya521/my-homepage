@@ -32,7 +32,8 @@ const STORAGE_KEYS = {
   USER_BADGES: 'user_badges',
   USER_LEVELS: 'user_levels',
   LEVEL_CONFIG: 'level_config',
-  TIMELINE_EVENTS: 'timeline_events'
+  TIMELINE_EVENTS: 'timeline_events',
+  FISH_TANK_CONFIG: 'fish_tank_config'
 };
 
 // 初始化默认数据
@@ -163,6 +164,13 @@ async function initializeDefaultData(KV) {
 
     // 初始化时间线事件
     await KV.put(STORAGE_KEYS.TIMELINE_EVENTS, JSON.stringify([]));
+
+    // 初始化鱼缸配置
+    const defaultFishTankConfig = {
+      enabled: true,
+      minPortalsToHide: 3 // 门户数量达到这个值时隐藏鱼缸
+    };
+    await KV.put(STORAGE_KEYS.FISH_TANK_CONFIG, JSON.stringify(defaultFishTankConfig));
 
     console.log('默认数据初始化完成');
   } catch (error) {
@@ -684,6 +692,16 @@ async function handleRequest(request, env) {
       leveling_rule: levelConfig.leveling_rule,
       levels: levelConfig.levels || []
     });
+  }
+
+  // 获取鱼缸配置（公开接口）
+  if (path === '/api/fish-tank-config' && method === 'GET') {
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.FISH_TANK_CONFIG);
+    const config = configData ? JSON.parse(configData) : {
+      enabled: true,
+      minPortalsToHide: 3
+    };
+    return jsonResponse(config);
   }
 
   // ==================== 前端页面路由（无需认证）====================
@@ -1217,6 +1235,23 @@ async function handleRequest(request, env) {
     const filtered = events.filter(e => e.id !== id);
     await env.MY_HOME_KV.put(STORAGE_KEYS.TIMELINE_EVENTS, JSON.stringify(filtered));
     return jsonResponse({ success: true, message: '事件删除成功' });
+  }
+
+  // 获取鱼缸配置（管理员）
+  if (path === '/api/admin/fish-tank-config' && method === 'GET') {
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.FISH_TANK_CONFIG);
+    const config = configData ? JSON.parse(configData) : {
+      enabled: true,
+      minPortalsToHide: 3
+    };
+    return jsonResponse(config);
+  }
+
+  // 更新鱼缸配置（管理员）
+  if (path === '/api/admin/fish-tank-config' && method === 'PUT') {
+    const config = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.FISH_TANK_CONFIG, JSON.stringify(config));
+    return jsonResponse({ success: true, message: '鱼缸配置更新成功' });
   }
 
   // 404 响应

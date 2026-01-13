@@ -376,19 +376,31 @@ async function loadPortals() {
         // 只显示实际的门户，不显示占位卡片
         if (portals.length === 0) {
             container.innerHTML = '';
-            // 显示鱼缸动画
-            showFishTank();
+            // 根据配置决定是否显示鱼缸
+            setTimeout(async () => {
+                await loadFishTankConfig();
+                const minPortals = fishTankConfig.minPortalsToHide || 3;
+                if (minPortals > 0) {
+                    showFishTank();
+                } else {
+                    hideFishTank();
+                }
+            }, 100);
             return;
         }
 
         container.innerHTML = portals.map(portal => renderPortalCard(portal)).join('');
         
-        // 如果门户数量少于3个，显示鱼缸动画
-        if (portals.length < 3) {
-            showFishTank();
-        } else {
-            hideFishTank();
-        }
+        // 根据配置决定是否显示鱼缸
+        setTimeout(async () => {
+            await loadFishTankConfig();
+            const minPortals = fishTankConfig.minPortalsToHide || 3;
+            if (portals.length < minPortals) {
+                showFishTank();
+            } else {
+                hideFishTank();
+            }
+        }, 100);
     } catch (error) {
         console.error('加载门户链接失败:', error);
     }
@@ -416,8 +428,37 @@ function renderPortalCard(portal) {
     `;
 }
 
+// 鱼缸配置（全局变量，用于前端显示）
+let fishTankConfig = {
+    enabled: true,
+    minPortalsToHide: 3
+};
+
+// 加载鱼缸配置（前端公开接口）
+async function loadFishTankConfig() {
+    try {
+        fishTankConfig = await apiRequest('/api/fish-tank-config');
+    } catch (error) {
+        console.error('加载鱼缸配置失败:', error);
+        // 使用默认值
+        fishTankConfig = {
+            enabled: true,
+            minPortalsToHide: 3
+        };
+    }
+}
+
 // 显示鱼缸动画
-function showFishTank() {
+async function showFishTank() {
+    // 先加载配置
+    await loadFishTankConfig();
+    
+    // 如果未启用，不显示
+    if (!fishTankConfig.enabled) {
+        hideFishTank();
+        return;
+    }
+    
     let fishTankContainer = document.getElementById('fish-tank-container');
     if (!fishTankContainer) {
         // 创建鱼缸容器
@@ -438,22 +479,62 @@ function showFishTank() {
         }
     }
     
+    // 随机生成2-4条鱼
+    const fishEmojis = ['🐟', '🐠', '🐡', '🦈', '🐙', '🦑'];
+    const fishCount = Math.floor(Math.random() * 3) + 2; // 2-4条
+    const selectedFish = [];
+    for (let i = 0; i < fishCount; i++) {
+        const randomFish = fishEmojis[Math.floor(Math.random() * fishEmojis.length)];
+        selectedFish.push(randomFish);
+    }
+    
+    // 生成气泡（5-8个）
+    const bubbleCount = Math.floor(Math.random() * 4) + 5;
+    const bubbles = [];
+    for (let i = 1; i <= bubbleCount; i++) {
+        bubbles.push(`<div class="bubble bubble-${i}"></div>`);
+    }
+    
     fishTankContainer.style.display = 'block';
     fishTankContainer.innerHTML = `
         <div class="fish-tank">
             <div class="fish-tank-water">
-                <div class="fish fish-1">🐟</div>
-                <div class="fish fish-2">🐠</div>
-                <div class="fish fish-3">🐡</div>
-                <div class="fish fish-4">🦈</div>
-                <div class="bubble bubble-1"></div>
-                <div class="bubble bubble-2"></div>
-                <div class="bubble bubble-3"></div>
-                <div class="bubble bubble-4"></div>
-                <div class="bubble bubble-5"></div>
+                ${selectedFish.map((fish, index) => 
+                    `<div class="fish fish-${index + 1}">${fish}</div>`
+                ).join('')}
+                ${bubbles.join('')}
             </div>
         </div>
     `;
+    
+    // 动态设置每条鱼的动画参数
+    selectedFish.forEach((fish, index) => {
+        const fishElement = fishTankContainer.querySelector(`.fish-${index + 1}`);
+        if (fishElement) {
+            const duration = 8 + Math.random() * 4; // 8-12秒
+            const delay = Math.random() * 3; // 0-3秒延迟
+            const top = 15 + Math.random() * 70; // 15-85%位置
+            fishElement.style.animation = `fishSwim ${duration}s ease-in-out infinite`;
+            fishElement.style.animationDelay = `${delay}s`;
+            fishElement.style.top = `${top}%`;
+        }
+    });
+    
+    // 动态设置气泡参数
+    for (let i = 1; i <= bubbleCount; i++) {
+        const bubbleElement = fishTankContainer.querySelector(`.bubble-${i}`);
+        if (bubbleElement) {
+            const left = Math.random() * 90; // 0-90%位置
+            const size = 6 + Math.random() * 8; // 6-14px
+            const duration = 3 + Math.random() * 2; // 3-5秒
+            const delay = Math.random() * 2; // 0-2秒延迟
+            bubbleElement.style.left = `${left}%`;
+            bubbleElement.style.width = `${size}px`;
+            bubbleElement.style.height = `${size}px`;
+            bubbleElement.style.animationDuration = `${duration}s`;
+            bubbleElement.style.animationDelay = `${delay}s`;
+        }
+    }
 }
 
 // 隐藏鱼缸动画
@@ -874,6 +955,7 @@ function switchSection(sectionName) {
         'badges': '勋章管理',
         'user-levels': '等级管理',
         'timeline': '时间线管理',
+        'fish-tank': '鱼缸设置',
         'settings': '系统设置'
     };
 
@@ -2153,6 +2235,38 @@ async function deleteTimelineEvent(id) {
     }
 }
 
+// ==================== 鱼缸设置 ====================
+
+async function loadFishTankConfig() {
+    try {
+        const config = await apiRequest('/api/admin/fish-tank-config');
+        document.getElementById('fish-tank-enabled').checked = config.enabled !== false;
+        document.getElementById('fish-tank-min-portals').value = config.minPortalsToHide || 3;
+    } catch (error) {
+        console.error('加载鱼缸配置失败:', error);
+    }
+}
+
+async function handleFishTankSubmit(e) {
+    e.preventDefault();
+    
+    const config = {
+        enabled: document.getElementById('fish-tank-enabled').checked,
+        minPortalsToHide: parseInt(document.getElementById('fish-tank-min-portals').value) || 3
+    };
+
+    try {
+        await apiRequest('/api/admin/fish-tank-config', {
+            method: 'PUT',
+            body: JSON.stringify(config)
+        });
+
+        showMessage('fish-tank-message', '鱼缸设置保存成功！', 'success');
+    } catch (error) {
+        showMessage('fish-tank-message', error.message, 'error');
+    }
+}
+
 // ==================== 页面初始化 ====================
 
 // 页面加载完成后执行
@@ -2240,6 +2354,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const addTimelineForm = document.getElementById('add-timeline-form');
         if (addTimelineForm) addTimelineForm.addEventListener('submit', handleAddTimelineSubmit);
+
+        const fishTankForm = document.getElementById('fish-tank-form');
+        if (fishTankForm) fishTankForm.addEventListener('submit', handleFishTankSubmit);
 
         const grantBadgeBtn = document.getElementById('grant-badge-btn');
         if (grantBadgeBtn) grantBadgeBtn.addEventListener('click', openGrantBadgeModal);

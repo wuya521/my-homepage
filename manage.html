@@ -498,6 +498,32 @@
                 </div>
             </section>
 
+            <!-- 鱼缸设置 -->
+            <section id="fish-tank-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>鱼缸动画设置</h3>
+                        <p class="card-description">配置门户区域的鱼缸动画显示</p>
+                    </div>
+                    <form id="fish-tank-form" class="form">
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="fish-tank-enabled">
+                                <span>启用鱼缸动画</span>
+                            </label>
+                            <span class="form-hint">当门户数量较少时显示鱼缸动画</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="fish-tank-min-portals">门户数量阈值</label>
+                            <input type="number" id="fish-tank-min-portals" placeholder="3" min="0" max="20" required>
+                            <span class="form-hint">当门户数量达到或超过此值时，自动隐藏鱼缸（0表示始终显示）</span>
+                        </div>
+                        <button type="submit" class="btn-primary">保存设置</button>
+                    </form>
+                    <div id="fish-tank-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
             <!-- 系统设置 -->
             <section id="settings-section" class="content-section">
                 <div class="card">

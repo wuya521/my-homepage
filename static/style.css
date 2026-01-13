@@ -117,6 +117,8 @@ body {
 /* ==================== 右侧内容主区域 ==================== */
 .content-main {
     min-width: 0; /* 防止内容溢出 */
+    display: flex;
+    flex-direction: column;
 }
 
 /* ==================== 个人信息卡片 ==================== */
@@ -547,12 +549,16 @@ body {
 .portals-section {
     margin-bottom: var(--spacing-xl);
     animation: fadeInUp 0.6s ease-out 0.2s both;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
 
 .portals-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: var(--spacing-md);
+    flex: 0 0 auto; /* 不自动伸缩，保持内容大小 */
 }
 
 .portal-card {
@@ -642,12 +648,16 @@ body {
     display: flex;
     justify-content: center;
     animation: fadeInUp 0.6s ease-out 0.3s both;
+    /* 对齐时间线底部 */
+    align-self: flex-end;
+    margin-top: auto;
 }
 
 .fish-tank {
     width: 100%;
     max-width: 600px;
-    height: 300px;
+    /* 自动调整高度，根据视口高度动态调整 */
+    height: clamp(250px, 30vh, 400px);
     background: linear-gradient(to bottom, #E3F2FD 0%, #BBDEFB 50%, #90CAF9 100%);
     border-radius: var(--radius-lg);
     border: 3px solid #64B5F6;
