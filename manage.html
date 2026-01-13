@@ -63,6 +63,10 @@
                     <span class="nav-icon">🚪</span>
                     <span>门户管理</span>
                 </a>
+                <a href="#advertisements" class="nav-item" data-section="advertisements">
+                    <span class="nav-icon">📢</span>
+                    <span>广告位管理</span>
+                </a>
                 <a href="#redeem-codes" class="nav-item" data-section="redeem-codes">
                     <span class="nav-icon">🎟️</span>
                     <span>兑换码管理</span>
@@ -73,7 +77,7 @@
                 </a>
                 <a href="#verified-users" class="nav-item" data-section="verified-users">
                     <span class="nav-icon">✓</span>
-                    <span>黄V认证</span>
+                    <span>金V认证</span>
                 </a>
                 <a href="#settings" class="nav-item" data-section="settings">
                     <span class="nav-icon">⚙️</span>
@@ -184,6 +188,21 @@
                 </div>
             </section>
 
+            <!-- 广告位管理 -->
+            <section id="advertisements-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>广告位管理</h3>
+                        <p class="card-description">管理主页展示的广告位</p>
+                        <button id="add-advertisement-btn" class="btn-secondary">+ 添加广告位</button>
+                    </div>
+                    <div id="advertisements-list" class="items-list">
+                        <!-- 广告位列表将通过 JS 动态加载 -->
+                    </div>
+                    <div id="advertisements-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
             <!-- 兑换码管理 -->
             <section id="redeem-codes-section" class="content-section">
                 <div class="card">
@@ -242,12 +261,12 @@
                 </div>
             </section>
 
-            <!-- 黄V认证管理 -->
+            <!-- 金V认证管理 -->
             <section id="verified-users-section" class="content-section">
                 <div class="card">
                     <div class="card-header">
-                        <h3>黄V认证管理</h3>
-                        <p class="card-description">管理用户认证标识</p>
+                        <h3>金V认证管理</h3>
+                        <p class="card-description">管理用户金V认证标识</p>
                         <button id="add-verified-btn" class="btn-secondary">+ 添加认证</button>
                     </div>
                     <div id="verified-list" class="table-container">
@@ -328,6 +347,10 @@
                         <input type="checkbox" id="portal-enabled" checked>
                         <span>启用</span>
                     </label>
+                    <label>
+                        <input type="checkbox" id="portal-pinned">
+                        <span>置顶</span>
+                    </label>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="closePortalModal()">取消</button>
@@ -349,7 +372,7 @@
                     <label for="code-type">类型</label>
                     <select id="code-type" required>
                         <option value="vip">VIP 会员</option>
-                        <option value="verified">黄V认证</option>
+                        <option value="verified">金V认证</option>
                         <option value="custom">自定义</option>
                     </select>
                 </div>
@@ -410,7 +433,7 @@
     <div id="add-verified-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>添加黄V认证</h3>
+                <h3>添加金V认证</h3>
                 <span class="modal-close" onclick="closeAddVerifiedModal()">&times;</span>
             </div>
             <form id="add-verified-form" class="form">
@@ -425,6 +448,56 @@
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="closeAddVerifiedModal()">取消</button>
                     <button type="submit" class="btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 广告位编辑弹窗 -->
+    <div id="advertisement-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="advertisement-modal-title">添加广告位</h3>
+                <span class="modal-close" onclick="closeAdvertisementModal()">&times;</span>
+            </div>
+            <form id="advertisement-form" class="form">
+                <input type="hidden" id="advertisement-id">
+                <div class="form-group">
+                    <label for="advertisement-title">标题</label>
+                    <input type="text" id="advertisement-title" placeholder="广告标题">
+                </div>
+                <div class="form-group">
+                    <label for="advertisement-description">描述</label>
+                    <textarea id="advertisement-description" rows="3" placeholder="广告描述..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="advertisement-link">链接</label>
+                    <input type="url" id="advertisement-link" placeholder="https://example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="advertisement-image">图片 URL</label>
+                    <input type="url" id="advertisement-image" placeholder="https://example.com/image.jpg">
+                    <span class="form-hint">如果提供图片，将显示图片背景；否则显示图标</span>
+                </div>
+                <div class="form-group">
+                    <label for="advertisement-icon">图标</label>
+                    <input type="text" id="advertisement-icon" placeholder="📢 输入 Emoji" value="📢">
+                    <span class="form-hint">当没有图片时显示的图标</span>
+                </div>
+                <div class="form-group">
+                    <label for="advertisement-order">排序</label>
+                    <input type="number" id="advertisement-order" placeholder="0" value="0" min="0">
+                    <span class="form-hint">数字越小越靠前</span>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="advertisement-enabled" checked>
+                        <span>启用</span>
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeAdvertisementModal()">取消</button>
+                    <button type="submit" class="btn-primary">保存</button>
                 </div>
             </form>
         </div>

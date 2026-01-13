@@ -15,57 +15,70 @@
 
     <!-- 主容器 -->
     <div class="container">
-        <!-- 个人信息卡片 -->
-        <section class="profile-card">
-            <div class="avatar-wrapper">
-                <img id="avatar" src="https://via.placeholder.com/150" alt="头像" class="avatar">
-                <span id="verified-badge" class="verified-badge" style="display: none;" title="黄V认证">✓</span>
-                <span id="vip-badge" class="vip-badge" style="display: none;" title="VIP用户">VIP</span>
-            </div>
-            <h1 id="name" class="name">加载中...</h1>
-            <p id="bio" class="bio">加载中...</p>
-            <div class="social-links">
-                <a id="email-link" href="#" target="_blank" class="social-link" style="display: none;">
-                    <span class="icon">📧</span>
-                </a>
-                <a id="github-link" href="#" target="_blank" class="social-link" style="display: none;">
-                    <span class="icon">🔗</span>
-                </a>
-                <a id="twitter-link" href="#" target="_blank" class="social-link" style="display: none;">
-                    <span class="icon">🐦</span>
-                </a>
-                <a id="website-link" href="#" target="_blank" class="social-link" style="display: none;">
-                    <span class="icon">🌐</span>
-                </a>
-            </div>
-        </section>
-
-        <!-- 公告区域 -->
-        <section id="announcement-section" class="announcement-section" style="display: none;">
-            <div class="announcement-card">
-                <div class="announcement-header">
-                    <span class="announcement-icon">📢</span>
-                    <h2 id="announcement-title" class="announcement-title">公告</h2>
-                </div>
-                <p id="announcement-content" class="announcement-content"></p>
-                <p id="announcement-time" class="announcement-time"></p>
-            </div>
-        </section>
-
-        <!-- 门户链接区域 -->
-        <section class="portals-section">
-            <h2 class="section-title">🚪 快速访问</h2>
-            <div id="portals-container" class="portals-grid">
-                <!-- 门户链接将通过 JS 动态加载 -->
-                <div class="portal-card skeleton">
-                    <div class="portal-icon">⏳</div>
-                    <div class="portal-info">
-                        <h3 class="portal-name">加载中...</h3>
-                        <p class="portal-desc">正在加载数据</p>
+        <div class="main-layout">
+            <!-- 左侧：个人信息区域 -->
+            <aside class="profile-sidebar">
+                <section class="profile-card">
+                    <div class="avatar-wrapper">
+                        <img id="avatar" src="https://via.placeholder.com/150" alt="头像" class="avatar">
+                        <span id="gold-verified-badge" class="gold-verified-badge" style="display: none;" title="金V认证">✓</span>
                     </div>
-                </div>
-            </div>
-        </section>
+                    <h1 id="name" class="name">加载中...</h1>
+                    <p id="bio" class="bio">加载中...</p>
+                    <div class="social-links">
+                        <a id="email-link" href="#" target="_blank" class="social-link" style="display: none;">
+                            <span class="icon">📧</span>
+                        </a>
+                        <a id="github-link" href="#" target="_blank" class="social-link" style="display: none;">
+                            <span class="icon">🔗</span>
+                        </a>
+                        <a id="twitter-link" href="#" target="_blank" class="social-link" style="display: none;">
+                            <span class="icon">🐦</span>
+                        </a>
+                        <a id="website-link" href="#" target="_blank" class="social-link" style="display: none;">
+                            <span class="icon">🌐</span>
+                        </a>
+                    </div>
+                </section>
+            </aside>
+
+            <!-- 右侧：门户内容区域 -->
+            <main class="content-main">
+                <!-- 公告区域 -->
+                <section id="announcement-section" class="announcement-section" style="display: none;">
+                    <div class="announcement-card">
+                        <div class="announcement-header">
+                            <span class="announcement-icon">📢</span>
+                            <h2 id="announcement-title" class="announcement-title">公告</h2>
+                        </div>
+                        <p id="announcement-content" class="announcement-content"></p>
+                        <p id="announcement-time" class="announcement-time"></p>
+                    </div>
+                </section>
+
+                <!-- 广告位区域 -->
+                <section id="advertisements-section" class="advertisements-section" style="display: none;">
+                    <div id="advertisements-container" class="advertisements-container">
+                        <!-- 广告位将通过 JS 动态加载 -->
+                    </div>
+                </section>
+
+                <!-- 门户链接区域 -->
+                <section class="portals-section">
+                    <h2 class="section-title">🚪 快速访问</h2>
+                    <div id="portals-container" class="portals-grid">
+                        <!-- 门户链接将通过 JS 动态加载 -->
+                        <div class="portal-card skeleton">
+                            <div class="portal-icon">⏳</div>
+                            <div class="portal-info">
+                                <h3 class="portal-name">加载中...</h3>
+                                <p class="portal-desc">正在加载数据</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
 
         <!-- 交易区域 -->
         <section class="transaction-section">
@@ -129,7 +142,7 @@
                         <div class="plan-price">¥99<span>/月</span></div>
                         <ul class="plan-features">
                             <li>✓ 包含 VIP 1 所有特权</li>
-                            <li>✓ 黄V认证</li>
+                            <li>✓ 金V认证</li>
                             <li>✓ 高级功能</li>
                             <li>✓ 专属客服</li>
                         </ul>

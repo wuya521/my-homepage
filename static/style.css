@@ -80,11 +80,43 @@ body {
 
 /* ==================== 主容器 ==================== */
 .container {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: var(--spacing-xl) var(--spacing-md);
     position: relative;
     z-index: 1;
+}
+
+/* ==================== 主布局（左右分栏）==================== */
+.main-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: var(--spacing-xl);
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .main-layout {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-lg);
+    }
+}
+
+/* ==================== 左侧个人信息侧边栏 ==================== */
+.profile-sidebar {
+    position: sticky;
+    top: var(--spacing-xl);
+}
+
+@media (max-width: 1024px) {
+    .profile-sidebar {
+        position: static;
+    }
+}
+
+/* ==================== 右侧内容主区域 ==================== */
+.content-main {
+    min-width: 0; /* 防止内容溢出 */
 }
 
 /* ==================== 个人信息卡片 ==================== */
@@ -94,7 +126,6 @@ body {
     border-radius: var(--radius-xl);
     padding: var(--spacing-xl);
     text-align: center;
-    margin-bottom: var(--spacing-xl);
     box-shadow: var(--shadow-md);
     animation: fadeInUp 0.6s ease-out;
 }
@@ -120,37 +151,36 @@ body {
     box-shadow: 0 0 20px rgba(251, 114, 153, 0.4);
 }
 
-.verified-badge {
+.gold-verified-badge {
     position: absolute;
-    bottom: 10px;
-    right: 10px;
-    width: 32px;
-    height: 32px;
-    background: var(--primary-color);
+    bottom: 5px;
+    right: 5px;
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #FFD700, #FFA500, #FFD700);
+    background-size: 200% 200%;
     color: #FFFFFF;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 18px;
+    font-size: 20px;
     border: 3px solid var(--bg-card);
-    box-shadow: var(--shadow-sm);
-    animation: pulse 2s ease-in-out infinite;
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4), 0 0 0 2px rgba(255, 215, 0, 0.2);
+    animation: goldShine 3s ease-in-out infinite, pulse 2s ease-in-out infinite;
+    z-index: 10;
 }
 
-.vip-badge {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: linear-gradient(135deg, #FFB6C1, #FFC0CB);
-    color: var(--text-primary);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: bold;
-    box-shadow: var(--shadow-sm);
-    animation: glow 2s ease-in-out infinite;
+@keyframes goldShine {
+    0%, 100% {
+        background-position: 0% 50%;
+        box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4), 0 0 0 2px rgba(255, 215, 0, 0.2);
+    }
+    50% {
+        background-position: 100% 50%;
+        box-shadow: 0 4px 16px rgba(255, 215, 0, 0.6), 0 0 0 3px rgba(255, 215, 0, 0.3);
+    }
 }
 
 @keyframes pulse {
@@ -292,6 +322,7 @@ body {
     color: var(--text-primary);
     transition: all 0.3s ease;
     cursor: pointer;
+    position: relative;
 }
 
 .portal-card:hover {
@@ -299,6 +330,23 @@ body {
     transform: translateY(-5px);
     box-shadow: var(--shadow-lg);
     border-color: var(--primary-color);
+}
+
+.portal-card.pinned {
+    border-left: 4px solid var(--primary-color);
+}
+
+.pinned-badge {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: #FFFFFF;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
 }
 
 .portal-icon {
@@ -693,6 +741,16 @@ body {
 }
 
 /* ==================== 响应式设计 ==================== */
+@media (max-width: 1024px) {
+    .main-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .profile-sidebar {
+        position: static;
+    }
+}
+
 @media (max-width: 768px) {
     .container {
         padding: var(--spacing-md);
@@ -714,13 +772,15 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .vip-plans {
-        grid-template-columns: 1fr;
-    }
-
     .avatar {
         width: 120px;
         height: 120px;
+    }
+
+    .gold-verified-badge {
+        width: 32px;
+        height: 32px;
+        font-size: 18px;
     }
 
     .modal-content {

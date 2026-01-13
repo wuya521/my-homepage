@@ -21,6 +21,7 @@ const STORAGE_KEYS = {
   PROFILE: 'user_profile',
   ANNOUNCEMENT: 'announcement',
   PORTALS: 'portals',
+  ADVERTISEMENTS: 'advertisements',
   REDEEM_CODES: 'redeem_codes',
   VIP_USERS: 'vip_users',
   VERIFIED_USERS: 'verified_users'
@@ -67,7 +68,8 @@ async function initializeDefaultData(KV) {
         url: 'https://github.com',
         icon: '🔗',
         description: '我的 GitHub 主页',
-        enabled: true
+        enabled: true,
+        pinned: false
       },
       {
         id: '2',
@@ -75,10 +77,14 @@ async function initializeDefaultData(KV) {
         url: 'https://example.com',
         icon: '📝',
         description: '个人技术博客',
-        enabled: true
+        enabled: true,
+        pinned: false
       }
     ];
     await KV.put(STORAGE_KEYS.PORTALS, JSON.stringify(defaultPortals));
+
+    // 初始化广告位列表
+    await KV.put(STORAGE_KEYS.ADVERTISEMENTS, JSON.stringify([]));
 
     // 初始化兑换码列表
     await KV.put(STORAGE_KEYS.REDEEM_CODES, JSON.stringify([]));
@@ -173,9 +179,27 @@ async function handleRequest(request, env) {
   if (path === '/api/portals' && method === 'GET') {
     const portals = await env.MY_HOME_KV.get(STORAGE_KEYS.PORTALS);
     const allPortals = portals ? JSON.parse(portals) : [];
-    // 只返回启用的门户
-    const enabledPortals = allPortals.filter(p => p.enabled);
+    // 只返回启用的门户，并按置顶排序
+    const enabledPortals = allPortals
+      .filter(p => p.enabled)
+      .sort((a, b) => {
+        // 置顶的排在前面
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return 0;
+      });
     return jsonResponse(enabledPortals);
+  }
+
+  // 获取广告位列表
+  if (path === '/api/advertisements' && method === 'GET') {
+    const ads = await env.MY_HOME_KV.get(STORAGE_KEYS.ADVERTISEMENTS);
+    const allAds = ads ? JSON.parse(ads) : [];
+    // 只返回启用的广告，并按排序字段排序
+    const enabledAds = allAds
+      .filter(ad => ad.enabled)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    return jsonResponse(enabledAds);
   }
 
   // 使用兑换码
@@ -503,7 +527,7 @@ async function handleRequest(request, env) {
     
     await env.MY_HOME_KV.put(STORAGE_KEYS.VERIFIED_USERS, JSON.stringify(verifiedUsers));
     
-    return jsonResponse({ success: true, message: '黄V认证添加成功' });
+    return jsonResponse({ success: true, message: '金V认证添加成功' });
   }
 
   // 删除认证用户
@@ -516,7 +540,20 @@ async function handleRequest(request, env) {
     const filteredUsers = verifiedUsers.filter(u => u.email !== email);
     await env.MY_HOME_KV.put(STORAGE_KEYS.VERIFIED_USERS, JSON.stringify(filteredUsers));
     
-    return jsonResponse({ success: true, message: '黄V认证已删除' });
+    return jsonResponse({ success: true, message: '金V认证已删除' });
+  }
+
+  // 获取所有广告位（包括禁用的）
+  if (path === '/api/admin/advertisements' && method === 'GET') {
+    const ads = await env.MY_HOME_KV.get(STORAGE_KEYS.ADVERTISEMENTS);
+    return jsonResponse(ads ? JSON.parse(ads) : []);
+  }
+
+  // 更新广告位列表
+  if (path === '/api/admin/advertisements' && method === 'PUT') {
+    const advertisements = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ADVERTISEMENTS, JSON.stringify(advertisements));
+    return jsonResponse({ success: true, message: '广告位列表更新成功' });
   }
 
   // 404 响应

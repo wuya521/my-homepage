@@ -9,6 +9,7 @@ const API_BASE = window.API_BASE;
 // 全局状态
 let authToken = null;
 let currentPortals = [];
+let currentAdvertisements = [];
 
 // ==================== 工具函数 ====================
 
@@ -72,15 +73,29 @@ function formatDate(dateString) {
 
 // ==================== 主页功能 ====================
 
+// 生成随机头像
+function generateRandomAvatar(name = '') {
+    // 使用 DiceBear API 生成随机头像
+    // 使用名字作为种子，确保同一用户头像一致
+    const seed = name || Math.random().toString(36).substring(7);
+    const style = 'avataaars'; // 可以选择：avataaars, personas, initials, bottts 等
+    return `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+}
+
 // 加载个人资料
 async function loadProfile() {
     try {
         const profile = await apiRequest('/api/profile');
         
-        // 更新头像
+        // 更新头像（如果没有设置头像，使用随机生成）
         const avatarEl = document.getElementById('avatar');
-        if (avatarEl && profile.avatar) {
-            avatarEl.src = profile.avatar;
+        if (avatarEl) {
+            if (profile.avatar && profile.avatar.trim() && !profile.avatar.includes('placeholder')) {
+                avatarEl.src = profile.avatar;
+            } else {
+                // 使用名字生成随机头像
+                avatarEl.src = generateRandomAvatar(profile.name || profile.email);
+            }
         }
 
         // 更新名字
@@ -101,8 +116,26 @@ async function loadProfile() {
         updateSocialLink('twitter-link', profile.twitter, profile.twitter);
         updateSocialLink('website-link', profile.website, profile.website);
 
+        // 检查并显示金V认证标识
+        if (profile.email) {
+            await checkAndShowGoldVerified(profile.email);
+        }
+
     } catch (error) {
         console.error('加载个人资料失败:', error);
+    }
+}
+
+// 检查并显示金V认证标识
+async function checkAndShowGoldVerified(email) {
+    try {
+        const result = await apiRequest(`/api/verified/check?email=${encodeURIComponent(email)}`);
+        const badgeEl = document.getElementById('gold-verified-badge');
+        if (badgeEl && result.isVerified) {
+            badgeEl.style.display = 'flex';
+        }
+    } catch (error) {
+        console.error('检查认证状态失败:', error);
     }
 }
 
@@ -142,6 +175,35 @@ async function loadAnnouncement() {
     }
 }
 
+// 加载广告位
+async function loadAdvertisements() {
+    try {
+        const ads = await apiRequest('/api/advertisements');
+        const section = document.getElementById('advertisements-section');
+        const container = document.getElementById('advertisements-container');
+        
+        if (!section || !container) return;
+
+        if (ads.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+        container.innerHTML = ads.map(ad => `
+            <a href="${ad.link || '#'}" target="_blank" class="advertisement-card" ${ad.image ? `style="background-image: url('${ad.image}');"` : ''}>
+                ${ad.image ? '' : `<div class="ad-icon">${ad.icon || '📢'}</div>`}
+                <div class="ad-content">
+                    ${ad.title ? `<h3 class="ad-title">${ad.title}</h3>` : ''}
+                    ${ad.description ? `<p class="ad-desc">${ad.description}</p>` : ''}
+                </div>
+            </a>
+        `).join('');
+    } catch (error) {
+        console.error('加载广告位失败:', error);
+    }
+}
+
 // 加载门户链接
 async function loadPortals() {
     try {
@@ -156,7 +218,8 @@ async function loadPortals() {
         }
 
         container.innerHTML = portals.map(portal => `
-            <a href="${portal.url}" target="_blank" class="portal-card">
+            <a href="${portal.url}" target="_blank" class="portal-card ${portal.pinned ? 'pinned' : ''}">
+                ${portal.pinned ? '<span class="pinned-badge">置顶</span>' : ''}
                 <div class="portal-icon">${portal.icon || '🔗'}</div>
                 <div class="portal-info">
                     <h3 class="portal-name">${portal.name}</h3>
@@ -326,9 +389,10 @@ function switchSection(sectionName) {
         'profile': '个人资料',
         'announcement': '公告管理',
         'portals': '门户管理',
+        'advertisements': '广告位管理',
         'redeem-codes': '兑换码管理',
         'vip-users': 'VIP 用户',
-        'verified-users': '黄V认证',
+        'verified-users': '金V认证',
         'settings': '系统设置'
     };
 
@@ -343,6 +407,7 @@ async function loadAdminData() {
     await loadAdminProfile();
     await loadAdminAnnouncement();
     await loadAdminPortals();
+    await loadAdminAdvertisements();
     await loadRedeemCodes();
     await loadVipUsers();
     await loadVerifiedUsers();
@@ -479,6 +544,7 @@ function openPortalModal(portal = null, index = null) {
         document.getElementById('portal-icon').value = portal.icon;
         document.getElementById('portal-description').value = portal.description || '';
         document.getElementById('portal-enabled').checked = portal.enabled;
+        document.getElementById('portal-pinned').checked = portal.pinned || false;
     } else {
         title.textContent = '添加门户';
         form.reset();
@@ -516,7 +582,8 @@ async function handlePortalSubmit(e) {
         url: document.getElementById('portal-url').value.trim(),
         icon: document.getElementById('portal-icon').value.trim(),
         description: document.getElementById('portal-description').value.trim(),
-        enabled: document.getElementById('portal-enabled').checked
+        enabled: document.getElementById('portal-enabled').checked,
+        pinned: document.getElementById('portal-pinned') ? document.getElementById('portal-pinned').checked : false
     };
 
     if (index !== '') {
@@ -540,6 +607,131 @@ async function savePortals() {
         renderPortalsList();
     } catch (error) {
         showMessage('portals-message', error.message, 'error');
+    }
+}
+
+// 广告位管理
+async function loadAdminAdvertisements() {
+    try {
+        currentAdvertisements = await apiRequest('/api/admin/advertisements');
+        renderAdvertisementsList();
+    } catch (error) {
+        console.error('加载广告位列表失败:', error);
+    }
+}
+
+// 渲染广告位列表
+function renderAdvertisementsList() {
+    const container = document.getElementById('advertisements-list');
+    if (!container) return;
+
+    if (currentAdvertisements.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p class="empty-state-text">暂无广告位</p></div>';
+        return;
+    }
+
+    container.innerHTML = currentAdvertisements.map((ad, index) => `
+        <div class="item-card">
+            <div class="item-icon">${ad.icon || '📢'}</div>
+            <div class="item-info">
+                <div class="item-name">${ad.title || '无标题'}</div>
+                <div class="item-url">${ad.link || '无链接'}</div>
+                <div class="item-desc">${ad.description || ''}</div>
+                ${ad.image ? `<div class="item-desc" style="margin-top: 5px;"><small>图片: ${ad.image}</small></div>` : ''}
+                <div class="item-desc" style="margin-top: 5px;"><small>排序: ${ad.order || 0}</small></div>
+            </div>
+            <span class="item-badge ${ad.enabled ? 'enabled' : 'disabled'}">
+                ${ad.enabled ? '启用' : '禁用'}
+            </span>
+            <div class="item-actions">
+                <button class="btn-secondary" onclick="editAdvertisement(${index})">编辑</button>
+                <button class="btn-danger" onclick="deleteAdvertisement(${index})">删除</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 打开广告位编辑弹窗
+function openAdvertisementModal(ad = null, index = null) {
+    const modal = document.getElementById('advertisement-modal');
+    const form = document.getElementById('advertisement-form');
+    const title = document.getElementById('advertisement-modal-title');
+    
+    if (ad) {
+        title.textContent = '编辑广告位';
+        document.getElementById('advertisement-id').value = index;
+        document.getElementById('advertisement-title').value = ad.title || '';
+        document.getElementById('advertisement-description').value = ad.description || '';
+        document.getElementById('advertisement-link').value = ad.link || '';
+        document.getElementById('advertisement-image').value = ad.image || '';
+        document.getElementById('advertisement-icon').value = ad.icon || '📢';
+        document.getElementById('advertisement-order').value = ad.order || 0;
+        document.getElementById('advertisement-enabled').checked = ad.enabled !== false;
+    } else {
+        title.textContent = '添加广告位';
+        form.reset();
+        document.getElementById('advertisement-id').value = '';
+        document.getElementById('advertisement-icon').value = '📢';
+        document.getElementById('advertisement-order').value = 0;
+        document.getElementById('advertisement-enabled').checked = true;
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function closeAdvertisementModal() {
+    const modal = document.getElementById('advertisement-modal');
+    modal.style.display = 'none';
+}
+
+function editAdvertisement(index) {
+    openAdvertisementModal(currentAdvertisements[index], index);
+}
+
+async function deleteAdvertisement(index) {
+    if (!confirm('确定要删除这个广告位吗？')) return;
+    
+    currentAdvertisements.splice(index, 1);
+    await saveAdvertisements();
+}
+
+// 保存广告位
+async function handleAdvertisementSubmit(e) {
+    e.preventDefault();
+    
+    const index = document.getElementById('advertisement-id').value;
+    const advertisement = {
+        id: index !== '' ? currentAdvertisements[parseInt(index)].id : Date.now().toString(),
+        title: document.getElementById('advertisement-title').value.trim(),
+        description: document.getElementById('advertisement-description').value.trim(),
+        link: document.getElementById('advertisement-link').value.trim(),
+        image: document.getElementById('advertisement-image').value.trim(),
+        icon: document.getElementById('advertisement-icon').value.trim() || '📢',
+        order: parseInt(document.getElementById('advertisement-order').value) || 0,
+        enabled: document.getElementById('advertisement-enabled').checked
+    };
+
+    if (index !== '') {
+        currentAdvertisements[parseInt(index)] = advertisement;
+    } else {
+        currentAdvertisements.push(advertisement);
+    }
+
+    await saveAdvertisements();
+    closeAdvertisementModal();
+}
+
+async function saveAdvertisements() {
+    try {
+        await apiRequest('/api/admin/advertisements', {
+            method: 'PUT',
+            body: JSON.stringify(currentAdvertisements)
+        });
+
+        showMessage('advertisements-message', '广告位列表保存成功！', 'success');
+        renderAdvertisementsList();
+    } catch (error) {
+        showMessage('advertisements-message', error.message, 'error');
     }
 }
 
@@ -712,7 +904,7 @@ async function deleteVipUser(email) {
     }
 }
 
-// 黄V认证管理
+// 金V认证管理
 async function loadVerifiedUsers() {
     try {
         const users = await apiRequest('/api/admin/verified-users');
@@ -882,6 +1074,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const portalForm = document.getElementById('portal-form');
         if (portalForm) portalForm.addEventListener('submit', handlePortalSubmit);
 
+        const advertisementForm = document.getElementById('advertisement-form');
+        if (advertisementForm) advertisementForm.addEventListener('submit', handleAdvertisementSubmit);
+
         const generateCodeForm = document.getElementById('generate-code-form');
         if (generateCodeForm) generateCodeForm.addEventListener('submit', handleGenerateCodeSubmit);
 
@@ -898,6 +1093,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const addPortalBtn = document.getElementById('add-portal-btn');
         if (addPortalBtn) addPortalBtn.addEventListener('click', () => openPortalModal());
 
+        const addAdvertisementBtn = document.getElementById('add-advertisement-btn');
+        if (addAdvertisementBtn) addAdvertisementBtn.addEventListener('click', () => openAdvertisementModal());
+
         const generateCodeBtn = document.getElementById('generate-code-btn');
         if (generateCodeBtn) generateCodeBtn.addEventListener('click', openGenerateCodeModal);
 
@@ -911,6 +1109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 主页初始化
         loadProfile();
         loadAnnouncement();
+        loadAdvertisements();
         loadPortals();
 
         // 兑换码表单
