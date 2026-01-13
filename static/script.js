@@ -379,7 +379,8 @@ async function loadPortals() {
             // 根据配置决定是否显示鱼缸
             setTimeout(async () => {
                 await loadFishTankConfigForFrontend();
-                const minPortals = fishTankConfig.minPortalsToHide || 3;
+                // 确保 minPortalsToHide 正确解析（0 是有效值，不应该被 || 覆盖）
+                const minPortals = fishTankConfig.minPortalsToHide !== undefined ? fishTankConfig.minPortalsToHide : 3;
                 console.log(`门户数量: 0, 阈值: ${minPortals}, 配置启用: ${fishTankConfig.enabled}`);
                 // 如果 minPortals === 0，始终显示；否则当门户数量 < 阈值时显示
                 if (fishTankConfig.enabled && (minPortals === 0 || 0 < minPortals)) {
@@ -398,7 +399,8 @@ async function loadPortals() {
         // 根据配置决定是否显示鱼缸
         setTimeout(async () => {
             await loadFishTankConfigForFrontend();
-            const minPortals = fishTankConfig.minPortalsToHide || 3;
+            // 确保 minPortalsToHide 正确解析（0 是有效值，不应该被 || 覆盖）
+            const minPortals = fishTankConfig.minPortalsToHide !== undefined ? fishTankConfig.minPortalsToHide : 3;
             console.log(`门户数量: ${portals.length}, 阈值: ${minPortals}, 配置启用: ${fishTankConfig.enabled}`);
             // 如果 minPortals === 0，始终显示；否则当门户数量 < 阈值时显示
             if (fishTankConfig.enabled && (minPortals === 0 || portals.length < minPortals)) {
@@ -453,8 +455,12 @@ function ensureFishTankConfig() {
     if (fishTankConfig.enabled === undefined) {
         fishTankConfig.enabled = true;
     }
-    if (fishTankConfig.minPortalsToHide === undefined) {
+    // 注意：minPortalsToHide 为 0 是有效值，不应该被覆盖
+    if (fishTankConfig.minPortalsToHide === undefined || fishTankConfig.minPortalsToHide === null) {
         fishTankConfig.minPortalsToHide = 3;
+    } else {
+        // 确保是数字类型
+        fishTankConfig.minPortalsToHide = parseInt(fishTankConfig.minPortalsToHide);
     }
 }
 
@@ -462,6 +468,10 @@ function ensureFishTankConfig() {
 async function loadFishTankConfigForFrontend() {
     try {
         fishTankConfig = await apiRequest('/api/fish-tank-config');
+        // 确保配置正确解析，特别是 minPortalsToHide 为 0 的情况
+        if (fishTankConfig && typeof fishTankConfig.minPortalsToHide !== 'undefined') {
+            fishTankConfig.minPortalsToHide = parseInt(fishTankConfig.minPortalsToHide) || 0;
+        }
         ensureFishTankConfig();
     } catch (error) {
         console.error('加载鱼缸配置失败:', error);
@@ -490,17 +500,17 @@ async function showFishTank() {
         return;
     }
     
-    // 随机生成2-4条鱼
-    const fishEmojis = ['🐟', '🐠', '🐡', '🦈', '🐙', '🦑'];
-    const fishCount = Math.floor(Math.random() * 3) + 2; // 2-4条
+    // 随机生成3-6条鱼，增加多样性
+    const fishEmojis = ['🐟', '🐠', '🐡', '🦈', '🐙', '🦑', '🐋', '🐬', '🦐', '🦀'];
+    const fishCount = Math.floor(Math.random() * 4) + 3; // 3-6条
     const selectedFish = [];
     for (let i = 0; i < fishCount; i++) {
         const randomFish = fishEmojis[Math.floor(Math.random() * fishEmojis.length)];
         selectedFish.push(randomFish);
     }
     
-    // 生成气泡（5-8个）
-    const bubbleCount = Math.floor(Math.random() * 4) + 5;
+    // 生成气泡（8-12个），增加气泡数量让效果更丰富
+    const bubbleCount = Math.floor(Math.random() * 5) + 8;
     const bubbles = [];
     for (let i = 1; i <= bubbleCount; i++) {
         bubbles.push(`<div class="bubble bubble-${i}"></div>`);

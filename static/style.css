@@ -662,33 +662,81 @@ body {
     /* 对齐门户网格的宽度，与门户卡片区域同宽 */
     max-width: 100%;
     /* 自动调整高度，根据视口高度动态调整 */
-    height: clamp(250px, 30vh, 400px);
-    background: linear-gradient(to bottom, #E3F2FD 0%, #BBDEFB 50%, #90CAF9 100%);
+    height: clamp(280px, 35vh, 450px);
+    /* 更美观的渐变背景，模拟真实水族箱 */
+    background: linear-gradient(to bottom, 
+        #E8F5E9 0%, 
+        #C8E6C9 15%,
+        #A5D6A7 30%,
+        #81C784 50%,
+        #66BB6A 70%,
+        #4CAF50 85%,
+        #388E3C 100%);
     border-radius: var(--radius-lg);
-    border: 3px solid #64B5F6;
-    box-shadow: var(--shadow-md), inset 0 -20px 30px rgba(33, 150, 243, 0.3);
+    /* 更精致的边框，模拟玻璃效果 */
+    border: 4px solid #2E7D32;
+    box-shadow: 
+        0 8px 32px rgba(46, 125, 50, 0.3),
+        inset 0 0 60px rgba(76, 175, 80, 0.2),
+        inset 0 -30px 50px rgba(27, 94, 32, 0.4);
     position: relative;
     overflow: hidden;
     margin: 0 auto;
+    /* 添加玻璃反光效果 */
+    background-image: 
+        linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        linear-gradient(to bottom, 
+            #E8F5E9 0%, 
+            #C8E6C9 15%,
+            #A5D6A7 30%,
+            #81C784 50%,
+            #66BB6A 70%,
+            #4CAF50 85%,
+            #388E3C 100%);
 }
 
 .fish-tank-water {
     width: 100%;
     height: 100%;
     position: relative;
+    /* 更自然的水效果，带有透明度和波纹感 */
     background: linear-gradient(to bottom, 
-        rgba(179, 229, 252, 0.6) 0%, 
-        rgba(129, 212, 250, 0.8) 50%, 
-        rgba(100, 181, 246, 0.9) 100%);
+        rgba(232, 245, 233, 0.3) 0%, 
+        rgba(200, 230, 201, 0.4) 20%,
+        rgba(165, 214, 167, 0.5) 40%,
+        rgba(129, 199, 132, 0.6) 60%,
+        rgba(102, 187, 106, 0.7) 80%,
+        rgba(76, 175, 80, 0.8) 100%);
     overflow: hidden;
+    /* 添加水波纹动画效果 */
+    animation: waterRipple 8s ease-in-out infinite;
+}
+
+@keyframes waterRipple {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
 }
 
 /* 鱼游动动画 */
 .fish {
     position: absolute;
-    font-size: 32px;
+    font-size: 36px;
     animation: fishSwim 8s ease-in-out infinite;
-    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.2));
+    /* 更明显的阴影和光效 */
+    filter: 
+        drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3))
+        drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
+    /* 添加轻微的缩放动画，模拟游动 */
+    transform-origin: center;
+    transition: transform 0.3s ease;
+}
+
+.fish:hover {
+    transform: scale(1.1);
 }
 
 .fish-1 {
@@ -743,9 +791,15 @@ body {
 /* 气泡动画 */
 .bubble {
     position: absolute;
-    background: rgba(255, 255, 255, 0.6);
+    /* 更美观的气泡，带有渐变和光效 */
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.4));
     border-radius: 50%;
     animation: bubbleRise 4s ease-in-out infinite;
+    /* 添加边框和阴影，让气泡更立体 */
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 
+        0 0 4px rgba(255, 255, 255, 0.6),
+        inset 0 0 8px rgba(255, 255, 255, 0.3);
 }
 
 .bubble-1 {
