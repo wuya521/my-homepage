@@ -415,6 +415,7 @@
                     <div class="card-header">
                         <h3>勋章定义管理</h3>
                         <p class="card-description">管理勋章定义，支持自定义emoji图标</p>
+                        <button id="add-badge-definition-btn" class="btn-secondary">+ 添加勋章</button>
                     </div>
                     <div id="badge-definitions-list" class="items-list">
                         <!-- 勋章定义列表将通过 JS 动态加载 -->
@@ -704,7 +705,7 @@
         </div>
     </div>
 
-    <!-- 编辑勋章定义弹窗 -->
+    <!-- 编辑/添加勋章定义弹窗 -->
     <div id="edit-badge-definition-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
@@ -713,6 +714,11 @@
             </div>
             <form id="edit-badge-definition-form" class="form">
                 <input type="hidden" id="edit-badge-id">
+                <div class="form-group">
+                    <label for="edit-badge-id-input">勋章ID</label>
+                    <input type="text" id="edit-badge-id-input" placeholder="例如：emperor（英文，用于标识）" required>
+                    <span class="form-hint" id="edit-badge-id-hint">编辑模式下不可修改</span>
+                </div>
                 <div class="form-group">
                     <label for="edit-badge-name">勋章名称</label>
                     <input type="text" id="edit-badge-name" placeholder="例如：皇上" required>

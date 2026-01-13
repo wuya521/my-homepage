@@ -373,19 +373,21 @@ async function loadPortals() {
         
         if (!container) return;
 
+        // 只显示实际的门户，不显示占位卡片
         if (portals.length === 0) {
-            // 显示占位内容
-            showPortalPlaceholders(container);
+            container.innerHTML = '';
+            // 显示鱼缸动画
+            showFishTank();
             return;
         }
 
-        // 如果门户数量少于6个，显示一些占位内容
-        if (portals.length < 6) {
-            const placeholders = generatePortalPlaceholders(6 - portals.length);
-            const allItems = [...portals, ...placeholders];
-            container.innerHTML = allItems.map(item => renderPortalCard(item)).join('');
+        container.innerHTML = portals.map(portal => renderPortalCard(portal)).join('');
+        
+        // 如果门户数量少于3个，显示鱼缸动画
+        if (portals.length < 3) {
+            showFishTank();
         } else {
-            container.innerHTML = portals.map(portal => renderPortalCard(portal)).join('');
+            hideFishTank();
         }
     } catch (error) {
         console.error('加载门户链接失败:', error);
@@ -393,24 +395,11 @@ async function loadPortals() {
 }
 
 function renderPortalCard(portal) {
-    const isPlaceholder = portal.isPlaceholder;
     const tags = portal.tags || [];
     const tagBadges = tags.map(tag => {
         const color = tagColors[tag] || '#8A8F98';
         return `<span class="portal-tag" style="background: ${color}20; color: ${color}; border: 1px solid ${color}40;">${tag}</span>`;
     }).join('');
-    
-    if (isPlaceholder) {
-        return `
-            <div class="portal-card placeholder-portal">
-                <div class="portal-icon">${portal.icon || '✨'}</div>
-                <div class="portal-info">
-                    <h3 class="portal-name">${portal.name}</h3>
-                    <p class="portal-desc">${portal.description || ''}</p>
-                </div>
-            </div>
-        `;
-    }
     
     return `
         <a href="${portal.url}" target="_blank" class="portal-card ${portal.pinned ? 'pinned' : ''}">
@@ -427,25 +416,52 @@ function renderPortalCard(portal) {
     `;
 }
 
-function showPortalPlaceholders(container) {
-    const placeholders = generatePortalPlaceholders(6);
-    container.innerHTML = placeholders.map(item => renderPortalCard(item)).join('');
+// 显示鱼缸动画
+function showFishTank() {
+    let fishTankContainer = document.getElementById('fish-tank-container');
+    if (!fishTankContainer) {
+        // 创建鱼缸容器
+        fishTankContainer = document.createElement('div');
+        fishTankContainer.id = 'fish-tank-container';
+        fishTankContainer.className = 'fish-tank-container';
+        
+        // 插入到门户区域后面
+        const portalsSection = document.querySelector('.portals-section');
+        if (portalsSection) {
+            portalsSection.appendChild(fishTankContainer);
+        } else {
+            // 如果找不到门户区域，插入到主内容区域
+            const contentMain = document.querySelector('.content-main');
+            if (contentMain) {
+                contentMain.appendChild(fishTankContainer);
+            }
+        }
+    }
+    
+    fishTankContainer.style.display = 'block';
+    fishTankContainer.innerHTML = `
+        <div class="fish-tank">
+            <div class="fish-tank-water">
+                <div class="fish fish-1">🐟</div>
+                <div class="fish fish-2">🐠</div>
+                <div class="fish fish-3">🐡</div>
+                <div class="fish fish-4">🦈</div>
+                <div class="bubble bubble-1"></div>
+                <div class="bubble bubble-2"></div>
+                <div class="bubble bubble-3"></div>
+                <div class="bubble bubble-4"></div>
+                <div class="bubble bubble-5"></div>
+            </div>
+        </div>
+    `;
 }
 
-function generatePortalPlaceholders(count) {
-    const placeholderTemplates = [
-        { icon: '🌟', name: '探索更多', description: '发现精彩内容' },
-        { icon: '💡', name: '创意工坊', description: '激发无限灵感' },
-        { icon: '🚀', name: '快速通道', description: '直达目标页面' },
-        { icon: '🎯', name: '精选推荐', description: '不容错过的内容' },
-        { icon: '⭐', name: '热门收藏', description: '大家都在看' },
-        { icon: '🎨', name: '设计灵感', description: '发现美的瞬间' }
-    ];
-    
-    return placeholderTemplates.slice(0, count).map(template => ({
-        ...template,
-        isPlaceholder: true
-    }));
+// 隐藏鱼缸动画
+function hideFishTank() {
+    const fishTankContainer = document.getElementById('fish-tank-container');
+    if (fishTankContainer) {
+        fishTankContainer.style.display = 'none';
+    }
 }
 
 // 检查兑换码并加载可选内容
@@ -1637,11 +1653,19 @@ async function loadBadges() {
 async function loadBadgeDefinitions() {
     try {
         currentBadgeDefinitions = await apiRequest('/api/admin/badges');
+        // 确保返回的是对象
+        if (!currentBadgeDefinitions || typeof currentBadgeDefinitions !== 'object') {
+            currentBadgeDefinitions = {};
+        }
+        console.log('加载的勋章定义:', currentBadgeDefinitions);
+        console.log('勋章数量:', Object.keys(currentBadgeDefinitions).length);
         renderBadgeDefinitions(currentBadgeDefinitions);
         // 更新授予勋章的选项
         updateGrantBadgeOptions(currentBadgeDefinitions);
     } catch (error) {
         console.error('加载勋章定义失败:', error);
+        currentBadgeDefinitions = {};
+        updateGrantBadgeOptions({});
     }
 }
 
@@ -1651,7 +1675,7 @@ function renderBadgeDefinitions(badges) {
 
     const badgeKeys = Object.keys(badges);
     if (badgeKeys.length === 0) {
-        container.innerHTML = '<div class="empty-state"><p class="empty-state-text">暂无勋章定义</p></div>';
+        container.innerHTML = '<div class="empty-state"><p class="empty-state-text">暂无勋章定义，点击"添加勋章"按钮创建</p></div>';
         return;
     }
 
@@ -1661,7 +1685,7 @@ function renderBadgeDefinitions(badges) {
             <div class="item-card">
                 <div class="item-icon">${badge.icon || '🏆'}</div>
                 <div class="item-info">
-                    <div class="item-name">${badge.name || badgeId}</div>
+                    <div class="item-name">${badge.name || badgeId} <small style="color: var(--text-muted);">(${badgeId})</small></div>
                     <div class="item-desc">${badge.description || ''}</div>
                     <div class="item-desc" style="margin-top: 5px;">
                         <small>颜色: <span style="color: ${badge.color || '#FFD700'}">${badge.color || '#FFD700'}</span></small>
@@ -1669,6 +1693,7 @@ function renderBadgeDefinitions(badges) {
                 </div>
                 <div class="item-actions">
                     <button class="btn-secondary" onclick="editBadgeDefinition('${badgeId}')">编辑</button>
+                    <button class="btn-danger" onclick="deleteBadgeDefinition('${badgeId}')">删除</button>
                 </div>
             </div>
         `;
@@ -1677,12 +1702,45 @@ function renderBadgeDefinitions(badges) {
 
 function updateGrantBadgeOptions(badges) {
     const select = document.getElementById('grant-badge-id');
-    if (!select) return;
+    if (!select) {
+        console.warn('未找到grant-badge-id元素');
+        return;
+    }
     
-    select.innerHTML = Object.keys(badges).map(badgeId => {
+    const badgeKeys = Object.keys(badges || {});
+    console.log('更新勋章选项，数量:', badgeKeys.length);
+    
+    if (badgeKeys.length === 0) {
+        // 如果没有勋章定义，显示提示选项
+        select.innerHTML = '<option value="">暂无可用勋章，请先添加勋章定义</option>';
+        select.disabled = true;
+        return;
+    }
+    
+    select.disabled = false;
+    const options = badgeKeys.map(badgeId => {
         const badge = badges[badgeId];
         return `<option value="${badgeId}">${badge.icon || '🏆'} ${badge.name || badgeId}</option>`;
     }).join('');
+    select.innerHTML = options;
+    console.log('勋章选项已更新:', options);
+}
+
+function openAddBadgeDefinitionModal() {
+    const modal = document.getElementById('edit-badge-definition-modal');
+    const form = document.getElementById('edit-badge-definition-form');
+    form.reset();
+    
+    document.getElementById('edit-badge-id').value = '';
+    document.getElementById('edit-badge-id-input').value = '';
+    document.getElementById('edit-badge-id-input').disabled = false;
+    document.getElementById('edit-badge-id-hint').textContent = '英文标识，例如：emperor、hero等';
+    document.getElementById('edit-badge-name').value = '';
+    document.getElementById('edit-badge-icon').value = '';
+    document.getElementById('edit-badge-color').value = '#FFD700';
+    document.getElementById('edit-badge-description').value = '';
+    document.getElementById('edit-badge-modal-title').textContent = '添加勋章定义';
+    modal.style.display = 'flex';
 }
 
 function editBadgeDefinition(badgeId) {
@@ -1690,7 +1748,13 @@ function editBadgeDefinition(badgeId) {
     if (!badge) return;
 
     const modal = document.getElementById('edit-badge-definition-modal');
+    const form = document.getElementById('edit-badge-definition-form');
+    form.reset();
+    
     document.getElementById('edit-badge-id').value = badgeId;
+    document.getElementById('edit-badge-id-input').value = badgeId;
+    document.getElementById('edit-badge-id-input').disabled = true;
+    document.getElementById('edit-badge-id-hint').textContent = '编辑模式下不可修改';
     document.getElementById('edit-badge-name').value = badge.name || '';
     document.getElementById('edit-badge-icon').value = badge.icon || '';
     document.getElementById('edit-badge-color').value = badge.color || '#FFD700';
@@ -1707,7 +1771,8 @@ function closeEditBadgeDefinitionModal() {
 async function handleEditBadgeDefinitionSubmit(e) {
     e.preventDefault();
     
-    const badgeId = document.getElementById('edit-badge-id').value;
+    const existingBadgeId = document.getElementById('edit-badge-id').value;
+    const newBadgeId = document.getElementById('edit-badge-id-input').value.trim();
     const badge = {
         name: document.getElementById('edit-badge-name').value.trim(),
         icon: document.getElementById('edit-badge-icon').value.trim(),
@@ -1715,20 +1780,55 @@ async function handleEditBadgeDefinitionSubmit(e) {
         description: document.getElementById('edit-badge-description').value.trim()
     };
 
+    if (!newBadgeId) {
+        showMessage('badge-definitions-message', '请输入勋章ID', 'error');
+        return;
+    }
+
     if (!badge.name || !badge.icon) {
         showMessage('badge-definitions-message', '名称和图标不能为空', 'error');
         return;
     }
 
+    // 如果是添加新勋章，检查ID是否已存在
+    if (!existingBadgeId && currentBadgeDefinitions[newBadgeId]) {
+        showMessage('badge-definitions-message', '该勋章ID已存在，请使用其他ID', 'error');
+        return;
+    }
+
     try {
-        currentBadgeDefinitions[badgeId] = badge;
+        // 如果是编辑且ID改变了，需要删除旧的
+        if (existingBadgeId && existingBadgeId !== newBadgeId) {
+            delete currentBadgeDefinitions[existingBadgeId];
+        }
+        
+        currentBadgeDefinitions[newBadgeId] = badge;
         await apiRequest('/api/admin/badges', {
             method: 'PUT',
             body: JSON.stringify(currentBadgeDefinitions)
         });
 
-        showMessage('badge-definitions-message', '勋章定义保存成功！', 'success');
+        showMessage('badge-definitions-message', existingBadgeId ? '勋章定义更新成功！' : '勋章定义添加成功！', 'success');
         closeEditBadgeDefinitionModal();
+        await loadBadgeDefinitions();
+    } catch (error) {
+        showMessage('badge-definitions-message', error.message, 'error');
+    }
+}
+
+async function deleteBadgeDefinition(badgeId) {
+    if (!confirm(`确定要删除勋章"${currentBadgeDefinitions[badgeId]?.name || badgeId}"吗？`)) {
+        return;
+    }
+
+    try {
+        delete currentBadgeDefinitions[badgeId];
+        await apiRequest('/api/admin/badges', {
+            method: 'PUT',
+            body: JSON.stringify(currentBadgeDefinitions)
+        });
+
+        showMessage('badge-definitions-message', '勋章定义删除成功！', 'success');
         await loadBadgeDefinitions();
     } catch (error) {
         showMessage('badge-definitions-message', error.message, 'error');
@@ -1780,6 +1880,8 @@ async function openGrantBadgeModal() {
     if (Object.keys(currentBadgeDefinitions).length === 0) {
         await loadBadgeDefinitions();
     }
+    // 再次更新选项，确保下拉框有内容
+    updateGrantBadgeOptions(currentBadgeDefinitions);
     modal.style.display = 'flex';
 }
 
@@ -1791,10 +1893,21 @@ function closeGrantBadgeModal() {
 async function handleGrantBadgeSubmit(e) {
     e.preventDefault();
     
+    const badgeId = document.getElementById('grant-badge-id').value;
+    if (!badgeId) {
+        showMessage('badges-message', '请选择要授予的勋章', 'error');
+        return;
+    }
+    
     const data = {
         email: document.getElementById('grant-badge-email').value.trim(),
-        badgeId: document.getElementById('grant-badge-id').value
+        badgeId: badgeId
     };
+
+    if (!data.email) {
+        showMessage('badges-message', '请输入邮箱', 'error');
+        return;
+    }
 
     try {
         await apiRequest('/api/admin/badges/grant', {
@@ -2133,6 +2246,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const editBadgeDefinitionForm = document.getElementById('edit-badge-definition-form');
         if (editBadgeDefinitionForm) editBadgeDefinitionForm.addEventListener('submit', handleEditBadgeDefinitionSubmit);
+
+        const addBadgeDefinitionBtn = document.getElementById('add-badge-definition-btn');
+        if (addBadgeDefinitionBtn) addBadgeDefinitionBtn.addEventListener('click', openAddBadgeDefinitionModal);
 
         const addExpBtn = document.getElementById('add-exp-btn');
         if (addExpBtn) addExpBtn.addEventListener('click', () => openAddExpModal());
