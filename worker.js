@@ -144,20 +144,19 @@ async function initializeDefaultData(KV) {
     // 初始化用户等级
     await KV.put(STORAGE_KEYS.USER_LEVELS, JSON.stringify([]));
 
-    // 初始化等级配置
+    // 初始化等级配置（新格式）
     const defaultLevelConfig = {
       checkinExp: 10, // 签到获得经验
+      leveling_rule: {
+        type: 'cumulative',
+        note: 'required_xp 为到达该等级的累计经验门槛（>= 即达成）'
+      },
       levels: [
-        { level: 1, exp: 0 },
-        { level: 2, exp: 100 },
-        { level: 3, exp: 300 },
-        { level: 4, exp: 600 },
-        { level: 5, exp: 1000 },
-        { level: 6, exp: 1500 },
-        { level: 7, exp: 2100 },
-        { level: 8, exp: 2800 },
-        { level: 9, exp: 3600 },
-        { level: 10, exp: 4500 }
+        { level: 1, title: '庶民', required_xp: 0, color: '#8A8F98', badge: '🪶', privilege_points: 0 },
+        { level: 2, title: '新丁', required_xp: 50, color: '#7C8AA3', badge: '🌱', privilege_points: 0 },
+        { level: 3, title: '小吏', required_xp: 120, color: '#5D7A96', badge: '📜', privilege_points: 0 },
+        { level: 4, title: '从九品', required_xp: 220, color: '#4F7D7A', badge: '🔰', privilege_points: 1 },
+        { level: 5, title: '正九品', required_xp: 360, color: '#3F8062', badge: '🟩', privilege_points: 1 }
       ]
     };
     await KV.put(STORAGE_KEYS.LEVEL_CONFIG, JSON.stringify(defaultLevelConfig));
@@ -574,18 +573,39 @@ async function handleRequest(request, env) {
 
     const userLevel = userLevels.find(ul => ul.email === email) || { email, level: 1, exp: 0 };
     
-    // 计算当前等级和下一级所需经验
+    // 计算当前等级和下一级所需经验（支持新旧格式）
     let currentLevel = 1;
     let nextLevelExp = 100;
-    for (let i = levelConfig.levels.length - 1; i >= 0; i--) {
-      if (userLevel.exp >= levelConfig.levels[i].exp) {
-        currentLevel = levelConfig.levels[i].level;
-        if (i < levelConfig.levels.length - 1) {
-          nextLevelExp = levelConfig.levels[i + 1].exp;
-        } else {
-          nextLevelExp = levelConfig.levels[i].exp + 500; // 最高级后每500经验升一级
+    const levels = levelConfig.levels || [];
+    
+    // 检查是否是新格式（有required_xp字段）
+    const isNewFormat = levels.length > 0 && levels[0].required_xp !== undefined;
+    
+    if (isNewFormat) {
+      // 新格式：使用required_xp（累计经验）
+      for (let i = levels.length - 1; i >= 0; i--) {
+        if (userLevel.exp >= levels[i].required_xp) {
+          currentLevel = levels[i].level;
+          if (i < levels.length - 1) {
+            nextLevelExp = levels[i + 1].required_xp;
+          } else {
+            nextLevelExp = levels[i].required_xp + 500; // 最高级后每500经验升一级
+          }
+          break;
         }
-        break;
+      }
+    } else {
+      // 旧格式：使用exp字段（兼容）
+      for (let i = levels.length - 1; i >= 0; i--) {
+        if (userLevel.exp >= levels[i].exp) {
+          currentLevel = levels[i].level;
+          if (i < levels.length - 1) {
+            nextLevelExp = levels[i + 1].exp;
+          } else {
+            nextLevelExp = levels[i].exp + 500;
+          }
+          break;
+        }
       }
     }
 
@@ -649,6 +669,21 @@ async function handleRequest(request, env) {
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 20); // 最多返回20条
     return jsonResponse({ events: enabledEvents });
+  }
+
+  // 获取等级配置（公开接口，用于前端显示等级名称）
+  if (path === '/api/level-config' && method === 'GET') {
+    const levelConfigData = await env.MY_HOME_KV.get(STORAGE_KEYS.LEVEL_CONFIG);
+    const levelConfig = levelConfigData ? JSON.parse(levelConfigData) : {
+      checkinExp: 10,
+      leveling_rule: { type: 'cumulative' },
+      levels: []
+    };
+    // 只返回必要的配置信息，不返回敏感数据
+    return jsonResponse({
+      leveling_rule: levelConfig.leveling_rule,
+      levels: levelConfig.levels || []
+    });
   }
 
   // ==================== 前端页面路由（无需认证）====================
@@ -1007,6 +1042,13 @@ async function handleRequest(request, env) {
   if (path === '/api/admin/badges' && method === 'GET') {
     const badgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.BADGES);
     return jsonResponse(badgesData ? JSON.parse(badgesData) : {});
+  }
+
+  // 更新勋章定义
+  if (path === '/api/admin/badges' && method === 'PUT') {
+    const badges = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.BADGES, JSON.stringify(badges));
+    return jsonResponse({ success: true, message: '勋章定义更新成功' });
   }
 
   // 获取所有用户勋章列表

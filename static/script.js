@@ -212,7 +212,14 @@ async function loadAnnouncement() {
 
         if (announcement && announcement.enabled) {
             if (titleEl) titleEl.textContent = announcement.title || '公告';
-            if (contentEl) contentEl.textContent = announcement.content || '';
+            // 支持Markdown格式
+            if (contentEl && announcement.content) {
+                if (typeof marked !== 'undefined') {
+                    contentEl.innerHTML = marked.parse(announcement.content);
+                } else {
+                    contentEl.textContent = announcement.content;
+                }
+            }
             if (timeEl) timeEl.textContent = `更新于 ${formatDate(announcement.updatedAt)}`;
             if (section) section.style.display = 'block';
         } else {
@@ -307,8 +314,17 @@ function showPopupAd(popupAd) {
     
     if (!overlay || !content) return;
     
-    // 支持HTML格式
-    content.innerHTML = popupAd.content || '';
+    // 支持HTML格式，但移除内容中可能存在的关闭按钮
+    let htmlContent = popupAd.content || '';
+    // 移除内容中可能存在的关闭按钮（通过类名或ID匹配）
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    // 移除所有可能的关闭按钮
+    const closeButtons = tempDiv.querySelectorAll('.popup-ad-close, .close, [onclick*="close"], button.close, .close-btn');
+    closeButtons.forEach(btn => btn.remove());
+    htmlContent = tempDiv.innerHTML;
+    
+    content.innerHTML = htmlContent;
     
     overlay.style.display = 'flex';
     
@@ -339,6 +355,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// 标签颜色映射
+const tagColors = {
+    '置顶': '#FFD700',
+    '火爆': '#FF4500',
+    '已认证': '#10b981',
+    '推广': '#667eea',
+    '热门': '#FF6B6B',
+    '推荐': '#4ECDC4'
+};
+
 // 加载门户链接
 async function loadPortals() {
     try {
@@ -348,23 +374,78 @@ async function loadPortals() {
         if (!container) return;
 
         if (portals.length === 0) {
-            container.innerHTML = '<p class="empty-state-text">暂无门户链接</p>';
+            // 显示占位内容
+            showPortalPlaceholders(container);
             return;
         }
 
-        container.innerHTML = portals.map(portal => `
-            <a href="${portal.url}" target="_blank" class="portal-card ${portal.pinned ? 'pinned' : ''}">
-                ${portal.pinned ? '<span class="pinned-badge">置顶</span>' : ''}
-                <div class="portal-icon">${portal.icon || '🔗'}</div>
+        // 如果门户数量少于6个，显示一些占位内容
+        if (portals.length < 6) {
+            const placeholders = generatePortalPlaceholders(6 - portals.length);
+            const allItems = [...portals, ...placeholders];
+            container.innerHTML = allItems.map(item => renderPortalCard(item)).join('');
+        } else {
+            container.innerHTML = portals.map(portal => renderPortalCard(portal)).join('');
+        }
+    } catch (error) {
+        console.error('加载门户链接失败:', error);
+    }
+}
+
+function renderPortalCard(portal) {
+    const isPlaceholder = portal.isPlaceholder;
+    const tags = portal.tags || [];
+    const tagBadges = tags.map(tag => {
+        const color = tagColors[tag] || '#8A8F98';
+        return `<span class="portal-tag" style="background: ${color}20; color: ${color}; border: 1px solid ${color}40;">${tag}</span>`;
+    }).join('');
+    
+    if (isPlaceholder) {
+        return `
+            <div class="portal-card placeholder-portal">
+                <div class="portal-icon">${portal.icon || '✨'}</div>
                 <div class="portal-info">
                     <h3 class="portal-name">${portal.name}</h3>
                     <p class="portal-desc">${portal.description || ''}</p>
                 </div>
-            </a>
-        `).join('');
-    } catch (error) {
-        console.error('加载门户链接失败:', error);
+            </div>
+        `;
     }
+    
+    return `
+        <a href="${portal.url}" target="_blank" class="portal-card ${portal.pinned ? 'pinned' : ''}">
+            ${portal.pinned ? '<span class="pinned-badge">置顶</span>' : ''}
+            <div class="portal-icon">${portal.icon || '🔗'}</div>
+            <div class="portal-info">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+                    <h3 class="portal-name">${portal.name}</h3>
+                    ${tagBadges}
+                </div>
+                <p class="portal-desc">${portal.description || ''}</p>
+            </div>
+        </a>
+    `;
+}
+
+function showPortalPlaceholders(container) {
+    const placeholders = generatePortalPlaceholders(6);
+    container.innerHTML = placeholders.map(item => renderPortalCard(item)).join('');
+}
+
+function generatePortalPlaceholders(count) {
+    const placeholderTemplates = [
+        { icon: '🌟', name: '探索更多', description: '发现精彩内容' },
+        { icon: '💡', name: '创意工坊', description: '激发无限灵感' },
+        { icon: '🚀', name: '快速通道', description: '直达目标页面' },
+        { icon: '🎯', name: '精选推荐', description: '不容错过的内容' },
+        { icon: '⭐', name: '热门收藏', description: '大家都在看' },
+        { icon: '🎨', name: '设计灵感', description: '发现美的瞬间' }
+    ];
+    
+    return placeholderTemplates.slice(0, count).map(template => ({
+        ...template,
+        isPlaceholder: true
+    }));
 }
 
 // 检查兑换码并加载可选内容
@@ -538,8 +619,22 @@ async function loadUserLevel(email) {
         const expProgressEl = document.getElementById('exp-progress');
         const checkinBtn = document.getElementById('checkin-btn');
 
+        // 获取等级配置以显示等级名称
+        let levelTitle = `Lv.${result.level || 1}`;
+        try {
+            const levelConfig = await apiRequest('/api/level-config');
+            if (levelConfig.levels && levelConfig.levels.length > 0) {
+                const currentLevelData = levelConfig.levels.find(l => l.level === (result.level || 1));
+                if (currentLevelData && currentLevelData.title) {
+                    levelTitle = `${currentLevelData.badge || ''} ${currentLevelData.title}`;
+                }
+            }
+        } catch (e) {
+            // 忽略错误，使用默认显示
+        }
+
         if (levelEl) {
-            levelEl.textContent = `Lv.${result.level || 1}`;
+            levelEl.textContent = levelTitle;
         }
         if (currentExpEl) {
             currentExpEl.textContent = result.exp || 0;
@@ -919,6 +1014,7 @@ function openPortalModal(portal = null, index = null) {
         document.getElementById('portal-url').value = portal.url;
         document.getElementById('portal-icon').value = portal.icon;
         document.getElementById('portal-description').value = portal.description || '';
+        document.getElementById('portal-tags').value = portal.tags ? portal.tags.join(',') : '';
         document.getElementById('portal-enabled').checked = portal.enabled;
         document.getElementById('portal-pinned').checked = portal.pinned || false;
     } else {
@@ -952,12 +1048,16 @@ async function handlePortalSubmit(e) {
     e.preventDefault();
     
     const index = document.getElementById('portal-id').value;
+    const tagsInput = document.getElementById('portal-tags').value.trim();
+    const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
+    
     const portal = {
         id: index || Date.now().toString(),
         name: document.getElementById('portal-name').value.trim(),
         url: document.getElementById('portal-url').value.trim(),
         icon: document.getElementById('portal-icon').value.trim(),
         description: document.getElementById('portal-description').value.trim(),
+        tags: tags,
         enabled: document.getElementById('portal-enabled').checked,
         pinned: document.getElementById('portal-pinned') ? document.getElementById('portal-pinned').checked : false
     };
@@ -1520,13 +1620,118 @@ async function handlePasswordSubmit(e) {
 
 // ==================== 勋章管理 ====================
 
+let currentBadgeDefinitions = {};
+
 async function loadBadges() {
     try {
         const userBadges = await apiRequest('/api/admin/user-badges');
         renderBadges(userBadges);
+        // 同时加载勋章定义
+        await loadBadgeDefinitions();
     } catch (error) {
         console.error('加载勋章失败:', error);
         renderBadges([]);
+    }
+}
+
+async function loadBadgeDefinitions() {
+    try {
+        currentBadgeDefinitions = await apiRequest('/api/admin/badges');
+        renderBadgeDefinitions(currentBadgeDefinitions);
+        // 更新授予勋章的选项
+        updateGrantBadgeOptions(currentBadgeDefinitions);
+    } catch (error) {
+        console.error('加载勋章定义失败:', error);
+    }
+}
+
+function renderBadgeDefinitions(badges) {
+    const container = document.getElementById('badge-definitions-list');
+    if (!container) return;
+
+    const badgeKeys = Object.keys(badges);
+    if (badgeKeys.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p class="empty-state-text">暂无勋章定义</p></div>';
+        return;
+    }
+
+    container.innerHTML = badgeKeys.map(badgeId => {
+        const badge = badges[badgeId];
+        return `
+            <div class="item-card">
+                <div class="item-icon">${badge.icon || '🏆'}</div>
+                <div class="item-info">
+                    <div class="item-name">${badge.name || badgeId}</div>
+                    <div class="item-desc">${badge.description || ''}</div>
+                    <div class="item-desc" style="margin-top: 5px;">
+                        <small>颜色: <span style="color: ${badge.color || '#FFD700'}">${badge.color || '#FFD700'}</span></small>
+                    </div>
+                </div>
+                <div class="item-actions">
+                    <button class="btn-secondary" onclick="editBadgeDefinition('${badgeId}')">编辑</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateGrantBadgeOptions(badges) {
+    const select = document.getElementById('grant-badge-id');
+    if (!select) return;
+    
+    select.innerHTML = Object.keys(badges).map(badgeId => {
+        const badge = badges[badgeId];
+        return `<option value="${badgeId}">${badge.icon || '🏆'} ${badge.name || badgeId}</option>`;
+    }).join('');
+}
+
+function editBadgeDefinition(badgeId) {
+    const badge = currentBadgeDefinitions[badgeId];
+    if (!badge) return;
+
+    const modal = document.getElementById('edit-badge-definition-modal');
+    document.getElementById('edit-badge-id').value = badgeId;
+    document.getElementById('edit-badge-name').value = badge.name || '';
+    document.getElementById('edit-badge-icon').value = badge.icon || '';
+    document.getElementById('edit-badge-color').value = badge.color || '#FFD700';
+    document.getElementById('edit-badge-description').value = badge.description || '';
+    document.getElementById('edit-badge-modal-title').textContent = '编辑勋章定义';
+    modal.style.display = 'flex';
+}
+
+function closeEditBadgeDefinitionModal() {
+    const modal = document.getElementById('edit-badge-definition-modal');
+    modal.style.display = 'none';
+}
+
+async function handleEditBadgeDefinitionSubmit(e) {
+    e.preventDefault();
+    
+    const badgeId = document.getElementById('edit-badge-id').value;
+    const badge = {
+        name: document.getElementById('edit-badge-name').value.trim(),
+        icon: document.getElementById('edit-badge-icon').value.trim(),
+        color: document.getElementById('edit-badge-color').value,
+        description: document.getElementById('edit-badge-description').value.trim()
+    };
+
+    if (!badge.name || !badge.icon) {
+        showMessage('badge-definitions-message', '名称和图标不能为空', 'error');
+        return;
+    }
+
+    try {
+        currentBadgeDefinitions[badgeId] = badge;
+        await apiRequest('/api/admin/badges', {
+            method: 'PUT',
+            body: JSON.stringify(currentBadgeDefinitions)
+        });
+
+        showMessage('badge-definitions-message', '勋章定义保存成功！', 'success');
+        closeEditBadgeDefinitionModal();
+        await loadBadgeDefinitions();
+    } catch (error) {
+        showMessage('badge-definitions-message', error.message, 'error');
     }
 }
 
@@ -1567,10 +1772,14 @@ async function revokeBadge(email, badgeId) {
     }
 }
 
-function openGrantBadgeModal() {
+async function openGrantBadgeModal() {
     const modal = document.getElementById('grant-badge-modal');
     const form = document.getElementById('grant-badge-form');
     form.reset();
+    // 确保勋章选项已加载
+    if (Object.keys(currentBadgeDefinitions).length === 0) {
+        await loadBadgeDefinitions();
+    }
     modal.style.display = 'flex';
 }
 
@@ -1681,7 +1890,29 @@ async function loadLevelConfig() {
     try {
         const config = await apiRequest('/api/admin/level-config');
         document.getElementById('checkin-exp').value = config.checkinExp || 10;
-        document.getElementById('level-levels').value = JSON.stringify(config.levels || [], null, 2);
+        // 支持新格式
+        if (config.leveling_rule) {
+            document.getElementById('leveling-rule-type').value = config.leveling_rule.type || 'cumulative';
+        }
+        // 兼容旧格式
+        if (config.levels && config.levels.length > 0) {
+            // 如果是旧格式，转换为新格式
+            if (config.levels[0].exp !== undefined && !config.levels[0].required_xp) {
+                const newLevels = config.levels.map((level, index) => ({
+                    level: level.level,
+                    title: level.title || `等级${level.level}`,
+                    required_xp: level.exp,
+                    color: level.color || '#8A8F98',
+                    badge: level.badge || '⭐',
+                    privilege_points: level.privilege_points || 0
+                }));
+                document.getElementById('level-levels').value = JSON.stringify(newLevels, null, 2);
+            } else {
+                document.getElementById('level-levels').value = JSON.stringify(config.levels, null, 2);
+            }
+        } else {
+            document.getElementById('level-levels').value = JSON.stringify([], null, 2);
+        }
     } catch (error) {
         console.error('加载等级配置失败:', error);
     }
@@ -1700,6 +1931,10 @@ async function handleLevelConfigSubmit(e) {
 
     const config = {
         checkinExp: parseInt(document.getElementById('checkin-exp').value) || 10,
+        leveling_rule: {
+            type: document.getElementById('leveling-rule-type').value || 'cumulative',
+            note: 'required_xp 为到达该等级的累计经验门槛（>= 即达成）'
+        },
         levels: levels
     };
 
@@ -1895,6 +2130,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const grantBadgeBtn = document.getElementById('grant-badge-btn');
         if (grantBadgeBtn) grantBadgeBtn.addEventListener('click', openGrantBadgeModal);
+
+        const editBadgeDefinitionForm = document.getElementById('edit-badge-definition-form');
+        if (editBadgeDefinitionForm) editBadgeDefinitionForm.addEventListener('submit', handleEditBadgeDefinitionSubmit);
 
         const addExpBtn = document.getElementById('add-exp-btn');
         if (addExpBtn) addExpBtn.addEventListener('click', () => openAddExpModal());

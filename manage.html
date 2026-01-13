@@ -411,6 +411,16 @@
                     </div>
                     <div id="badges-message" class="message" style="display: none;"></div>
                 </div>
+                <div class="card" style="margin-top: var(--spacing-lg);">
+                    <div class="card-header">
+                        <h3>勋章定义管理</h3>
+                        <p class="card-description">管理勋章定义，支持自定义emoji图标</p>
+                    </div>
+                    <div id="badge-definitions-list" class="items-list">
+                        <!-- 勋章定义列表将通过 JS 动态加载 -->
+                    </div>
+                    <div id="badge-definitions-message" class="message" style="display: none;"></div>
+                </div>
             </section>
 
             <!-- 等级管理 -->
@@ -451,9 +461,20 @@
                             <input type="number" id="checkin-exp" placeholder="10" min="1" required>
                         </div>
                         <div class="form-group">
+                            <label for="leveling-rule-type">等级规则类型</label>
+                            <select id="leveling-rule-type" required>
+                                <option value="cumulative">累计经验（推荐）</option>
+                            </select>
+                            <span class="form-hint">required_xp 为到达该等级的累计经验门槛（>= 即达成）</span>
+                        </div>
+                        <div class="form-group">
                             <label for="level-levels">等级配置（JSON格式）</label>
-                            <textarea id="level-levels" rows="10" placeholder='[{"level": 1, "exp": 0}, {"level": 2, "exp": 100}, ...]' required></textarea>
-                            <span class="form-hint">每级格式：{"level": 等级, "exp": 所需经验}</span>
+                            <textarea id="level-levels" rows="15" placeholder='[
+  { "level": 1, "title": "庶民", "required_xp": 0, "color": "#8A8F98", "badge": "🪶", "privilege_points": 0 },
+  { "level": 2, "title": "新丁", "required_xp": 50, "color": "#7C8AA3", "badge": "🌱", "privilege_points": 0 },
+  ...
+]' required></textarea>
+                            <span class="form-hint">格式：{"level": 等级, "title": "等级名称", "required_xp": 累计经验, "color": "颜色", "badge": "图标", "privilege_points": 特权点数}</span>
                         </div>
                         <button type="submit" class="btn-primary">保存配置</button>
                     </form>
@@ -529,6 +550,11 @@
                 <div class="form-group">
                     <label for="portal-description">描述</label>
                     <textarea id="portal-description" rows="3" placeholder="简短描述..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="portal-tags">标签（多个标签用逗号分隔）</label>
+                    <input type="text" id="portal-tags" placeholder="例如：置顶,火爆,已认证,推广">
+                    <span class="form-hint">可选标签：置顶、火爆、已认证、推广等</span>
                 </div>
                 <div class="form-group checkbox-group">
                     <label>
@@ -667,18 +693,46 @@
                 <div class="form-group">
                     <label for="grant-badge-id">勋章</label>
                     <select id="grant-badge-id" required>
-                        <option value="emperor">👑 皇上</option>
-                        <option value="empress">👸 皇后</option>
-                        <option value="treasurer">💰 财政大臣</option>
-                        <option value="ritual_master">📜 礼部尚书</option>
-                        <option value="hero">🦸 逆行者</option>
-                        <option value="skill_master">🎯 技能达人</option>
-                        <option value="emotion_master">💝 情感大师</option>
+                        <!-- 选项将通过JS动态加载 -->
                     </select>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="closeGrantBadgeModal()">取消</button>
                     <button type="submit" class="btn-primary">授予</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 编辑勋章定义弹窗 -->
+    <div id="edit-badge-definition-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="edit-badge-modal-title">编辑勋章定义</h3>
+                <span class="modal-close" onclick="closeEditBadgeDefinitionModal()">&times;</span>
+            </div>
+            <form id="edit-badge-definition-form" class="form">
+                <input type="hidden" id="edit-badge-id">
+                <div class="form-group">
+                    <label for="edit-badge-name">勋章名称</label>
+                    <input type="text" id="edit-badge-name" placeholder="例如：皇上" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-badge-icon">图标（Emoji）</label>
+                    <input type="text" id="edit-badge-icon" placeholder="例如：👑" required>
+                    <span class="form-hint">可以直接复制粘贴emoji表情</span>
+                </div>
+                <div class="form-group">
+                    <label for="edit-badge-color">颜色</label>
+                    <input type="color" id="edit-badge-color" value="#FFD700">
+                </div>
+                <div class="form-group">
+                    <label for="edit-badge-description">描述</label>
+                    <textarea id="edit-badge-description" rows="3" placeholder="勋章描述..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeEditBadgeDefinitionModal()">取消</button>
+                    <button type="submit" class="btn-primary">保存</button>
                 </div>
             </form>
         </div>
