@@ -6,31 +6,31 @@
 }
 
 :root {
-    /* 主题色 */
-    --primary-color: #667eea;
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --secondary-color: #f093fb;
-    --accent-color: #ffd700;
+    /* 主题色 - B站风格 */
+    --primary-color: #FB7299;
+    --primary-gradient: linear-gradient(135deg, #FB7299 0%, #FF9EAC 100%);
+    --secondary-color: #FF6699;
+    --accent-color: #FFB6C1;
     
-    /* 背景色 */
-    --bg-primary: #0f0f23;
-    --bg-secondary: #1a1a2e;
-    --bg-card: rgba(255, 255, 255, 0.05);
-    --bg-card-hover: rgba(255, 255, 255, 0.08);
+    /* 背景色 - B站风格浅色 */
+    --bg-primary: #F4F4F5;
+    --bg-secondary: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --bg-card-hover: #F7F8FA;
     
-    /* 文字色 */
-    --text-primary: #ffffff;
-    --text-secondary: #b4b4b4;
-    --text-muted: #6b7280;
+    /* 文字色 - B站风格深色 */
+    --text-primary: #222222;
+    --text-secondary: #505050;
+    --text-muted: #999999;
     
-    /* 边框色 */
-    --border-color: rgba(255, 255, 255, 0.1);
+    /* 边框色 - B站风格浅灰 */
+    --border-color: #E5E9EF;
     
-    /* 阴影 */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
-    --shadow-glow: 0 0 20px rgba(102, 126, 234, 0.3);
+    /* 阴影 - B站风格浅色阴影 */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+    --shadow-glow: 0 0 20px rgba(251, 114, 153, 0.3);
     
     /* 圆角 */
     --radius-sm: 8px;
@@ -71,35 +71,11 @@ body {
 }
 
 .stars {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(2px 2px at 20% 30%, white, transparent),
-                radial-gradient(2px 2px at 60% 70%, white, transparent),
-                radial-gradient(1px 1px at 50% 50%, white, transparent),
-                radial-gradient(1px 1px at 80% 10%, white, transparent),
-                radial-gradient(2px 2px at 90% 60%, white, transparent),
-                radial-gradient(1px 1px at 33% 80%, white, transparent),
-                radial-gradient(1px 1px at 15% 50%, white, transparent);
-    background-size: 200% 200%;
-    opacity: 0.3;
+    display: none; /* B站风格不需要星空背景 */
 }
 
 .twinkling {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: transparent url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="10" cy="10" r="1" fill="white" opacity="0.3"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.5"/><circle cx="80" cy="60" r="1" fill="white" opacity="0.4"/><circle cx="30" cy="80" r="1" fill="white" opacity="0.3"/></svg>') repeat;
-    animation: twinkle 200s linear infinite;
-}
-
-@keyframes twinkle {
-    from { transform: translateY(0); }
-    to { transform: translateY(-1000px); }
+    display: none; /* B站风格不需要闪烁动画 */
 }
 
 /* ==================== 主容器 ==================== */
@@ -114,13 +90,12 @@ body {
 /* ==================== 个人信息卡片 ==================== */
 .profile-card {
     background: var(--bg-card);
-    backdrop-filter: blur(20px);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-xl);
     padding: var(--spacing-xl);
     text-align: center;
     margin-bottom: var(--spacing-xl);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-md);
     animation: fadeInUp 0.6s ease-out;
 }
 
@@ -135,14 +110,14 @@ body {
     height: 150px;
     border-radius: 50%;
     border: 4px solid var(--primary-color);
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--shadow-sm);
     object-fit: cover;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .avatar:hover {
     transform: scale(1.05);
-    box-shadow: 0 0 30px rgba(102, 126, 234, 0.5);
+    box-shadow: 0 0 20px rgba(251, 114, 153, 0.4);
 }
 
 .verified-badge {
@@ -151,16 +126,16 @@ body {
     right: 10px;
     width: 32px;
     height: 32px;
-    background: var(--accent-color);
-    color: var(--bg-primary);
+    background: var(--primary-color);
+    color: #FFFFFF;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
     font-size: 18px;
-    border: 3px solid var(--bg-primary);
-    box-shadow: var(--shadow-md);
+    border: 3px solid var(--bg-card);
+    box-shadow: var(--shadow-sm);
     animation: pulse 2s ease-in-out infinite;
 }
 
@@ -168,13 +143,13 @@ body {
     position: absolute;
     top: 0;
     right: 0;
-    background: linear-gradient(135deg, #ffd700, #ffed4e);
-    color: var(--bg-primary);
+    background: linear-gradient(135deg, #FFB6C1, #FFC0CB);
+    color: var(--text-primary);
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 12px;
     font-weight: bold;
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
     animation: glow 2s ease-in-out infinite;
 }
 
@@ -184,8 +159,8 @@ body {
 }
 
 @keyframes glow {
-    0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
-    50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
+    0%, 100% { box-shadow: 0 0 10px rgba(251, 114, 153, 0.4); }
+    50% { box-shadow: 0 0 20px rgba(251, 114, 153, 0.6); }
 }
 
 .name {
@@ -240,12 +215,11 @@ body {
 }
 
 .announcement-card {
-    background: linear-gradient(135deg, rgba(255, 147, 251, 0.1), rgba(102, 126, 234, 0.1));
-    backdrop-filter: blur(20px);
+    background: linear-gradient(135deg, rgba(251, 114, 153, 0.08), rgba(255, 158, 172, 0.08));
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     padding: var(--spacing-lg);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
 }
 
 .announcement-header {
@@ -308,7 +282,6 @@ body {
 
 .portal-card {
     background: var(--bg-card);
-    backdrop-filter: blur(20px);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: var(--spacing-lg);
@@ -365,12 +338,11 @@ body {
 
 .transaction-card {
     background: var(--bg-card);
-    backdrop-filter: blur(20px);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     padding: var(--spacing-xl);
     margin-bottom: var(--spacing-xl);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
 }
 
 .card-header {
@@ -406,7 +378,7 @@ body {
 .input-field {
     width: 100%;
     padding: var(--spacing-md);
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
@@ -417,7 +389,8 @@ body {
 .input-field:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    box-shadow: 0 0 0 3px rgba(251, 114, 153, 0.1);
+    background: var(--bg-card);
 }
 
 .input-field::placeholder {
@@ -441,8 +414,8 @@ body {
 
 .btn-primary {
     background: var(--primary-gradient);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-md);
+    color: #FFFFFF;
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
@@ -451,7 +424,7 @@ body {
 }
 
 .btn-secondary {
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
 }
@@ -462,8 +435,8 @@ body {
 }
 
 .btn-vip {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: var(--text-primary);
+    background: var(--primary-gradient);
+    color: #FFFFFF;
 }
 
 .btn-vip:hover {
@@ -480,7 +453,7 @@ body {
 }
 
 .vip-plan {
-    background: var(--bg-secondary);
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: var(--spacing-lg);
@@ -490,8 +463,8 @@ body {
 }
 
 .vip-plan.featured {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 20px rgba(251, 114, 153, 0.2);
 }
 
 .vip-plan:hover {
@@ -504,8 +477,8 @@ body {
     top: -12px;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--accent-color);
-    color: var(--bg-primary);
+    background: var(--primary-color);
+    color: #FFFFFF;
     padding: 4px 16px;
     border-radius: 20px;
     font-size: 0.75rem;
@@ -515,20 +488,21 @@ body {
 .plan-badge {
     display: inline-block;
     padding: 8px 20px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: var(--primary-gradient);
+    color: #FFFFFF;
     border-radius: 20px;
     font-weight: 600;
     margin-bottom: var(--spacing-md);
 }
 
 .plan-badge.gold {
-    background: linear-gradient(135deg, #ffd700, #ffed4e);
-    color: var(--bg-primary);
+    background: linear-gradient(135deg, #FFB6C1, #FFC0CB);
+    color: var(--text-primary);
 }
 
 .plan-badge.platinum {
-    background: linear-gradient(135deg, #e0e0e0, #f5f5f5);
-    color: var(--bg-primary);
+    background: linear-gradient(135deg, #E8E8E8, #F0F0F0);
+    color: var(--text-primary);
 }
 
 .plan-name {
@@ -604,7 +578,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(5px);
     display: flex;
     align-items: center;
@@ -614,7 +588,7 @@ body {
 }
 
 .modal-content {
-    background: var(--bg-secondary);
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     padding: var(--spacing-xl);
@@ -624,6 +598,7 @@ body {
     overflow-y: auto;
     position: relative;
     animation: scaleIn 0.3s ease-out;
+    box-shadow: var(--shadow-lg);
 }
 
 .modal-close {
@@ -701,7 +676,7 @@ body {
 }
 
 .footer-link:hover {
-    color: var(--secondary-color);
+    color: var(--primary-color);
     text-decoration: underline;
 }
 
@@ -781,15 +756,15 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--primary-color);
+    background: #D4D4D4;
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--secondary-color);
+    background: var(--primary-color);
 }
 
