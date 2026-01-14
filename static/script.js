@@ -857,6 +857,143 @@ async function loadTimeline() {
     }
 }
 
+// ==================== 实时通知系统 ====================
+
+let notificationConfig = {
+    enabled: true,
+    showLevelUp: true,
+    showRareBadge: true,
+    displayDuration: 5000
+};
+
+let lastNotificationId = null;
+let notificationCheckInterval = null;
+
+// 加载通知配置
+async function loadNotificationConfig() {
+    try {
+        const config = await apiRequest('/api/notification-config');
+        notificationConfig = config;
+    } catch (error) {
+        console.error('加载通知配置失败:', error);
+    }
+}
+
+// 显示通知
+function showNotification(notification) {
+    if (!notificationConfig.enabled) return;
+    
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+    
+    // 根据通知类型过滤
+    if (notification.type === 'levelup' && !notificationConfig.showLevelUp) return;
+    if (notification.type === 'badge' && !notificationConfig.showRareBadge) return;
+    
+    const notificationEl = document.createElement('div');
+    notificationEl.className = `notification-item ${notification.type}`;
+    
+    let icon = '🎉';
+    let title = '';
+    let message = '';
+    
+    if (notification.type === 'levelup') {
+        icon = '⭐';
+        const levelData = notification.levelConfig?.levels?.find(l => l.level === notification.level);
+        const levelTitle = levelData?.title || `Lv.${notification.level}`;
+        const levelBadge = levelData?.badge || '⭐';
+        const userName = notification.virtualName || notification.email?.split('@')[0] || '用户';
+        
+        title = `<span class="notification-badge">${levelBadge} ${levelTitle}</span>`;
+        message = `恭喜 ${userName} 升级了！`;
+    } else if (notification.type === 'badge') {
+        icon = notification.badgeIcon || '🏆';
+        const userName = notification.virtualName || notification.email?.split('@')[0] || '用户';
+        
+        title = `<span class="notification-badge" style="background: ${notification.badgeColor || '#FFD700'}20; color: ${notification.badgeColor || '#FFD700'}; border: 1px solid ${notification.badgeColor || '#FFD700'}40;">${notification.badgeIcon} ${notification.badgeName}</span>`;
+        message = `${userName} 获得了稀有勋章！`;
+    }
+    
+    notificationEl.innerHTML = `
+        <div class="notification-icon">${icon}</div>
+        <div class="notification-content">
+            <div class="notification-title">${title}</div>
+            <div class="notification-message">${message}</div>
+        </div>
+    `;
+    
+    // 点击关闭通知
+    notificationEl.addEventListener('click', () => {
+        notificationEl.style.animation = 'fadeOut 0.3s ease-out forwards';
+        setTimeout(() => {
+            notificationEl.remove();
+        }, 300);
+    });
+    
+    container.appendChild(notificationEl);
+    
+    // 自动移除通知
+    const duration = notificationConfig.displayDuration || 5000;
+    setTimeout(() => {
+        if (notificationEl.parentElement) {
+            notificationEl.remove();
+        }
+    }, duration);
+}
+
+// 检查新通知
+async function checkNewNotifications() {
+    try {
+        const result = await apiRequest('/api/notifications?limit=10');
+        const notifications = result.notifications || [];
+        
+        if (notifications.length === 0) return;
+        
+        // 获取最新的通知
+        const latestNotification = notifications[0];
+        
+        // 如果是新通知，显示它
+        if (!lastNotificationId || latestNotification.id !== lastNotificationId) {
+            // 显示所有新通知（从旧到新）
+            const newNotifications = [];
+            for (const notification of notifications.reverse()) {
+                if (!lastNotificationId || notification.id > lastNotificationId) {
+                    newNotifications.push(notification);
+                }
+            }
+            
+            // 限制一次最多显示3条
+            const toShow = newNotifications.slice(-3);
+            for (let i = 0; i < toShow.length; i++) {
+                setTimeout(() => {
+                    showNotification(toShow[i]);
+                }, i * 500); // 每条通知间隔500ms
+            }
+            
+            lastNotificationId = latestNotification.id;
+        }
+    } catch (error) {
+        console.error('检查新通知失败:', error);
+    }
+}
+
+// 启动通知检查
+function startNotificationCheck() {
+    // 立即检查一次
+    checkNewNotifications();
+    
+    // 每10秒检查一次新通知
+    notificationCheckInterval = setInterval(checkNewNotifications, 10000);
+}
+
+// 停止通知检查
+function stopNotificationCheck() {
+    if (notificationCheckInterval) {
+        clearInterval(notificationCheckInterval);
+        notificationCheckInterval = null;
+    }
+}
+
 // ==================== 左侧兑换码处理 ====================
 
 // 左侧兑换码提交
@@ -977,6 +1114,7 @@ function switchSection(sectionName) {
         'user-levels': '等级管理',
         'timeline': '时间线管理',
         'fish-tank': '鱼缸设置',
+        'notifications': '实时通知',
         'settings': '系统设置'
     };
 
@@ -1002,6 +1140,8 @@ async function loadAdminData() {
     await loadLevelConfig();
     await loadTimelineEvents();
     await loadFishTankConfig();
+    await loadNotificationConfigAdmin();
+    await loadNotificationsAdmin();
 }
 
 // 加载管理员个人资料
@@ -2300,6 +2440,131 @@ async function handleFishTankSubmit(e) {
     }
 }
 
+// ==================== 实时通知管理（管理后台）====================
+
+// 加载通知配置（管理后台）
+async function loadNotificationConfigAdmin() {
+    try {
+        const config = await apiRequest('/api/admin/notification-config');
+        
+        document.getElementById('notification-enabled').checked = config.enabled !== false;
+        document.getElementById('notification-show-levelup').checked = config.showLevelUp !== false;
+        document.getElementById('notification-show-badge').checked = config.showRareBadge !== false;
+        document.getElementById('notification-duration').value = config.displayDuration || 5000;
+        document.getElementById('notification-max').value = config.maxNotifications || 50;
+        document.getElementById('notification-virtual-enabled').checked = config.virtualDataEnabled || false;
+    } catch (error) {
+        console.error('加载通知配置失败:', error);
+    }
+}
+
+// 保存通知配置
+async function handleNotificationConfigSubmit(e) {
+    e.preventDefault();
+    
+    const config = {
+        enabled: document.getElementById('notification-enabled').checked,
+        showLevelUp: document.getElementById('notification-show-levelup').checked,
+        showRareBadge: document.getElementById('notification-show-badge').checked,
+        displayDuration: parseInt(document.getElementById('notification-duration').value) || 5000,
+        maxNotifications: parseInt(document.getElementById('notification-max').value) || 50,
+        virtualDataEnabled: document.getElementById('notification-virtual-enabled').checked
+    };
+
+    try {
+        await apiRequest('/api/admin/notification-config', {
+            method: 'PUT',
+            body: JSON.stringify(config)
+        });
+
+        showMessage('notification-config-message', '通知配置保存成功！', 'success');
+    } catch (error) {
+        showMessage('notification-config-message', error.message, 'error');
+    }
+}
+
+// 加载通知列表
+async function loadNotificationsAdmin() {
+    try {
+        const notifications = await apiRequest('/api/admin/notifications');
+        renderNotificationsList(notifications);
+    } catch (error) {
+        console.error('加载通知列表失败:', error);
+    }
+}
+
+// 渲染通知列表
+function renderNotificationsList(notifications) {
+    const container = document.getElementById('notifications-list');
+    if (!container) return;
+
+    if (notifications.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p class="empty-state-text">暂无通知记录</p></div>';
+        return;
+    }
+
+    // 只显示最新的20条
+    const recentNotifications = notifications.slice(-20).reverse();
+    
+    container.innerHTML = recentNotifications.map(notification => {
+        const time = formatDate(notification.timestamp);
+        const userName = notification.virtualName || notification.email?.split('@')[0] || '用户';
+        
+        let content = '';
+        if (notification.type === 'levelup') {
+            const levelData = notification.levelConfig?.levels?.find(l => l.level === notification.level);
+            const levelTitle = levelData?.title || `Lv.${notification.level}`;
+            const levelBadge = levelData?.badge || '⭐';
+            content = `${userName} 升级到 ${levelBadge} ${levelTitle}`;
+        } else if (notification.type === 'badge') {
+            content = `${userName} 获得勋章 ${notification.badgeIcon} ${notification.badgeName}`;
+        }
+        
+        return `
+            <div class="item-card">
+                <div class="item-info">
+                    <div class="item-name">${content}</div>
+                    <div class="item-desc">${time}</div>
+                </div>
+                <span class="item-badge ${notification.type === 'levelup' ? 'enabled' : 'disabled'}">
+                    ${notification.type === 'levelup' ? '升级' : '勋章'}
+                </span>
+            </div>
+        `;
+    }).join('');
+}
+
+// 生成虚拟通知
+async function generateVirtualNotification(type, count) {
+    try {
+        const result = await apiRequest('/api/admin/notifications/virtual', {
+            method: 'POST',
+            body: JSON.stringify({ type: type === 'all' ? null : type, count: count })
+        });
+
+        showMessage('notification-action-message', result.message, 'success');
+        await loadNotificationsAdmin();
+    } catch (error) {
+        showMessage('notification-action-message', error.message, 'error');
+    }
+}
+
+// 清空所有通知
+async function clearAllNotifications() {
+    if (!confirm('确定要清空所有通知记录吗？此操作不可恢复。')) return;
+    
+    try {
+        const result = await apiRequest('/api/admin/notifications', {
+            method: 'DELETE'
+        });
+
+        showMessage('notification-action-message', result.message, 'success');
+        await loadNotificationsAdmin();
+    } catch (error) {
+        showMessage('notification-action-message', error.message, 'error');
+    }
+}
+
 // ==================== 页面初始化 ====================
 
 // 页面加载完成后执行
@@ -2391,6 +2656,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const fishTankForm = document.getElementById('fish-tank-form');
         if (fishTankForm) fishTankForm.addEventListener('submit', handleFishTankSubmit);
 
+        const notificationConfigForm = document.getElementById('notification-config-form');
+        if (notificationConfigForm) notificationConfigForm.addEventListener('submit', handleNotificationConfigSubmit);
+
         const grantBadgeBtn = document.getElementById('grant-badge-btn');
         if (grantBadgeBtn) grantBadgeBtn.addEventListener('click', openGrantBadgeModal);
 
@@ -2447,6 +2715,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 加载并定期更新在线人数
         startOnlineCountUpdate();
+        
+        // 加载通知配置并启动通知检查
+        loadNotificationConfig().then(() => {
+            startNotificationCheck();
+        });
 
         // 兑换码输入格式化（自动添加横线）并检查可选内容（左侧）
         const redeemCodeInputSidebar = document.getElementById('redeem-code-sidebar');

@@ -1,4 +1,4 @@
-// Cloudflare Worker - 后端 API 服务
+﻿// Cloudflare Worker - 后端 API 服务
 // 用于处理所有数据存储和管理操作
 
 // CORS 响应头配置
@@ -33,7 +33,9 @@ const STORAGE_KEYS = {
   USER_LEVELS: 'user_levels',
   LEVEL_CONFIG: 'level_config',
   TIMELINE_EVENTS: 'timeline_events',
-  FISH_TANK_CONFIG: 'fish_tank_config'
+  FISH_TANK_CONFIG: 'fish_tank_config',
+  NOTIFICATIONS: 'notifications',
+  NOTIFICATION_CONFIG: 'notification_config'
 };
 
 // 初始化默认数据
@@ -172,6 +174,20 @@ async function initializeDefaultData(KV) {
     };
     await KV.put(STORAGE_KEYS.FISH_TANK_CONFIG, JSON.stringify(defaultFishTankConfig));
 
+    // 初始化通知列表
+    await KV.put(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+
+    // 初始化通知配置
+    const defaultNotificationConfig = {
+      enabled: true,
+      showLevelUp: true,
+      showRareBadge: true,
+      displayDuration: 5000, // 显示时长（毫秒）
+      maxNotifications: 50, // 最多保留通知数量
+      virtualDataEnabled: false // 是否启用虚拟数据
+    };
+    await KV.put(STORAGE_KEYS.NOTIFICATION_CONFIG, JSON.stringify(defaultNotificationConfig));
+
     console.log('默认数据初始化完成');
   } catch (error) {
     console.error('初始化数据失败:', error);
@@ -222,6 +238,38 @@ function jsonResponse(data, status = 200) {
     status,
     headers: CORS_HEADERS
   });
+}
+
+// 创建通知
+async function createNotification(KV, data) {
+  try {
+    const notificationsData = await KV.get(STORAGE_KEYS.NOTIFICATIONS);
+    const notifications = notificationsData ? JSON.parse(notificationsData) : [];
+    const configData = await KV.get(STORAGE_KEYS.NOTIFICATION_CONFIG);
+    const config = configData ? JSON.parse(configData) : { enabled: true, maxNotifications: 50 };
+    
+    if (!config.enabled) return;
+    
+    const notification = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      type: data.type, // 'levelup' or 'badge'
+      timestamp: new Date().toISOString(),
+      ...data
+    };
+    
+    // 添加通知
+    notifications.push(notification);
+    
+    // 保留最新的N条通知
+    const maxNotifications = config.maxNotifications || 50;
+    if (notifications.length > maxNotifications) {
+      notifications.splice(0, notifications.length - maxNotifications);
+    }
+    
+    await KV.put(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
+  } catch (error) {
+    console.error('创建通知失败:', error);
+  }
 }
 
 // 主请求处理函数
@@ -639,6 +687,9 @@ async function handleRequest(request, env) {
     const userIndex = userLevels.findIndex(ul => ul.email === email);
     const today = new Date().toDateString();
     
+    let oldLevel = 1;
+    let newLevel = 1;
+    
     if (userIndex === -1) {
       userLevels.push({
         email,
@@ -653,17 +704,45 @@ async function handleRequest(request, env) {
         return jsonResponse({ success: false, message: '今日已签到' }, 400);
       }
       
+      oldLevel = userLevels[userIndex].level || 1;
       userLevels[userIndex].exp += levelConfig.checkinExp;
       userLevels[userIndex].lastCheckin = today;
       userLevels[userIndex].checkinCount = (userLevels[userIndex].checkinCount || 0) + 1;
+      
+      // 计算新等级
+      const levels = levelConfig.levels || [];
+      const isNewFormat = levels.length > 0 && levels[0].required_xp !== undefined;
+      
+      if (isNewFormat) {
+        for (let i = levels.length - 1; i >= 0; i--) {
+          if (userLevels[userIndex].exp >= levels[i].required_xp) {
+            newLevel = levels[i].level;
+            break;
+          }
+        }
+      }
+      
+      userLevels[userIndex].level = newLevel;
     }
 
     await env.MY_HOME_KV.put(STORAGE_KEYS.USER_LEVELS, JSON.stringify(userLevels));
 
+    // 如果升级了，创建通知
+    if (newLevel > oldLevel) {
+      await createNotification(env.MY_HOME_KV, {
+        type: 'levelup',
+        email: email,
+        level: newLevel,
+        levelConfig: levelConfig
+      });
+    }
+
     return jsonResponse({
       success: true,
       message: `签到成功！获得 ${levelConfig.checkinExp} 经验`,
-      exp: levelConfig.checkinExp
+      exp: levelConfig.checkinExp,
+      levelUp: newLevel > oldLevel,
+      newLevel: newLevel
     });
   }
 
@@ -700,6 +779,29 @@ async function handleRequest(request, env) {
     const config = configData ? JSON.parse(configData) : {
       enabled: true,
       minPortalsToHide: 3
+    };
+    return jsonResponse(config);
+  }
+
+  // 获取最新通知（公开接口）
+  if (path === '/api/notifications' && method === 'GET') {
+    const limit = parseInt(url.searchParams.get('limit')) || 20;
+    const notificationsData = await env.MY_HOME_KV.get(STORAGE_KEYS.NOTIFICATIONS);
+    const notifications = notificationsData ? JSON.parse(notificationsData) : [];
+    
+    // 返回最新的N条通知
+    const recentNotifications = notifications.slice(-limit).reverse();
+    return jsonResponse({ notifications: recentNotifications });
+  }
+
+  // 获取通知配置（公开接口）
+  if (path === '/api/notification-config' && method === 'GET') {
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.NOTIFICATION_CONFIG);
+    const config = configData ? JSON.parse(configData) : {
+      enabled: true,
+      showLevelUp: true,
+      showRareBadge: true,
+      displayDuration: 5000
     };
     return jsonResponse(config);
   }
@@ -1108,6 +1210,22 @@ async function handleRequest(request, env) {
     });
 
     await env.MY_HOME_KV.put(STORAGE_KEYS.USER_BADGES, JSON.stringify(userBadges));
+    
+    // 获取勋章信息
+    const badgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.BADGES);
+    const badges = badgesData ? JSON.parse(badgesData) : {};
+    const badge = badges[badgeId];
+    
+    // 创建通知
+    await createNotification(env.MY_HOME_KV, {
+      type: 'badge',
+      email: email,
+      badgeId: badgeId,
+      badgeName: badge?.name || badgeId,
+      badgeIcon: badge?.icon || '🏆',
+      badgeColor: badge?.color || '#FFD700'
+    });
+    
     return jsonResponse({ success: true, message: '勋章授予成功' });
   }
 
@@ -1141,7 +1259,12 @@ async function handleRequest(request, env) {
 
     const userLevelsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_LEVELS);
     const userLevels = userLevelsData ? JSON.parse(userLevelsData) : [];
+    const levelConfigData = await env.MY_HOME_KV.get(STORAGE_KEYS.LEVEL_CONFIG);
+    const levelConfig = levelConfigData ? JSON.parse(levelConfigData) : { levels: [] };
 
+    let oldLevel = 1;
+    let newLevel = 1;
+    
     const userIndex = userLevels.findIndex(ul => ul.email === email);
     if (userIndex === -1) {
       userLevels.push({
@@ -1151,11 +1274,38 @@ async function handleRequest(request, env) {
         checkinCount: 0
       });
     } else {
+      oldLevel = userLevels[userIndex].level || 1;
       userLevels[userIndex].exp += parseInt(exp);
+      
+      // 计算新等级
+      const levels = levelConfig.levels || [];
+      const isNewFormat = levels.length > 0 && levels[0].required_xp !== undefined;
+      
+      if (isNewFormat) {
+        for (let i = levels.length - 1; i >= 0; i--) {
+          if (userLevels[userIndex].exp >= levels[i].required_xp) {
+            newLevel = levels[i].level;
+            break;
+          }
+        }
+      }
+      
+      userLevels[userIndex].level = newLevel;
     }
 
     await env.MY_HOME_KV.put(STORAGE_KEYS.USER_LEVELS, JSON.stringify(userLevels));
-    return jsonResponse({ success: true, message: `成功发放 ${exp} 经验` });
+    
+    // 如果升级了，创建通知
+    if (newLevel > oldLevel) {
+      await createNotification(env.MY_HOME_KV, {
+        type: 'levelup',
+        email: email,
+        level: newLevel,
+        levelConfig: levelConfig
+      });
+    }
+    
+    return jsonResponse({ success: true, message: `成功发放 ${exp} 经验`, levelUp: newLevel > oldLevel, newLevel: newLevel });
   }
 
   // 获取等级配置
@@ -1252,6 +1402,92 @@ async function handleRequest(request, env) {
     const config = await request.json();
     await env.MY_HOME_KV.put(STORAGE_KEYS.FISH_TANK_CONFIG, JSON.stringify(config));
     return jsonResponse({ success: true, message: '鱼缸配置更新成功' });
+  }
+
+  // 获取通知配置（管理员）
+  if (path === '/api/admin/notification-config' && method === 'GET') {
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.NOTIFICATION_CONFIG);
+    const config = configData ? JSON.parse(configData) : {
+      enabled: true,
+      showLevelUp: true,
+      showRareBadge: true,
+      displayDuration: 5000,
+      maxNotifications: 50,
+      virtualDataEnabled: false
+    };
+    return jsonResponse(config);
+  }
+
+  // 更新通知配置（管理员）
+  if (path === '/api/admin/notification-config' && method === 'PUT') {
+    const config = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.NOTIFICATION_CONFIG, JSON.stringify(config));
+    return jsonResponse({ success: true, message: '通知配置更新成功' });
+  }
+
+  // 获取所有通知（管理员）
+  if (path === '/api/admin/notifications' && method === 'GET') {
+    const notificationsData = await env.MY_HOME_KV.get(STORAGE_KEYS.NOTIFICATIONS);
+    const notifications = notificationsData ? JSON.parse(notificationsData) : [];
+    return jsonResponse(notifications);
+  }
+
+  // 创建虚拟通知（管理员）
+  if (path === '/api/admin/notifications/virtual' && method === 'POST') {
+    const { type, count } = await request.json();
+    
+    const badgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.BADGES);
+    const badges = badgesData ? JSON.parse(badgesData) : {};
+    const levelConfigData = await env.MY_HOME_KV.get(STORAGE_KEYS.LEVEL_CONFIG);
+    const levelConfig = levelConfigData ? JSON.parse(levelConfigData) : { levels: [] };
+    
+    const virtualNames = ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十', '郑十一', '小明', '小红', '小刚', '小丽', '小华', '小强'];
+    
+    for (let i = 0; i < (count || 1); i++) {
+      const randomName = virtualNames[Math.floor(Math.random() * virtualNames.length)];
+      
+      if (type === 'levelup' || !type) {
+        const levels = levelConfig.levels || [];
+        const randomLevel = levels[Math.floor(Math.random() * levels.length)];
+        
+        await createNotification(env.MY_HOME_KV, {
+          type: 'levelup',
+          email: `virtual_${Date.now()}_${i}@example.com`,
+          level: randomLevel?.level || Math.floor(Math.random() * 10) + 1,
+          levelConfig: levelConfig,
+          virtualName: randomName
+        });
+      }
+      
+      if (type === 'badge' || !type) {
+        const badgeIds = Object.keys(badges);
+        if (badgeIds.length > 0) {
+          const randomBadgeId = badgeIds[Math.floor(Math.random() * badgeIds.length)];
+          const badge = badges[randomBadgeId];
+          
+          await createNotification(env.MY_HOME_KV, {
+            type: 'badge',
+            email: `virtual_${Date.now()}_${i}@example.com`,
+            badgeId: randomBadgeId,
+            badgeName: badge?.name || randomBadgeId,
+            badgeIcon: badge?.icon || '🏆',
+            badgeColor: badge?.color || '#FFD700',
+            virtualName: randomName
+          });
+        }
+      }
+      
+      // 添加延迟避免时间戳冲突
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    
+    return jsonResponse({ success: true, message: `成功创建 ${count || 1} 条虚拟通知` });
+  }
+
+  // 清空通知（管理员）
+  if (path === '/api/admin/notifications' && method === 'DELETE') {
+    await env.MY_HOME_KV.put(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+    return jsonResponse({ success: true, message: '通知已清空' });
   }
 
   // 404 响应

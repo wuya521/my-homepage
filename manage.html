@@ -103,6 +103,10 @@
                     <span class="nav-icon">🐟</span>
                     <span>鱼缸设置</span>
                 </a>
+                <a href="#notifications" class="nav-item" data-section="notifications">
+                    <span class="nav-icon">🔔</span>
+                    <span>实时通知</span>
+                </a>
                 <a href="#settings" class="nav-item" data-section="settings">
                     <span class="nav-icon">⚙️</span>
                     <span>系统设置</span>
@@ -525,6 +529,92 @@
                         <button type="submit" class="btn-primary">保存设置</button>
                     </form>
                     <div id="fish-tank-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
+            <!-- 实时通知管理 -->
+            <section id="notifications-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>实时通知设置</h3>
+                        <p class="card-description">配置升级和勋章获得的全站实时通知</p>
+                    </div>
+                    <form id="notification-config-form" class="form">
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="notification-enabled">
+                                <span>启用实时通知</span>
+                            </label>
+                            <span class="form-hint">在页面右上角显示升级和获得勋章的实时通知</span>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="notification-show-levelup">
+                                <span>显示升级通知</span>
+                            </label>
+                            <span class="form-hint">用户升级时显示祝贺通知</span>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="notification-show-badge">
+                                <span>显示勋章通知</span>
+                            </label>
+                            <span class="form-hint">用户获得稀有勋章时显示祝贺通知</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="notification-duration">通知显示时长（毫秒）</label>
+                            <input type="number" id="notification-duration" placeholder="5000" min="1000" max="30000" step="1000" required>
+                            <span class="form-hint">每条通知在屏幕上停留的时间（1000 = 1秒）</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="notification-max">最大保留通知数</label>
+                            <input type="number" id="notification-max" placeholder="50" min="10" max="500" required>
+                            <span class="form-hint">系统最多保留的历史通知数量</span>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="notification-virtual-enabled">
+                                <span>启用虚拟数据</span>
+                            </label>
+                            <span class="form-hint">允许后台生成虚拟通知数据，用于营造社区氛围</span>
+                        </div>
+                        <button type="submit" class="btn-primary">保存设置</button>
+                    </form>
+                    <div id="notification-config-message" class="message" style="display: none;"></div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h3>虚拟通知生成</h3>
+                        <p class="card-description">生成虚拟的升级和勋章通知，增强社区氛围</p>
+                    </div>
+                    <div class="form">
+                        <div class="button-group">
+                            <button type="button" class="btn-secondary" onclick="generateVirtualNotification('levelup', 1)">
+                                生成1条升级通知
+                            </button>
+                            <button type="button" class="btn-secondary" onclick="generateVirtualNotification('badge', 1)">
+                                生成1条勋章通知
+                            </button>
+                            <button type="button" class="btn-secondary" onclick="generateVirtualNotification('all', 5)">
+                                生成5条混合通知
+                            </button>
+                            <button type="button" class="btn-danger" onclick="clearAllNotifications()">
+                                清空所有通知
+                            </button>
+                        </div>
+                    </div>
+                    <div id="notification-action-message" class="message" style="display: none;"></div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h3>通知历史记录</h3>
+                        <p class="card-description">查看最近的通知记录</p>
+                    </div>
+                    <div id="notifications-list" class="items-list">
+                        <!-- 通知列表将通过 JS 动态加载 -->
+                    </div>
                 </div>
             </section>
 

@@ -520,6 +520,17 @@ body {
     color: var(--text-primary);
 }
 
+.button-group {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.button-group button {
+    flex: 1;
+    min-width: 150px;
+}
+
 /* ==================== 消息提示 ==================== */
 .message {
     padding: var(--spacing-md);
