@@ -196,22 +196,25 @@ async function initializeDefaultData(KV) {
     };
     await KV.put(STORAGE_KEYS.NOTIFICATION_CONFIG, JSON.stringify(defaultNotificationConfig));
 
-    // 初始化游戏配置
-    const defaultGameConfig = {
-      enabled: true,
-      maxEnergy: 100, // 最大体力
-      energyRecoverRate: 10, // 每小时恢复体力
-      dailyEventLimit: 10, // 每日事件次数
-      farmPlots: 4, // 花园格子数
-      blackDiamondBenefits: {
-        energyBonus: 20, // 体力上限加成
-        offlineGrowthSpeed: 1.2, // 离线生长加速
-        protectionShield: 1, // 每日防偷保护
-        quickHarvest: true, // 一键收获
-        breakProtection: true // 断签保护
-      }
-    };
-    await KV.put(STORAGE_KEYS.GAME_CONFIG, JSON.stringify(defaultGameConfig));
+    // 初始化游戏配置（默认启用）
+    const existingGameConfig = await KV.get(STORAGE_KEYS.GAME_CONFIG);
+    if (!existingGameConfig) {
+      const defaultGameConfig = {
+        enabled: true, // 默认启用游戏
+        maxEnergy: 100, // 最大体力
+        energyRecoverRate: 10, // 每小时恢复体力
+        dailyEventLimit: 10, // 每日事件次数
+        farmPlots: 4, // 花园格子数
+        blackDiamondBenefits: {
+          energyBonus: 20, // 体力上限加成
+          offlineGrowthSpeed: 1.2, // 离线生长加速
+          protectionShield: 1, // 每日防偷保护
+          quickHarvest: true, // 一键收获
+          breakProtection: true // 断签保护
+        }
+      };
+      await KV.put(STORAGE_KEYS.GAME_CONFIG, JSON.stringify(defaultGameConfig));
+    }
 
     // 初始化游戏事件
     const defaultGameEvents = [
@@ -1936,6 +1939,72 @@ async function handleRequest(request, env) {
   if (path === '/api/admin/notifications' && method === 'DELETE') {
     await env.MY_HOME_KV.put(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
     return jsonResponse({ success: true, message: '通知已清空' });
+  }
+
+  // ==================== 游戏管理 API（管理员）====================
+
+  // 获取游戏配置（管理员）
+  if (path === '/api/admin/game/config' && method === 'GET') {
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_CONFIG);
+    const config = configData ? JSON.parse(configData) : {
+      enabled: true,
+      maxEnergy: 100,
+      energyRecoverRate: 10,
+      dailyEventLimit: 10,
+      farmPlots: 4
+    };
+    return jsonResponse(config);
+  }
+
+  // 更新游戏配置（管理员）
+  if (path === '/api/admin/game/config' && method === 'PUT') {
+    const config = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_CONFIG, JSON.stringify(config));
+    return jsonResponse({ success: true, message: '游戏配置更新成功' });
+  }
+
+  // 获取游戏统计（管理员）
+  if (path === '/api/admin/game/stats' && method === 'GET') {
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    
+    const stats = {
+      totalPlayers: profiles.length,
+      activeToday: profiles.filter(p => p.lastDailyReset === new Date().toDateString()).length,
+      totalCoins: profiles.reduce((sum, p) => sum + (p.coins || 0), 0),
+      totalEnergy: profiles.reduce((sum, p) => sum + (p.energy || 0), 0),
+      averageLevel: profiles.length > 0 ? (profiles.reduce((sum, p) => sum + (p.gameLevel || 1), 0) / profiles.length).toFixed(2) : 0
+    };
+    
+    return jsonResponse(stats);
+  }
+
+  // 获取所有游戏事件（管理员）
+  if (path === '/api/admin/game/events' && method === 'GET') {
+    const eventsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_EVENTS);
+    const events = eventsData ? JSON.parse(eventsData) : [];
+    return jsonResponse(events);
+  }
+
+  // 更新游戏事件（管理员）
+  if (path === '/api/admin/game/events' && method === 'PUT') {
+    const events = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_EVENTS, JSON.stringify(events));
+    return jsonResponse({ success: true, message: '游戏事件更新成功' });
+  }
+
+  // 获取所有游戏道具（管理员）
+  if (path === '/api/admin/game/items' && method === 'GET') {
+    const itemsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_ITEMS);
+    const items = itemsData ? JSON.parse(itemsData) : {};
+    return jsonResponse(items);
+  }
+
+  // 更新游戏道具（管理员）
+  if (path === '/api/admin/game/items' && method === 'PUT') {
+    const items = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_ITEMS, JSON.stringify(items));
+    return jsonResponse({ success: true, message: '游戏道具更新成功' });
   }
 
   // 404 响应

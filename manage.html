@@ -107,6 +107,10 @@
                     <span class="nav-icon">🔔</span>
                     <span>实时通知</span>
                 </a>
+                <a href="#game-config" class="nav-item" data-section="game-config">
+                    <span class="nav-icon">🎮</span>
+                    <span>游戏配置</span>
+                </a>
                 <a href="#settings" class="nav-item" data-section="settings">
                     <span class="nav-icon">⚙️</span>
                     <span>系统设置</span>
@@ -529,6 +533,74 @@
                         <button type="submit" class="btn-primary">保存设置</button>
                     </form>
                     <div id="fish-tank-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
+            <!-- 游戏配置管理 -->
+            <section id="game-config-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🎮 游戏基础配置</h3>
+                        <p class="card-description">配置花园人生游戏的基础参数</p>
+                    </div>
+                    <form id="game-config-form" class="form">
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="game-enabled">
+                                <span>启用游戏功能</span>
+                            </label>
+                            <span class="form-hint">关闭后用户将无法访问游戏</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="game-max-energy">最大体力</label>
+                            <input type="number" id="game-max-energy" placeholder="100" min="50" max="500" required>
+                            <span class="form-hint">用户的最大体力值</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="game-energy-recover">体力恢复速率（点/小时）</label>
+                            <input type="number" id="game-energy-recover" placeholder="10" min="1" max="50" required>
+                            <span class="form-hint">每小时自动恢复的体力值</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="game-daily-events">每日事件上限</label>
+                            <input type="number" id="game-daily-events" placeholder="10" min="5" max="50" required>
+                            <span class="form-hint">用户每天可以触发的随机事件次数</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="game-farm-plots">花园格子数</label>
+                            <input type="number" id="game-farm-plots" placeholder="4" min="2" max="12" required>
+                            <span class="form-hint">用户花园的种植格子数量</span>
+                        </div>
+                        <button type="submit" class="btn-primary">保存配置</button>
+                    </form>
+                    <div id="game-config-message" class="message" style="display: none;"></div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h3>📊 游戏统计数据</h3>
+                        <p class="card-description">查看游戏的运营数据</p>
+                    </div>
+                    <div id="game-stats" class="form">
+                        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                            <div class="stat-card" style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 8px;">总玩家数</div>
+                                <div id="stat-total-players" style="font-size: 2rem; font-weight: 700; color: var(--primary-color);">--</div>
+                            </div>
+                            <div class="stat-card" style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 8px;">今日活跃</div>
+                                <div id="stat-active-today" style="font-size: 2rem; font-weight: 700; color: var(--success-color);">--</div>
+                            </div>
+                            <div class="stat-card" style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 8px;">总金币</div>
+                                <div id="stat-total-coins" style="font-size: 2rem; font-weight: 700; color: var(--warning-color);">--</div>
+                            </div>
+                            <div class="stat-card" style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 8px;">平均等级</div>
+                                <div id="stat-average-level" style="font-size: 2rem; font-weight: 700; color: var(--info-color);">--</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 

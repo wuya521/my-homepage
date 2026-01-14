@@ -1115,6 +1115,7 @@ function switchSection(sectionName) {
         'timeline': '时间线管理',
         'fish-tank': '鱼缸设置',
         'notifications': '实时通知',
+        'game-config': '游戏配置',
         'settings': '系统设置'
     };
 
@@ -1142,6 +1143,8 @@ async function loadAdminData() {
     await loadFishTankConfig();
     await loadNotificationConfigAdmin();
     await loadNotificationsAdmin();
+    await loadGameConfig();
+    await loadGameStats();
 }
 
 // 加载管理员个人资料
@@ -2440,6 +2443,69 @@ async function handleFishTankSubmit(e) {
     }
 }
 
+// ==================== 游戏配置管理（管理后台）====================
+
+// 加载游戏配置
+async function loadGameConfig() {
+    try {
+        const config = await apiRequest('/api/admin/game/config');
+        
+        document.getElementById('game-enabled').checked = config.enabled !== false;
+        document.getElementById('game-max-energy').value = config.maxEnergy || 100;
+        document.getElementById('game-energy-recover').value = config.energyRecoverRate || 10;
+        document.getElementById('game-daily-events').value = config.dailyEventLimit || 10;
+        document.getElementById('game-farm-plots').value = config.farmPlots || 4;
+    } catch (error) {
+        console.error('加载游戏配置失败:', error);
+    }
+}
+
+// 保存游戏配置
+async function handleGameConfigSubmit(e) {
+    e.preventDefault();
+    
+    const config = {
+        enabled: document.getElementById('game-enabled').checked,
+        maxEnergy: parseInt(document.getElementById('game-max-energy').value) || 100,
+        energyRecoverRate: parseInt(document.getElementById('game-energy-recover').value) || 10,
+        dailyEventLimit: parseInt(document.getElementById('game-daily-events').value) || 10,
+        farmPlots: parseInt(document.getElementById('game-farm-plots').value) || 4,
+        blackDiamondBenefits: {
+            energyBonus: 20,
+            offlineGrowthSpeed: 1.2,
+            protectionShield: 1,
+            quickHarvest: true,
+            breakProtection: true
+        }
+    };
+
+    try {
+        await apiRequest('/api/admin/game/config', {
+            method: 'PUT',
+            body: JSON.stringify(config)
+        });
+
+        showMessage('game-config-message', '游戏配置保存成功！', 'success');
+        await loadGameStats(); // 重新加载统计数据
+    } catch (error) {
+        showMessage('game-config-message', error.message, 'error');
+    }
+}
+
+// 加载游戏统计
+async function loadGameStats() {
+    try {
+        const stats = await apiRequest('/api/admin/game/stats');
+        
+        document.getElementById('stat-total-players').textContent = stats.totalPlayers || 0;
+        document.getElementById('stat-active-today').textContent = stats.activeToday || 0;
+        document.getElementById('stat-total-coins').textContent = (stats.totalCoins || 0).toLocaleString();
+        document.getElementById('stat-average-level').textContent = stats.averageLevel || '0.00';
+    } catch (error) {
+        console.error('加载游戏统计失败:', error);
+    }
+}
+
 // ==================== 实时通知管理（管理后台）====================
 
 // 加载通知配置（管理后台）
@@ -2658,6 +2724,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const notificationConfigForm = document.getElementById('notification-config-form');
         if (notificationConfigForm) notificationConfigForm.addEventListener('submit', handleNotificationConfigSubmit);
+
+        const gameConfigForm = document.getElementById('game-config-form');
+        if (gameConfigForm) gameConfigForm.addEventListener('submit', handleGameConfigSubmit);
 
         const grantBadgeBtn = document.getElementById('grant-badge-btn');
         if (grantBadgeBtn) grantBadgeBtn.addEventListener('click', openGrantBadgeModal);
