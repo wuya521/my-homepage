@@ -545,6 +545,106 @@ body {
     color: var(--text-primary);
 }
 
+/* ==================== 游戏入口 ==================== */
+.game-entrance-section {
+    animation: fadeInUp 0.6s ease-out 0.15s both;
+}
+
+.game-entrance-card {
+    background: linear-gradient(135deg, rgba(251, 114, 153, 0.1), rgba(255, 158, 172, 0.1));
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.game-entrance-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(251, 114, 153, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.game-entrance-card:hover::before {
+    left: 100%;
+}
+
+.game-entrance-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg), 0 0 30px rgba(251, 114, 153, 0.3);
+    border-color: var(--secondary-color);
+}
+
+.game-entrance-icon {
+    font-size: 64px;
+    flex-shrink: 0;
+    animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.game-entrance-info {
+    flex: 1;
+}
+
+.game-entrance-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: var(--spacing-xs);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.game-entrance-desc {
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+.game-entrance-badge {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: var(--primary-gradient);
+    color: #FFFFFF;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .game-entrance-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .game-entrance-icon {
+        font-size: 48px;
+    }
+    
+    .game-entrance-title {
+        font-size: 1.5rem;
+    }
+}
+
 /* ==================== 门户链接区域 ==================== */
 .portals-section {
     margin-bottom: var(--spacing-xl);

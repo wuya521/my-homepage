@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏡 花园人生 - 文字养成游戏</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .game-header {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+
+        .game-title {
+            font-size: 2rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .game-stats {
+            display: flex;
+            gap: var(--spacing-md);
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-sm) var(--spacing-md);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 100px;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .game-nav {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-lg);
+            flex-wrap: wrap;
+        }
+
+        .game-nav-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: var(--spacing-md);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .game-nav-btn:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--primary-color);
+        }
+
+        .game-nav-btn.active {
+            background: var(--primary-gradient);
+            border-color: var(--primary-color);
+            color: #FFFFFF;
+        }
+
+        .game-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            min-height: 400px;
+        }
+
+        .event-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .event-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .event-description {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .event-options {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+
+        .event-option {
+            padding: var(--spacing-md);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .event-option:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--primary-color);
+            transform: translateX(5px);
+        }
+
+        .event-option-cost {
+            font-size: 0.875rem;
+            color: var(--error-color);
+            margin-top: 4px;
+        }
+
+        .event-option-reward {
+            font-size: 0.875rem;
+            color: var(--success-color);
+            margin-top: 4px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: var(--text-muted);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: var(--spacing-lg);
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <a href="/" class="back-link">← 返回主页</a>
+
+        <div class="game-header">
+            <div class="game-title">🏡 花园人生</div>
+            <div class="game-stats">
+                <div class="stat-item">
+                    <div class="stat-label">⚡ 体力</div>
+                    <div class="stat-value" id="stat-energy">--/--</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">💰 金币</div>
+                    <div class="stat-value" id="stat-coins">--</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">⭐ 等级</div>
+                    <div class="stat-value" id="stat-level">Lv.--</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">📅 今日事件</div>
+                    <div class="stat-value" id="stat-events">--/--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-nav">
+            <button class="game-nav-btn active" data-tab="checkin">📅 签到</button>
+            <button class="game-nav-btn" data-tab="events">📜 随机事件</button>
+            <button class="game-nav-btn" data-tab="farm">🌻 我的花园</button>
+            <button class="game-nav-btn" data-tab="friends">👥 好友</button>
+            <button class="game-nav-btn" data-tab="shop">🏪 商店</button>
+        </div>
+
+        <div class="game-content">
+            <!-- 签到页面 -->
+            <div id="tab-checkin" class="tab-content">
+                <h2>📅 每日签到</h2>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
+                    每天签到可获得体力、金币和经验奖励！
+                </p>
+                <button id="checkin-btn" class="btn-primary" style="margin-top: var(--spacing-lg);">
+                    立即签到
+                </button>
+                <div id="checkin-message" class="message" style="display: none; margin-top: var(--spacing-md);"></div>
+            </div>
+
+            <!-- 随机事件页面 -->
+            <div id="tab-events" class="tab-content" style="display: none;">
+                <h2>📜 今日奇遇</h2>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
+                    每天可以触发随机事件，做出不同的选择会获得不同的奖励！
+                </p>
+                <button id="next-event-btn" class="btn-primary" style="margin-top: var(--spacing-lg);">
+                    触发事件
+                </button>
+                <div id="event-container" style="margin-top: var(--spacing-lg);"></div>
+            </div>
+
+            <!-- 花园页面 -->
+            <div id="tab-farm" class="tab-content" style="display: none;">
+                <h2>🌻 我的花园</h2>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
+                    种植作物，等待成熟后收获奖励！（即将开放）
+                </p>
+                <div class="empty-state">
+                    <p>🚧 功能开发中...</p>
+                </div>
+            </div>
+
+            <!-- 好友页面 -->
+            <div id="tab-friends" class="tab-content" style="display: none;">
+                <h2>👥 好友互动</h2>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
+                    访问好友的花园，浇水、送礼或偷菜！（即将开放）
+                </p>
+                <div class="empty-state">
+                    <p>🚧 功能开发中...</p>
+                </div>
+            </div>
+
+            <!-- 商店页面 -->
+            <div id="tab-shop" class="tab-content" style="display: none;">
+                <h2>🏪 神秘商店</h2>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
+                    使用金币购买种子、道具和装扮！（即将开放）
+                </p>
+                <div class="empty-state">
+                    <p>🚧 功能开发中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+    <script>
+        let currentProfile = null;
+        let currentEvent = null;
+        let dailyEventLimit = 10;
+
+        // 获取用户邮箱
+        function getUserEmail() {
+            // 从主站获取用户邮箱
+            const profileData = localStorage.getItem('userEmail');
+            return profileData || prompt('请输入您的邮箱以开始游戏：');
+        }
+
+        // 加载游戏配置
+        async function loadGameConfig() {
+            try {
+                const config = await apiRequest('/api/game/config');
+                if (!config.enabled) {
+                    alert('游戏功能暂未开放');
+                    window.location.href = '/';
+                    return;
+                }
+                dailyEventLimit = config.dailyEventLimit || 10;
+            } catch (error) {
+                console.error('加载游戏配置失败:', error);
+            }
+        }
+
+        // 加载用户档案
+        async function loadProfile() {
+            const email = getUserEmail();
+            if (!email) {
+                alert('请先输入邮箱');
+                window.location.href = '/';
+                return;
+            }
+
+            localStorage.setItem('userEmail', email);
+
+            try {
+                const result = await apiRequest(`/api/game/profile?email=${encodeURIComponent(email)}`);
+                if (result.success) {
+                    currentProfile = result.profile;
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('加载档案失败:', error);
+                alert('加载失败: ' + error.message);
+            }
+        }
+
+        // 更新统计数据
+        function updateStats() {
+            if (!currentProfile) return;
+
+            document.getElementById('stat-energy').textContent = 
+                `${currentProfile.energy}/${currentProfile.maxEnergy}`;
+            document.getElementById('stat-coins').textContent = currentProfile.coins;
+            document.getElementById('stat-level').textContent = `Lv.${currentProfile.gameLevel}`;
+            document.getElementById('stat-events').textContent = 
+                `${currentProfile.dailyEvents}/${dailyEventLimit}`;
+        }
+
+        // 签到
+        async function handleCheckin() {
+            const email = getUserEmail();
+            const btn = document.getElementById('checkin-btn');
+            btn.disabled = true;
+            btn.textContent = '签到中...';
+
+            try {
+                const result = await apiRequest('/api/game/checkin', {
+                    method: 'POST',
+                    body: JSON.stringify({ email })
+                });
+
+                if (result.success) {
+                    currentProfile = result.profile;
+                    updateStats();
+                    
+                    const msg = document.getElementById('checkin-message');
+                    msg.className = 'message success';
+                    msg.style.display = 'block';
+                    msg.textContent = `签到成功！获得 ${result.rewards.energy} 体力、${result.rewards.coins} 金币、${result.rewards.exp} 经验`;
+                    
+                    btn.textContent = '今日已签到';
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                const msg = document.getElementById('checkin-message');
+                msg.className = 'message error';
+                msg.style.display = 'block';
+                msg.textContent = error.message;
+                
+                btn.disabled = false;
+                btn.textContent = '立即签到';
+            }
+        }
+
+        // 触发随机事件
+        async function handleNextEvent() {
+            const email = getUserEmail();
+            const btn = document.getElementById('next-event-btn');
+            const container = document.getElementById('event-container');
+            
+            btn.disabled = true;
+            btn.textContent = '加载中...';
+            container.innerHTML = '<div class="loading">正在寻找奇遇...</div>';
+
+            try {
+                const result = await apiRequest('/api/game/event/next', {
+                    method: 'POST',
+                    body: JSON.stringify({ email })
+                });
+
+                if (result.success) {
+                    currentEvent = result.event;
+                    renderEvent(result.event);
+                    btn.textContent = '触发事件';
+                    btn.disabled = false;
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state">${error.message}</div>`;
+                btn.textContent = '触发事件';
+                btn.disabled = false;
+            }
+        }
+
+        // 渲染事件
+        function renderEvent(event) {
+            const container = document.getElementById('event-container');
+            
+            const optionsHtml = event.options.map((option, index) => {
+                let costHtml = '';
+                let rewardHtml = '';
+                
+                if (option.cost) {
+                    const costs = [];
+                    if (option.cost.energy) costs.push(`消耗 ${option.cost.energy} 体力`);
+                    if (option.cost.coins) costs.push(`消耗 ${option.cost.coins} 金币`);
+                    if (costs.length > 0) {
+                        costHtml = `<div class="event-option-cost">${costs.join('、')}</div>`;
+                    }
+                }
+                
+                if (option.reward) {
+                    const rewards = [];
+                    if (option.reward.coins) rewards.push(`+${option.reward.coins} 金币`);
+                    if (option.reward.exp) rewards.push(`+${option.reward.exp} 经验`);
+                    if (rewards.length > 0) {
+                        rewardHtml = `<div class="event-option-reward">${rewards.join('、')}</div>`;
+                    }
+                }
+                
+                return `
+                    <button class="event-option" onclick="chooseOption(${index})">
+                        ${option.text}
+                        ${costHtml}
+                        ${rewardHtml}
+                    </button>
+                `;
+            }).join('');
+            
+            container.innerHTML = `
+                <div class="event-card">
+                    <div class="event-title">${event.title}</div>
+                    <div class="event-description">${event.description}</div>
+                    <div class="event-options">
+                        ${optionsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 选择事件选项
+        async function chooseOption(optionIndex) {
+            if (!currentEvent) return;
+            
+            const email = getUserEmail();
+            const container = document.getElementById('event-container');
+            container.innerHTML = '<div class="loading">处理中...</div>';
+
+            try {
+                const result = await apiRequest('/api/game/event/choose', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email,
+                        eventId: currentEvent.id,
+                        optionIndex
+                    })
+                });
+
+                if (result.success) {
+                    currentProfile = result.profile;
+                    updateStats();
+                    
+                    let message = '选择完成！';
+                    if (result.rewards.failed) {
+                        message = '很遗憾，这次没有成功...';
+                    } else {
+                        const rewards = [];
+                        if (result.rewards.coins) rewards.push(`+${result.rewards.coins} 金币`);
+                        if (result.rewards.exp) rewards.push(`+${result.rewards.exp} 经验`);
+                        if (rewards.length > 0) {
+                            message = `获得：${rewards.join('、')}`;
+                        }
+                    }
+                    
+                    container.innerHTML = `
+                        <div class="event-card">
+                            <div class="event-title">✨ ${message}</div>
+                            <button class="btn-primary" onclick="handleNextEvent()" style="margin-top: var(--spacing-md);">
+                                继续冒险
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state">${error.message}</div>`;
+            }
+        }
+
+        // 切换标签页
+        function switchTab(tabName) {
+            // 隐藏所有标签页
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            
+            // 移除所有按钮的active状态
+            document.querySelectorAll('.game-nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 显示选中的标签页
+            document.getElementById(`tab-${tabName}`).style.display = 'block';
+            
+            // 添加active状态
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        }
+
+        // 页面加载
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadGameConfig();
+            await loadProfile();
+            
+            // 签到按钮
+            document.getElementById('checkin-btn').addEventListener('click', handleCheckin);
+            
+            // 触发事件按钮
+            document.getElementById('next-event-btn').addEventListener('click', handleNextEvent);
+            
+            // 标签页切换
+            document.querySelectorAll('.game-nav-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    switchTab(btn.dataset.tab);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+

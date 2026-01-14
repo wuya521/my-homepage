@@ -35,7 +35,15 @@ const STORAGE_KEYS = {
   TIMELINE_EVENTS: 'timeline_events',
   FISH_TANK_CONFIG: 'fish_tank_config',
   NOTIFICATIONS: 'notifications',
-  NOTIFICATION_CONFIG: 'notification_config'
+  NOTIFICATION_CONFIG: 'notification_config',
+  // 游戏系统
+  GAME_PROFILES: 'game_profiles',
+  GAME_EVENTS: 'game_events',
+  GAME_ITEMS: 'game_items',
+  GAME_FARMS: 'game_farms',
+  GAME_LEDGER: 'game_ledger',
+  GAME_RANKINGS: 'game_rankings',
+  GAME_CONFIG: 'game_config'
 };
 
 // 初始化默认数据
@@ -188,6 +196,113 @@ async function initializeDefaultData(KV) {
     };
     await KV.put(STORAGE_KEYS.NOTIFICATION_CONFIG, JSON.stringify(defaultNotificationConfig));
 
+    // 初始化游戏配置
+    const defaultGameConfig = {
+      enabled: true,
+      maxEnergy: 100, // 最大体力
+      energyRecoverRate: 10, // 每小时恢复体力
+      dailyEventLimit: 10, // 每日事件次数
+      farmPlots: 4, // 花园格子数
+      blackDiamondBenefits: {
+        energyBonus: 20, // 体力上限加成
+        offlineGrowthSpeed: 1.2, // 离线生长加速
+        protectionShield: 1, // 每日防偷保护
+        quickHarvest: true, // 一键收获
+        breakProtection: true // 断签保护
+      }
+    };
+    await KV.put(STORAGE_KEYS.GAME_CONFIG, JSON.stringify(defaultGameConfig));
+
+    // 初始化游戏事件
+    const defaultGameEvents = [
+      {
+        id: 'event_1',
+        title: '路过花市',
+        description: '你路过花市，看到一位老人在卖种子...',
+        weight: 10,
+        cooldown: 0,
+        options: [
+          { text: '花10金币买一包种子', cost: { coins: 10 }, reward: { items: { seed_common: 1 } } },
+          { text: '花50金币买稀有种子', cost: { coins: 50 }, reward: { items: { seed_rare: 1 } } },
+          { text: '和老人聊天', cost: {}, reward: { exp: 5, status: { luck: 1 } } },
+          { text: '离开', cost: {}, reward: { coins: 5 } }
+        ]
+      },
+      {
+        id: 'event_2',
+        title: '神秘商人',
+        description: '一个神秘商人出现在你面前，他说可以用材料换取稀有道具...',
+        weight: 5,
+        cooldown: 3600,
+        options: [
+          { text: '用材料换取肥料', cost: { items: { material_wood: 3 } }, reward: { items: { fertilizer: 2 } } },
+          { text: '用金币购买加速卡', cost: { coins: 100 }, reward: { items: { speed_card: 1 } } },
+          { text: '拒绝交易', cost: {}, reward: { coins: 10 } }
+        ]
+      },
+      {
+        id: 'event_3',
+        title: '打工机会',
+        description: '村长需要人手帮忙，你愿意去打工吗？',
+        weight: 15,
+        cooldown: 0,
+        options: [
+          { text: '轻松打工（消耗10体力）', cost: { energy: 10 }, reward: { coins: 30, exp: 5 } },
+          { text: '辛苦打工（消耗20体力）', cost: { energy: 20 }, reward: { coins: 80, exp: 15 } },
+          { text: '拒绝', cost: {}, reward: {} }
+        ]
+      },
+      {
+        id: 'event_4',
+        title: '冒险探索',
+        description: '你发现了一个神秘洞穴，要进去探险吗？',
+        weight: 8,
+        cooldown: 1800,
+        options: [
+          { text: '谨慎探索（消耗15体力）', cost: { energy: 15 }, reward: { coins: 50, items: { material_wood: 2 }, probability: 0.8 } },
+          { text: '深入探索（消耗30体力）', cost: { energy: 30 }, reward: { coins: 150, items: { material_rare: 1 }, probability: 0.5 } },
+          { text: '放弃探索', cost: {}, reward: { coins: 5 } }
+        ]
+      },
+      {
+        id: 'event_5',
+        title: '好友求助',
+        description: '你的好友需要帮助，是否愿意帮忙？',
+        weight: 12,
+        cooldown: 0,
+        options: [
+          { text: '帮忙浇水（消耗5体力）', cost: { energy: 5 }, reward: { exp: 10, status: { friendship: 1 } } },
+          { text: '送礼物（消耗20金币）', cost: { coins: 20 }, reward: { exp: 15, status: { friendship: 2 } } },
+          { text: '婉拒', cost: {}, reward: {} }
+        ]
+      }
+    ];
+    await KV.put(STORAGE_KEYS.GAME_EVENTS, JSON.stringify(defaultGameEvents));
+
+    // 初始化游戏道具
+    const defaultGameItems = {
+      seed_common: { name: '普通种子', icon: '🌱', description: '可种植普通作物', type: 'seed', growTime: 7200 },
+      seed_rare: { name: '稀有种子', icon: '🌺', description: '可种植稀有作物', type: 'seed', growTime: 14400 },
+      fertilizer: { name: '肥料', icon: '💩', description: '加速作物生长', type: 'consumable', effect: { speedUp: 0.5 } },
+      speed_card: { name: '加速卡', icon: '⚡', description: '立即完成生长', type: 'consumable', effect: { instant: true } },
+      material_wood: { name: '木材', icon: '🪵', description: '基础材料', type: 'material' },
+      material_rare: { name: '稀有材料', icon: '💎', description: '稀有材料', type: 'material' },
+      protection_shield: { name: '防偷保护罩', icon: '🛡️', description: '保护花园24小时', type: 'consumable', effect: { protection: 86400 } }
+    };
+    await KV.put(STORAGE_KEYS.GAME_ITEMS, JSON.stringify(defaultGameItems));
+
+    // 初始化用户游戏档案（空）
+    await KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify([]));
+    
+    // 初始化花园数据（空）
+    await KV.put(STORAGE_KEYS.GAME_FARMS, JSON.stringify([]));
+    
+    // 初始化游戏流水（空）
+    await KV.put(STORAGE_KEYS.GAME_LEDGER, JSON.stringify([]));
+    
+    // 初始化排行榜（空）
+    await KV.put(STORAGE_KEYS.GAME_RANKINGS, JSON.stringify({ weekly: [], monthly: [] }));
+
     console.log('默认数据初始化完成');
   } catch (error) {
     console.error('初始化数据失败:', error);
@@ -269,6 +384,66 @@ async function createNotification(KV, data) {
     await KV.put(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
   } catch (error) {
     console.error('创建通知失败:', error);
+  }
+}
+
+// 游戏系统辅助函数
+
+// 恢复体力
+async function recoverEnergy(KV, profile) {
+  const now = new Date();
+  const lastRecover = new Date(profile.lastEnergyRecover);
+  const hoursPassed = (now - lastRecover) / (1000 * 60 * 60);
+  
+  if (hoursPassed >= 1) {
+    const configData = await KV.get(STORAGE_KEYS.GAME_CONFIG);
+    const config = configData ? JSON.parse(configData) : { energyRecoverRate: 10 };
+    
+    const recovered = Math.floor(hoursPassed) * config.energyRecoverRate;
+    profile.energy = Math.min(profile.energy + recovered, profile.maxEnergy);
+    profile.lastEnergyRecover = now.toISOString();
+  }
+  
+  return profile;
+}
+
+// 重置每日数据
+async function resetDaily(profile) {
+  const today = new Date().toDateString();
+  
+  if (profile.lastDailyReset !== today) {
+    profile.dailyEvents = 0;
+    profile.lastDailyReset = today;
+  }
+  
+  return profile;
+}
+
+// 记录流水
+async function recordLedger(KV, email, type, action, amount, itemId, reason) {
+  try {
+    const ledgerData = await KV.get(STORAGE_KEYS.GAME_LEDGER);
+    const ledger = ledgerData ? JSON.parse(ledgerData) : [];
+    
+    ledger.push({
+      id: `ledger_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      email,
+      type,
+      action,
+      amount,
+      itemId,
+      reason,
+      timestamp: new Date().toISOString()
+    });
+    
+    // 只保留最近1000条记录
+    if (ledger.length > 1000) {
+      ledger.splice(0, ledger.length - 1000);
+    }
+    
+    await KV.put(STORAGE_KEYS.GAME_LEDGER, JSON.stringify(ledger));
+  } catch (error) {
+    console.error('记录流水失败:', error);
   }
 }
 
@@ -804,6 +979,259 @@ async function handleRequest(request, env) {
       displayDuration: 5000
     };
     return jsonResponse(config);
+  }
+
+  // ==================== 游戏系统 API（公开接口）====================
+
+  // 获取游戏配置
+  if (path === '/api/game/config' && method === 'GET') {
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_CONFIG);
+    const config = configData ? JSON.parse(configData) : { enabled: false };
+    return jsonResponse(config);
+  }
+
+  // 获取用户游戏档案
+  if (path === '/api/game/profile' && method === 'GET') {
+    const email = url.searchParams.get('email');
+    if (!email) {
+      return jsonResponse({ success: false, message: '请提供邮箱' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    let profile = profiles.find(p => p.email === email);
+
+    // 如果没有档案，创建新档案
+    if (!profile) {
+      const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_CONFIG);
+      const config = configData ? JSON.parse(configData) : { maxEnergy: 100 };
+      
+      profile = {
+        email,
+        energy: config.maxEnergy || 100,
+        maxEnergy: config.maxEnergy || 100,
+        coins: 100,
+        exp: 0,
+        gameLevel: 1,
+        inventory: {},
+        status: { luck: 0, friendship: 0, fatigue: 0 },
+        dailyEvents: 0,
+        lastEnergyRecover: new Date().toISOString(),
+        lastDailyReset: new Date().toDateString(),
+        totalHarvest: 0,
+        totalHelp: 0,
+        blackDiamond: { active: false, level: 0, expireAt: null },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      profiles.push(profile);
+      await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+    } else {
+      // 恢复体力
+      profile = await recoverEnergy(env.MY_HOME_KV, profile);
+      // 重置每日数据
+      profile = await resetDaily(profile);
+      
+      // 更新档案
+      const profileIndex = profiles.findIndex(p => p.email === email);
+      profiles[profileIndex] = profile;
+      await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+    }
+
+    return jsonResponse({ success: true, profile });
+  }
+
+  // 游戏签到
+  if (path === '/api/game/checkin' && method === 'POST') {
+    const { email } = await request.json();
+    if (!email) {
+      return jsonResponse({ success: false, message: '请提供邮箱' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profileIndex = profiles.findIndex(p => p.email === email);
+    
+    if (profileIndex === -1) {
+      return jsonResponse({ success: false, message: '请先进入游戏' }, 400);
+    }
+
+    const profile = profiles[profileIndex];
+    const today = new Date().toDateString();
+    
+    // 检查今天是否已签到
+    if (profile.lastCheckin === today) {
+      return jsonResponse({ success: false, message: '今日已签到' }, 400);
+    }
+
+    // 签到奖励
+    const rewards = {
+      energy: 20,
+      coins: 50,
+      exp: 20
+    };
+
+    profile.energy = Math.min(profile.energy + rewards.energy, profile.maxEnergy);
+    profile.coins += rewards.coins;
+    profile.exp += rewards.exp;
+    profile.lastCheckin = today;
+    profile.updatedAt = new Date().toISOString();
+
+    profiles[profileIndex] = profile;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+
+    // 记录流水
+    await recordLedger(env.MY_HOME_KV, email, 'coins', 'earn', rewards.coins, null, 'checkin');
+    await recordLedger(env.MY_HOME_KV, email, 'energy', 'earn', rewards.energy, null, 'checkin');
+
+    return jsonResponse({ success: true, rewards, profile });
+  }
+
+  // 获取随机事件
+  if (path === '/api/game/event/next' && method === 'POST') {
+    const { email } = await request.json();
+    if (!email) {
+      return jsonResponse({ success: false, message: '请提供邮箱' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profile = profiles.find(p => p.email === email);
+    
+    if (!profile) {
+      return jsonResponse({ success: false, message: '请先进入游戏' }, 400);
+    }
+
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_CONFIG);
+    const config = configData ? JSON.parse(configData) : { dailyEventLimit: 10 };
+
+    // 检查每日事件次数
+    if (profile.dailyEvents >= config.dailyEventLimit) {
+      return jsonResponse({ success: false, message: '今日事件次数已用完' }, 400);
+    }
+
+    // 获取事件列表
+    const eventsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_EVENTS);
+    const events = eventsData ? JSON.parse(eventsData) : [];
+
+    // 随机选择事件（基于权重）
+    const totalWeight = events.reduce((sum, e) => sum + (e.weight || 1), 0);
+    let random = Math.random() * totalWeight;
+    let selectedEvent = events[0];
+
+    for (const event of events) {
+      random -= event.weight || 1;
+      if (random <= 0) {
+        selectedEvent = event;
+        break;
+      }
+    }
+
+    return jsonResponse({ success: true, event: selectedEvent });
+  }
+
+  // 选择事件选项
+  if (path === '/api/game/event/choose' && method === 'POST') {
+    const { email, eventId, optionIndex } = await request.json();
+    if (!email || !eventId || optionIndex === undefined) {
+      return jsonResponse({ success: false, message: '参数不完整' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profileIndex = profiles.findIndex(p => p.email === email);
+    
+    if (profileIndex === -1) {
+      return jsonResponse({ success: false, message: '请先进入游戏' }, 400);
+    }
+
+    const profile = profiles[profileIndex];
+
+    // 获取事件
+    const eventsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_EVENTS);
+    const events = eventsData ? JSON.parse(eventsData) : [];
+    const event = events.find(e => e.id === eventId);
+    
+    if (!event || !event.options[optionIndex]) {
+      return jsonResponse({ success: false, message: '事件不存在' }, 400);
+    }
+
+    const option = event.options[optionIndex];
+    const cost = option.cost || {};
+    const reward = option.reward || {};
+
+    // 检查消耗
+    if (cost.energy && profile.energy < cost.energy) {
+      return jsonResponse({ success: false, message: '体力不足' }, 400);
+    }
+    if (cost.coins && profile.coins < cost.coins) {
+      return jsonResponse({ success: false, message: '金币不足' }, 400);
+    }
+    if (cost.items) {
+      for (const [itemId, amount] of Object.entries(cost.items)) {
+        if ((profile.inventory[itemId] || 0) < amount) {
+          return jsonResponse({ success: false, message: '道具不足' }, 400);
+        }
+      }
+    }
+
+    // 扣除消耗
+    if (cost.energy) {
+      profile.energy -= cost.energy;
+      await recordLedger(env.MY_HOME_KV, email, 'energy', 'spend', cost.energy, null, eventId);
+    }
+    if (cost.coins) {
+      profile.coins -= cost.coins;
+      await recordLedger(env.MY_HOME_KV, email, 'coins', 'spend', cost.coins, null, eventId);
+    }
+    if (cost.items) {
+      for (const [itemId, amount] of Object.entries(cost.items)) {
+        profile.inventory[itemId] = (profile.inventory[itemId] || 0) - amount;
+        await recordLedger(env.MY_HOME_KV, email, 'item', 'spend', amount, itemId, eventId);
+      }
+    }
+
+    // 发放奖励（考虑概率）
+    const actualReward = {};
+    const probability = reward.probability || 1;
+    
+    if (Math.random() <= probability) {
+      if (reward.coins) {
+        profile.coins += reward.coins;
+        actualReward.coins = reward.coins;
+        await recordLedger(env.MY_HOME_KV, email, 'coins', 'earn', reward.coins, null, eventId);
+      }
+      if (reward.exp) {
+        profile.exp += reward.exp;
+        actualReward.exp = reward.exp;
+      }
+      if (reward.items) {
+        actualReward.items = {};
+        for (const [itemId, amount] of Object.entries(reward.items)) {
+          profile.inventory[itemId] = (profile.inventory[itemId] || 0) + amount;
+          actualReward.items[itemId] = amount;
+          await recordLedger(env.MY_HOME_KV, email, 'item', 'earn', amount, itemId, eventId);
+        }
+      }
+      if (reward.status) {
+        for (const [key, value] of Object.entries(reward.status)) {
+          profile.status[key] = (profile.status[key] || 0) + value;
+        }
+        actualReward.status = reward.status;
+      }
+    } else {
+      actualReward.failed = true;
+    }
+
+    // 增加事件次数
+    profile.dailyEvents += 1;
+    profile.updatedAt = new Date().toISOString();
+
+    profiles[profileIndex] = profile;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+
+    return jsonResponse({ success: true, rewards: actualReward, profile });
   }
 
   // ==================== 前端页面路由（无需认证）====================
