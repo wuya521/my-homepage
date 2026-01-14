@@ -1236,6 +1236,26 @@ async function handleRequest(request, env) {
 
   // ==================== 前端页面路由（无需认证）====================
 
+  // Favicon 路由（避免 404）
+  if (path === '/favicon.ico') {
+    return new Response(null, { status: 204 });
+  }
+
+  // 游戏页面路由
+  if (path === '/game.html' || path === '/game') {
+    const cacheBuster = `?t=${Date.now()}`;
+    const html = await fetch(`https://raw.githubusercontent.com/wuya521/my-homepage/main/game.html${cacheBuster}`)
+      .then(res => res.text())
+      .catch(() => '<h1>游戏页面加载失败</h1>');
+    
+    return new Response(html, {
+      headers: { 
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    });
+  }
+
   // 主页路由
   if (path === '/' || path === '/index.html') {
     // 添加时间戳绕过 GitHub CDN 缓存
