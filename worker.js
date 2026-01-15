@@ -1237,6 +1237,537 @@ async function handleRequest(request, env) {
     return jsonResponse({ success: true, rewards: actualReward, profile });
   }
 
+  // 获取花园状态
+  if (path === '/api/game/farm/status' && method === 'GET') {
+    const email = url.searchParams.get('email');
+    if (!email) {
+      return jsonResponse({ success: false, message: '请提供邮箱' }, 400);
+    }
+
+    const farmsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_FARMS);
+    const farms = farmsData ? JSON.parse(farmsData) : [];
+    let farm = farms.find(f => f.email === email);
+
+    // 如果没有花园，创建新花园
+    if (!farm) {
+      const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_CONFIG);
+      const config = configData ? JSON.parse(configData) : { farmPlots: 4 };
+      
+      const plots = [];
+      for (let i = 0; i < config.farmPlots; i++) {
+        plots.push({
+          id: i,
+          planted: false,
+          seedType: null,
+          plantedAt: null,
+          harvestAt: null,
+          stolen: 0,
+          watered: 0,
+          protected: false,
+          protectedUntil: null
+        });
+      }
+      
+      farm = {
+        email,
+        plots,
+        visitors: [],
+        lastVisit: {}
+      };
+      
+      farms.push(farm);
+      await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_FARMS, JSON.stringify(farms));
+    }
+
+    return jsonResponse({ success: true, farm });
+  }
+
+  // 种植作物
+  if (path === '/api/game/farm/plant' && method === 'POST') {
+    const { email, plotId, seedType } = await request.json();
+    if (!email || plotId === undefined || !seedType) {
+      return jsonResponse({ success: false, message: '参数不完整' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profileIndex = profiles.findIndex(p => p.email === email);
+    
+    if (profileIndex === -1) {
+      return jsonResponse({ success: false, message: '请先进入游戏' }, 400);
+    }
+
+    const profile = profiles[profileIndex];
+
+    // 检查是否有种子
+    if (!profile.inventory[seedType] || profile.inventory[seedType] <= 0) {
+      return jsonResponse({ success: false, message: '种子不足' }, 400);
+    }
+
+    const farmsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_FARMS);
+    const farms = farmsData ? JSON.parse(farmsData) : [];
+    const farmIndex = farms.findIndex(f => f.email === email);
+    
+    if (farmIndex === -1) {
+      return jsonResponse({ success: false, message: '花园不存在' }, 400);
+    }
+
+    const farm = farms[farmIndex];
+    const plot = farm.plots[plotId];
+
+    if (!plot || plot.planted) {
+      return jsonResponse({ success: false, message: '该格子不可种植' }, 400);
+    }
+
+    // 获取种子信息
+    const itemsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_ITEMS);
+    const items = itemsData ? JSON.parse(itemsData) : {};
+    const seed = items[seedType];
+
+    if (!seed || seed.type !== 'seed') {
+      return jsonResponse({ success: false, message: '无效的种子' }, 400);
+    }
+
+    // 种植
+    const now = new Date();
+    const harvestTime = new Date(now.getTime() + (seed.growTime || 7200) * 1000);
+
+    plot.planted = true;
+    plot.seedType = seedType;
+    plot.plantedAt = now.toISOString();
+    plot.harvestAt = harvestTime.toISOString();
+    plot.stolen = 0;
+    plot.watered = 0;
+
+    // 消耗种子
+    profile.inventory[seedType] -= 1;
+    
+    farms[farmIndex] = farm;
+    profiles[profileIndex] = profile;
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_FARMS, JSON.stringify(farms));
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+    await recordLedger(env.MY_HOME_KV, email, 'item', 'spend', 1, seedType, 'plant');
+
+    return jsonResponse({ success: true, plot, harvestAt: harvestTime.toISOString() });
+  }
+
+  // 收获作物
+  if (path === '/api/game/farm/harvest' && method === 'POST') {
+    const { email, plotId } = await request.json();
+    if (!email || plotId === undefined) {
+      return jsonResponse({ success: false, message: '参数不完整' }, 400);
+    }
+
+    const farmsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_FARMS);
+    const farms = farmsData ? JSON.parse(farmsData) : [];
+    const farmIndex = farms.findIndex(f => f.email === email);
+    
+    if (farmIndex === -1) {
+      return jsonResponse({ success: false, message: '花园不存在' }, 400);
+    }
+
+    const farm = farms[farmIndex];
+    const plot = farm.plots[plotId];
+
+    if (!plot || !plot.planted) {
+      return jsonResponse({ success: false, message: '该格子没有作物' }, 400);
+    }
+
+    const now = new Date();
+    const harvestTime = new Date(plot.harvestAt);
+
+    if (now < harvestTime) {
+      return jsonResponse({ success: false, message: '作物还未成熟' }, 400);
+    }
+
+    // 计算收获
+    const baseReward = plot.seedType === 'seed_rare' ? 200 : 100;
+    const wateredBonus = plot.watered * 10;
+    const stolenPenalty = plot.stolen * 20;
+    const totalReward = Math.max(baseReward + wateredBonus - stolenPenalty, 50);
+
+    // 更新用户档案
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profileIndex = profiles.findIndex(p => p.email === email);
+    
+    if (profileIndex !== -1) {
+      profiles[profileIndex].coins += totalReward;
+      profiles[profileIndex].exp += 20;
+      profiles[profileIndex].totalHarvest += 1;
+      await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+      await recordLedger(env.MY_HOME_KV, email, 'coins', 'earn', totalReward, null, 'harvest');
+    }
+
+    // 清空格子
+    plot.planted = false;
+    plot.seedType = null;
+    plot.plantedAt = null;
+    plot.harvestAt = null;
+    plot.stolen = 0;
+    plot.watered = 0;
+
+    farms[farmIndex] = farm;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_FARMS, JSON.stringify(farms));
+
+    return jsonResponse({ 
+      success: true, 
+      rewards: { coins: totalReward, exp: 20 },
+      profile: profiles[profileIndex]
+    });
+  }
+
+  // 使用道具
+  if (path === '/api/game/item/use' && method === 'POST') {
+    const { email, itemId, targetPlotId } = await request.json();
+    if (!email || !itemId) {
+      return jsonResponse({ success: false, message: '参数不完整' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profileIndex = profiles.findIndex(p => p.email === email);
+    
+    if (profileIndex === -1) {
+      return jsonResponse({ success: false, message: '请先进入游戏' }, 400);
+    }
+
+    const profile = profiles[profileIndex];
+
+    // 检查是否有道具
+    if (!profile.inventory[itemId] || profile.inventory[itemId] <= 0) {
+      return jsonResponse({ success: false, message: '道具不足' }, 400);
+    }
+
+    // 获取道具信息
+    const itemsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_ITEMS);
+    const items = itemsData ? JSON.parse(itemsData) : {};
+    const item = items[itemId];
+
+    if (!item) {
+      return jsonResponse({ success: false, message: '无效的道具' }, 400);
+    }
+
+    let result = { success: true, message: '使用成功' };
+
+    // 根据道具类型执行效果
+    if (itemId === 'speed_card' || itemId === 'fertilizer') {
+      if (targetPlotId === undefined) {
+        return jsonResponse({ success: false, message: '请指定目标格子' }, 400);
+      }
+
+      const farmsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_FARMS);
+      const farms = farmsData ? JSON.parse(farmsData) : [];
+      const farmIndex = farms.findIndex(f => f.email === email);
+      
+      if (farmIndex === -1) {
+        return jsonResponse({ success: false, message: '花园不存在' }, 400);
+      }
+
+      const plot = farms[farmIndex].plots[targetPlotId];
+      if (!plot || !plot.planted) {
+        return jsonResponse({ success: false, message: '该格子没有作物' }, 400);
+      }
+
+      if (itemId === 'speed_card') {
+        // 加速卡：立即成熟
+        plot.harvestAt = new Date().toISOString();
+        result.message = '作物已成熟，可以收获了！';
+      } else if (itemId === 'fertilizer') {
+        // 肥料：减少50%生长时间
+        const plantedTime = new Date(plot.plantedAt);
+        const harvestTime = new Date(plot.harvestAt);
+        const totalTime = harvestTime - plantedTime;
+        const newHarvestTime = new Date(plantedTime.getTime() + totalTime * 0.5);
+        plot.harvestAt = newHarvestTime.toISOString();
+        result.message = '使用肥料成功，生长时间减半！';
+      }
+
+      await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_FARMS, JSON.stringify(farms));
+    } else if (itemId === 'protection_shield') {
+      // 防偷保护罩
+      const farmsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_FARMS);
+      const farms = farmsData ? JSON.parse(farmsData) : [];
+      const farmIndex = farms.findIndex(f => f.email === email);
+      
+      if (farmIndex !== -1) {
+        farms[farmIndex].plots.forEach(plot => {
+          plot.protected = true;
+          plot.protectedUntil = new Date(Date.now() + 86400000).toISOString(); // 24小时
+        });
+        await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_FARMS, JSON.stringify(farms));
+        result.message = '花园已受保护24小时！';
+      }
+    }
+
+    // 消耗道具
+    profile.inventory[itemId] -= 1;
+    profiles[profileIndex] = profile;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+    await recordLedger(env.MY_HOME_KV, email, 'item', 'spend', 1, itemId, 'use');
+
+    return jsonResponse(result);
+  }
+
+  // 访问好友花园
+  if (path === '/api/game/farm/visit' && method === 'POST') {
+    const { email, targetEmail, action } = await request.json();
+    if (!email || !targetEmail || !action) {
+      return jsonResponse({ success: false, message: '参数不完整' }, 400);
+    }
+
+    if (email === targetEmail) {
+      return jsonResponse({ success: false, message: '不能访问自己的花园' }, 400);
+    }
+
+    const farmsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_FARMS);
+    const farms = farmsData ? JSON.parse(farmsData) : [];
+    const targetFarmIndex = farms.findIndex(f => f.email === targetEmail);
+    
+    if (targetFarmIndex === -1) {
+      return jsonResponse({ success: false, message: '目标花园不存在' }, 400);
+    }
+
+    const targetFarm = farms[targetFarmIndex];
+    const now = Date.now();
+
+    // 检查访问冷却（每个用户每天只能访问一次）
+    const today = new Date().toDateString();
+    if (targetFarm.lastVisit[email] === today) {
+      return jsonResponse({ success: false, message: '今天已经访问过了' }, 400);
+    }
+
+    let reward = { exp: 0, coins: 0 };
+
+    if (action === 'water') {
+      // 浇水：增加作物收益
+      targetFarm.plots.forEach(plot => {
+        if (plot.planted && !plot.protected) {
+          plot.watered += 1;
+        }
+      });
+      reward.exp = 10;
+      targetFarm.visitors.push({
+        email,
+        action: 'water',
+        time: new Date().toISOString()
+      });
+    } else if (action === 'steal') {
+      // 偷菜：获得金币，减少对方收益
+      let stolenCoins = 0;
+      targetFarm.plots.forEach(plot => {
+        if (plot.planted && !plot.protected && plot.stolen < 3) {
+          plot.stolen += 1;
+          stolenCoins += 10;
+        }
+      });
+      reward.coins = stolenCoins;
+      targetFarm.visitors.push({
+        email,
+        action: 'steal',
+        amount: stolenCoins,
+        time: new Date().toISOString()
+      });
+    } else if (action === 'gift') {
+      // 送礼：消耗金币，增加好感度
+      const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+      const profiles = profilesData ? JSON.parse(profilesData) : [];
+      const profileIndex = profiles.findIndex(p => p.email === email);
+      
+      if (profileIndex !== -1 && profiles[profileIndex].coins >= 20) {
+        profiles[profileIndex].coins -= 20;
+        reward.exp = 15;
+        await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+        await recordLedger(env.MY_HOME_KV, email, 'coins', 'spend', 20, null, 'gift');
+        targetFarm.visitors.push({
+          email,
+          action: 'gift',
+          time: new Date().toISOString()
+        });
+      } else {
+        return jsonResponse({ success: false, message: '金币不足' }, 400);
+      }
+    }
+
+    // 记录访问
+    targetFarm.lastVisit[email] = today;
+    
+    // 限制访客记录数量
+    if (targetFarm.visitors.length > 20) {
+      targetFarm.visitors = targetFarm.visitors.slice(-20);
+    }
+
+    farms[targetFarmIndex] = targetFarm;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_FARMS, JSON.stringify(farms));
+
+    // 更新访问者的档案
+    if (reward.exp > 0 || reward.coins > 0) {
+      const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+      const profiles = profilesData ? JSON.parse(profilesData) : [];
+      const profileIndex = profiles.findIndex(p => p.email === email);
+      
+      if (profileIndex !== -1) {
+        profiles[profileIndex].exp += reward.exp;
+        profiles[profileIndex].coins += reward.coins;
+        profiles[profileIndex].totalHelp += 1;
+        await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+        
+        if (reward.coins > 0) {
+          await recordLedger(env.MY_HOME_KV, email, 'coins', 'earn', reward.coins, null, action);
+        }
+      }
+    }
+
+    return jsonResponse({ success: true, rewards: reward });
+  }
+
+  // 获取排行榜
+  if (path === '/api/game/rankings' && method === 'GET') {
+    const type = url.searchParams.get('type') || 'weekly';
+    const limit = parseInt(url.searchParams.get('limit')) || 50;
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+
+    let rankings = [];
+    
+    if (type === 'harvest') {
+      // 收获榜
+      rankings = profiles
+        .sort((a, b) => (b.totalHarvest || 0) - (a.totalHarvest || 0))
+        .slice(0, limit)
+        .map((p, index) => ({
+          rank: index + 1,
+          email: p.email,
+          score: p.totalHarvest || 0,
+          level: p.gameLevel || 1
+        }));
+    } else if (type === 'help') {
+      // 助人榜
+      rankings = profiles
+        .sort((a, b) => (b.totalHelp || 0) - (a.totalHelp || 0))
+        .slice(0, limit)
+        .map((p, index) => ({
+          rank: index + 1,
+          email: p.email,
+          score: p.totalHelp || 0,
+          level: p.gameLevel || 1
+        }));
+    } else {
+      // 财富榜
+      rankings = profiles
+        .sort((a, b) => (b.coins || 0) - (a.coins || 0))
+        .slice(0, limit)
+        .map((p, index) => ({
+          rank: index + 1,
+          email: p.email,
+          score: p.coins || 0,
+          level: p.gameLevel || 1
+        }));
+    }
+
+    return jsonResponse({ success: true, rankings });
+  }
+
+  // 一键收获（黑钻特权）
+  if (path === '/api/game/farm/harvest-all' && method === 'POST') {
+    const { email } = await request.json();
+    if (!email) {
+      return jsonResponse({ success: false, message: '请提供邮箱' }, 400);
+    }
+
+    const farmsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_FARMS);
+    const farms = farmsData ? JSON.parse(farmsData) : [];
+    const farmIndex = farms.findIndex(f => f.email === email);
+    
+    if (farmIndex === -1) {
+      return jsonResponse({ success: false, message: '花园不存在' }, 400);
+    }
+
+    const farm = farms[farmIndex];
+    const now = new Date();
+    let totalCoins = 0;
+    let totalExp = 0;
+    let harvested = 0;
+
+    farm.plots.forEach(plot => {
+      if (plot.planted && new Date(plot.harvestAt) <= now) {
+        const baseReward = plot.seedType === 'seed_rare' ? 200 : 100;
+        const wateredBonus = plot.watered * 10;
+        const stolenPenalty = plot.stolen * 20;
+        const reward = Math.max(baseReward + wateredBonus - stolenPenalty, 50);
+        
+        totalCoins += reward;
+        totalExp += 20;
+        harvested += 1;
+
+        plot.planted = false;
+        plot.seedType = null;
+        plot.plantedAt = null;
+        plot.harvestAt = null;
+        plot.stolen = 0;
+        plot.watered = 0;
+      }
+    });
+
+    if (harvested === 0) {
+      return jsonResponse({ success: false, message: '没有可收获的作物' }, 400);
+    }
+
+    // 更新用户档案
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profileIndex = profiles.findIndex(p => p.email === email);
+    
+    if (profileIndex !== -1) {
+      profiles[profileIndex].coins += totalCoins;
+      profiles[profileIndex].exp += totalExp;
+      profiles[profileIndex].totalHarvest += harvested;
+      await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+      await recordLedger(env.MY_HOME_KV, email, 'coins', 'earn', totalCoins, null, 'harvest_all');
+    }
+
+    farms[farmIndex] = farm;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_FARMS, JSON.stringify(farms));
+
+    return jsonResponse({
+      success: true,
+      harvested,
+      rewards: { coins: totalCoins, exp: totalExp },
+      profile: profiles[profileIndex]
+    });
+  }
+
+  // 获取背包
+  if (path === '/api/game/inventory' && method === 'GET') {
+    const email = url.searchParams.get('email');
+    if (!email) {
+      return jsonResponse({ success: false, message: '请提供邮箱' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profile = profiles.find(p => p.email === email);
+    
+    if (!profile) {
+      return jsonResponse({ success: false, message: '档案不存在' }, 400);
+    }
+
+    const itemsData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_ITEMS);
+    const items = itemsData ? JSON.parse(itemsData) : {};
+
+    const inventory = Object.entries(profile.inventory || {})
+      .filter(([id, count]) => count > 0)
+      .map(([id, count]) => ({
+        id,
+        count,
+        ...items[id]
+      }));
+
+    return jsonResponse({ success: true, inventory });
+  }
+
   // ==================== 前端页面路由（无需认证）====================
 
   // Favicon 路由（避免 404）

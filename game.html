@@ -6,189 +6,61 @@
     <title>🏡 花园人生 - 文字养成游戏</title>
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .game-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .game-header {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: var(--spacing-lg);
-            margin-bottom: var(--spacing-lg);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: var(--spacing-md);
-        }
-
-        .game-title {
-            font-size: 2rem;
-            font-weight: 700;
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .game-stats {
-            display: flex;
-            gap: var(--spacing-md);
-            flex-wrap: wrap;
-        }
-
-        .stat-item {
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            padding: var(--spacing-sm) var(--spacing-md);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 100px;
-        }
-
-        .stat-label {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            margin-bottom: 4px;
-        }
-
-        .stat-value {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .game-nav {
-            display: flex;
-            gap: var(--spacing-sm);
-            margin-bottom: var(--spacing-lg);
-            flex-wrap: wrap;
-        }
-
-        .game-nav-btn {
-            flex: 1;
-            min-width: 120px;
-            padding: var(--spacing-md);
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .game-nav-btn:hover {
-            background: var(--bg-card-hover);
-            border-color: var(--primary-color);
-        }
-
-        .game-nav-btn.active {
-            background: var(--primary-gradient);
-            border-color: var(--primary-color);
-            color: #FFFFFF;
-        }
-
-        .game-content {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: var(--spacing-xl);
-            min-height: 400px;
-        }
-
-        .event-card {
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: var(--spacing-lg);
-            margin-bottom: var(--spacing-md);
-        }
-
-        .event-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: var(--spacing-sm);
-        }
-
-        .event-description {
-            font-size: 1rem;
-            color: var(--text-secondary);
-            line-height: 1.8;
-            margin-bottom: var(--spacing-lg);
-        }
-
-        .event-options {
-            display: flex;
-            flex-direction: column;
-            gap: var(--spacing-sm);
-        }
-
-        .event-option {
-            padding: var(--spacing-md);
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            color: var(--text-primary);
-            text-align: left;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .event-option:hover {
-            background: var(--bg-card-hover);
-            border-color: var(--primary-color);
-            transform: translateX(5px);
-        }
-
-        .event-option-cost {
-            font-size: 0.875rem;
-            color: var(--error-color);
-            margin-top: 4px;
-        }
-
-        .event-option-reward {
-            font-size: 0.875rem;
-            color: var(--success-color);
-            margin-top: 4px;
-        }
-
-        .loading {
-            text-align: center;
-            padding: var(--spacing-xl);
-            color: var(--text-secondary);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: var(--spacing-xl);
-            color: var(--text-muted);
-        }
-
-        .back-link {
-            display: inline-block;
-            margin-bottom: var(--spacing-lg);
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .back-link:hover {
-            text-decoration: underline;
+        .game-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .game-header { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--spacing-lg); margin-bottom: var(--spacing-lg); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-md); }
+        .game-title { font-size: 2rem; font-weight: 700; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .game-stats { display: flex; gap: var(--spacing-md); flex-wrap: wrap; }
+        .stat-item { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: var(--spacing-sm) var(--spacing-md); display: flex; flex-direction: column; align-items: center; min-width: 100px; }
+        .stat-label { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 4px; }
+        .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); }
+        .game-nav { display: flex; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg); flex-wrap: wrap; }
+        .game-nav-btn { flex: 1; min-width: 110px; padding: var(--spacing-md); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+        .game-nav-btn:hover { background: var(--bg-card-hover); border-color: var(--primary-color); }
+        .game-nav-btn.active { background: var(--primary-gradient); border-color: var(--primary-color); color: #FFFFFF; }
+        .game-content { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--spacing-xl); min-height: 400px; }
+        .farm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md); margin-top: var(--spacing-lg); }
+        .farm-plot { background: var(--bg-primary); border: 2px solid var(--border-color); border-radius: var(--radius-md); padding: var(--spacing-lg); text-align: center; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: all 0.3s ease; }
+        .farm-plot:hover { border-color: var(--primary-color); }
+        .plot-icon { font-size: 4rem; margin-bottom: var(--spacing-sm); }
+        .plot-status { font-size: 0.875rem; color: var(--text-secondary); margin: var(--spacing-xs) 0; }
+        .plot-timer { font-size: 1rem; font-weight: 600; color: var(--primary-color); }
+        .plot-actions { display: flex; gap: var(--spacing-xs); margin-top: var(--spacing-sm); }
+        .event-card { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--spacing-lg); margin-bottom: var(--spacing-md); }
+        .event-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: var(--spacing-sm); }
+        .event-description { font-size: 1rem; color: var(--text-secondary); line-height: 1.8; margin-bottom: var(--spacing-lg); }
+        .event-options { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+        .event-option { padding: var(--spacing-md); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.3s ease; }
+        .event-option:hover { background: var(--bg-card-hover); border-color: var(--primary-color); transform: translateX(5px); }
+        .event-option-cost { font-size: 0.875rem; color: var(--error-color); margin-top: 4px; }
+        .event-option-reward { font-size: 0.875rem; color: var(--success-color); margin-top: 4px; }
+        .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--spacing-md); margin-top: var(--spacing-lg); }
+        .shop-item { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--spacing-md); text-align: center; transition: all 0.3s ease; }
+        .shop-item:hover { border-color: var(--primary-color); transform: translateY(-3px); }
+        .shop-item-icon { font-size: 3rem; margin-bottom: var(--spacing-sm); }
+        .shop-item-name { font-size: 1.1rem; font-weight: 600; margin-bottom: var(--spacing-xs); }
+        .shop-item-desc { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--spacing-sm); }
+        .shop-item-price { font-size: 1.2rem; font-weight: 700; color: var(--primary-color); margin: var(--spacing-sm) 0; }
+        .friend-list { display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-lg); }
+        .friend-item { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--spacing-md); display: flex; justify-content: space-between; align-items: center; }
+        .ranking-list { display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-lg); }
+        .ranking-item { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--spacing-md); display: flex; justify-content: space-between; align-items: center; }
+        .rank-number { font-size: 1.5rem; font-weight: 700; color: var(--primary-color); min-width: 50px; }
+        .rank-gold { color: #FFD700; }
+        .rank-silver { color: #C0C0C0; }
+        .rank-bronze { color: #CD7F32; }
+        .loading { text-align: center; padding: var(--spacing-xl); color: var(--text-secondary); }
+        .empty-state { text-align: center; padding: var(--spacing-xl); color: var(--text-muted); }
+        .back-link { display: inline-block; margin-bottom: var(--spacing-lg); color: var(--primary-color); text-decoration: none; font-weight: 600; }
+        .back-link:hover { text-decoration: underline; }
+        @media (max-width: 768px) {
+            .game-nav-btn { min-width: 90px; font-size: 0.85rem; padding: var(--spacing-sm); }
+            .farm-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
 <body>
     <div class="game-container">
         <a href="/" class="back-link">← 返回主页</a>
-
         <div class="game-header">
             <div class="game-title">🏡 花园人生</div>
             <div class="game-stats">
@@ -205,204 +77,133 @@
                     <div class="stat-value" id="stat-level">Lv.--</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-label">📅 今日事件</div>
+                    <div class="stat-label">📅 事件</div>
                     <div class="stat-value" id="stat-events">--/--</div>
                 </div>
             </div>
         </div>
-
         <div class="game-nav">
             <button class="game-nav-btn active" data-tab="checkin">📅 签到</button>
-            <button class="game-nav-btn" data-tab="events">📜 随机事件</button>
-            <button class="game-nav-btn" data-tab="farm">🌻 我的花园</button>
+            <button class="game-nav-btn" data-tab="events">📜 事件</button>
+            <button class="game-nav-btn" data-tab="farm">🌻 花园</button>
+            <button class="game-nav-btn" data-tab="inventory">🎒 背包</button>
             <button class="game-nav-btn" data-tab="friends">👥 好友</button>
             <button class="game-nav-btn" data-tab="shop">🏪 商店</button>
+            <button class="game-nav-btn" data-tab="rankings">🏆 排行</button>
         </div>
-
         <div class="game-content">
-            <!-- 签到页面 -->
             <div id="tab-checkin" class="tab-content">
                 <h2>📅 每日签到</h2>
-                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
-                    每天签到可获得体力、金币和经验奖励！
-                </p>
-                <button id="checkin-btn" class="btn-primary" style="margin-top: var(--spacing-lg);">
-                    立即签到
-                </button>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">每天签到可获得体力、金币和经验奖励！</p>
+                <button id="checkin-btn" class="btn-primary" style="margin-top: var(--spacing-lg);">立即签到</button>
                 <div id="checkin-message" class="message" style="display: none; margin-top: var(--spacing-md);"></div>
             </div>
-
-            <!-- 随机事件页面 -->
             <div id="tab-events" class="tab-content" style="display: none;">
                 <h2>📜 今日奇遇</h2>
-                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
-                    每天可以触发随机事件，做出不同的选择会获得不同的奖励！
-                </p>
-                <button id="next-event-btn" class="btn-primary" style="margin-top: var(--spacing-lg);">
-                    触发事件
-                </button>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">每天可以触发随机事件，做出不同的选择会获得不同的奖励！</p>
+                <button id="next-event-btn" class="btn-primary" style="margin-top: var(--spacing-lg);">触发事件</button>
                 <div id="event-container" style="margin-top: var(--spacing-lg);"></div>
             </div>
-
-            <!-- 花园页面 -->
             <div id="tab-farm" class="tab-content" style="display: none;">
                 <h2>🌻 我的花园</h2>
-                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
-                    种植作物，等待成熟后收获奖励！（即将开放）
-                </p>
-                <div class="empty-state">
-                    <p>🚧 功能开发中...</p>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">种植作物，等待成熟后收获奖励！</p>
+                <div style="margin: var(--spacing-md) 0;">
+                    <button onclick="harvestAll()" class="btn-secondary" style="margin-right: 8px;">🌾 一键收获</button>
+                    <button onclick="loadFarm()" class="btn-secondary">🔄 刷新</button>
+                </div>
+                <div id="farm-container" class="farm-grid"></div>
+                <div style="margin-top: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-primary); border-radius: var(--radius-sm);">
+                    <h3 style="margin-bottom: var(--spacing-sm);">📝 访客记录</h3>
+                    <div id="farm-visitors" style="font-size: 0.875rem; color: var(--text-secondary);"></div>
                 </div>
             </div>
-
-            <!-- 好友页面 -->
+            <div id="tab-inventory" class="tab-content" style="display: none;">
+                <h2>🎒 我的背包</h2>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">查看和使用你拥有的道具！</p>
+                <div id="inventory-container" class="shop-grid"></div>
+            </div>
             <div id="tab-friends" class="tab-content" style="display: none;">
                 <h2>👥 好友互动</h2>
-                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
-                    访问好友的花园，浇水、送礼或偷菜！（即将开放）
-                </p>
-                <div class="empty-state">
-                    <p>🚧 功能开发中...</p>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">访问好友的花园，浇水、送礼或偷菜！输入好友邮箱开始互动：</p>
+                <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-lg);">
+                    <input type="email" id="friend-email" class="input-field" placeholder="输入好友邮箱" style="flex: 1;">
+                    <button onclick="visitFriend()" class="btn-primary">访问</button>
                 </div>
+                <div id="friends-container" style="margin-top: var(--spacing-lg);"></div>
             </div>
-
-            <!-- 商店页面 -->
             <div id="tab-shop" class="tab-content" style="display: none;">
                 <h2>🏪 神秘商店</h2>
-                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">
-                    使用金币购买种子、道具和装扮！（即将开放）
-                </p>
-                <div class="empty-state">
-                    <p>🚧 功能开发中...</p>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">使用金币购买种子和道具！</p>
+                <div id="shop-container" class="shop-grid"></div>
+            </div>
+            <div id="tab-rankings" class="tab-content" style="display: none;">
+                <h2>🏆 排行榜</h2>
+                <div style="display: flex; gap: var(--spacing-sm); margin: var(--spacing-md) 0;">
+                    <button onclick="loadRankings('wealth')" class="btn-secondary">💰 财富榜</button>
+                    <button onclick="loadRankings('harvest')" class="btn-secondary">🌾 收获榜</button>
+                    <button onclick="loadRankings('help')" class="btn-secondary">❤️ 助人榜</button>
                 </div>
+                <div id="rankings-container" class="ranking-list"></div>
             </div>
         </div>
     </div>
-
     <script>
-        // API配置
         const API_BASE = window.API_BASE || 'https://yahoohhblog.zalkbodenstein.workers.dev';
-
-        // API请求封装
         async function apiRequest(endpoint, options = {}) {
             try {
-                const headers = {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                };
-
                 const response = await fetch(`${API_BASE}${endpoint}`, {
                     ...options,
-                    headers
+                    headers: { 'Content-Type': 'application/json', ...options.headers }
                 });
-
                 const data = await response.json();
-
-                if (!response.ok) {
-                    let errorMessage = data.message || data.error || '请求失败';
-                    if (response.status === 401) {
-                        errorMessage = '未授权访问，请重新登录';
-                    } else if (response.status === 404) {
-                        errorMessage = '接口不存在，请检查API路径';
-                    } else if (response.status >= 500) {
-                        errorMessage = '服务器错误，请稍后重试';
-                    }
-                    throw new Error(errorMessage);
-                }
-
+                if (!response.ok) throw new Error(data.message || data.error || '请求失败');
                 return data;
             } catch (error) {
-                console.error('API 请求错误:', {
-                    endpoint,
-                    error: error.message
-                });
+                console.error('API错误:', error);
                 throw error;
             }
         }
-
-        let currentProfile = null;
-        let currentEvent = null;
-        let dailyEventLimit = 10;
-
-        // 获取用户邮箱
+        let currentProfile = null, currentEvent = null, dailyEventLimit = 10, currentFarm = null;
         function getUserEmail() {
-            // 从主站获取用户邮箱
-            const profileData = localStorage.getItem('userEmail');
-            return profileData || prompt('请输入您的邮箱以开始游戏：');
+            return localStorage.getItem('userEmail') || prompt('请输入您的邮箱以开始游戏：');
         }
-
-        // 加载游戏配置
         async function loadGameConfig() {
             try {
                 const config = await apiRequest('/api/game/config');
-                if (!config.enabled) {
-                    alert('游戏功能暂未开放');
-                    window.location.href = '/';
-                    return;
-                }
+                if (!config.enabled) { alert('游戏功能暂未开放'); window.location.href = '/'; return; }
                 dailyEventLimit = config.dailyEventLimit || 10;
-            } catch (error) {
-                console.error('加载游戏配置失败:', error);
-            }
+            } catch (error) { console.error('加载配置失败:', error); }
         }
-
-        // 加载用户档案
         async function loadProfile() {
             const email = getUserEmail();
-            if (!email) {
-                alert('请先输入邮箱');
-                window.location.href = '/';
-                return;
-            }
-
+            if (!email) { alert('请先输入邮箱'); window.location.href = '/'; return; }
             localStorage.setItem('userEmail', email);
-
             try {
                 const result = await apiRequest(`/api/game/profile?email=${encodeURIComponent(email)}`);
-                if (result.success) {
-                    currentProfile = result.profile;
-                    updateStats();
-                }
-            } catch (error) {
-                console.error('加载档案失败:', error);
-                alert('加载失败: ' + error.message);
-            }
+                if (result.success) { currentProfile = result.profile; updateStats(); }
+            } catch (error) { console.error('加载档案失败:', error); alert('加载失败: ' + error.message); }
         }
-
-        // 更新统计数据
         function updateStats() {
             if (!currentProfile) return;
-
-            document.getElementById('stat-energy').textContent = 
-                `${currentProfile.energy}/${currentProfile.maxEnergy}`;
+            document.getElementById('stat-energy').textContent = `${currentProfile.energy}/${currentProfile.maxEnergy}`;
             document.getElementById('stat-coins').textContent = currentProfile.coins;
             document.getElementById('stat-level').textContent = `Lv.${currentProfile.gameLevel}`;
-            document.getElementById('stat-events').textContent = 
-                `${currentProfile.dailyEvents}/${dailyEventLimit}`;
+            document.getElementById('stat-events').textContent = `${currentProfile.dailyEvents}/${dailyEventLimit}`;
         }
-
-        // 签到
         async function handleCheckin() {
             const email = getUserEmail();
             const btn = document.getElementById('checkin-btn');
             btn.disabled = true;
             btn.textContent = '签到中...';
-
             try {
-                const result = await apiRequest('/api/game/checkin', {
-                    method: 'POST',
-                    body: JSON.stringify({ email })
-                });
-
+                const result = await apiRequest('/api/game/checkin', { method: 'POST', body: JSON.stringify({ email }) });
                 if (result.success) {
                     currentProfile = result.profile;
                     updateStats();
-                    
                     const msg = document.getElementById('checkin-message');
                     msg.className = 'message success';
                     msg.style.display = 'block';
                     msg.textContent = `签到成功！获得 ${result.rewards.energy} 体力、${result.rewards.coins} 金币、${result.rewards.exp} 经验`;
-                    
                     btn.textContent = '今日已签到';
                 } else {
                     throw new Error(result.message);
@@ -412,111 +213,60 @@
                 msg.className = 'message error';
                 msg.style.display = 'block';
                 msg.textContent = error.message;
-                
                 btn.disabled = false;
                 btn.textContent = '立即签到';
             }
         }
-
-        // 触发随机事件
         async function handleNextEvent() {
             const email = getUserEmail();
             const btn = document.getElementById('next-event-btn');
             const container = document.getElementById('event-container');
-            
             btn.disabled = true;
             btn.textContent = '加载中...';
             container.innerHTML = '<div class="loading">正在寻找奇遇...</div>';
-
             try {
-                const result = await apiRequest('/api/game/event/next', {
-                    method: 'POST',
-                    body: JSON.stringify({ email })
-                });
-
+                const result = await apiRequest('/api/game/event/next', { method: 'POST', body: JSON.stringify({ email }) });
                 if (result.success) {
                     currentEvent = result.event;
-                    renderEvent(result.event);
+                    const optionsHtml = result.event.options.map((option, index) => {
+                        let costHtml = '', rewardHtml = '';
+                        if (option.cost) {
+                            const costs = [];
+                            if (option.cost.energy) costs.push(`消耗 ${option.cost.energy} 体力`);
+                            if (option.cost.coins) costs.push(`消耗 ${option.cost.coins} 金币`);
+                            if (costs.length > 0) costHtml = `<div class="event-option-cost">${costs.join('、')}</div>`;
+                        }
+                        if (option.reward) {
+                            const rewards = [];
+                            if (option.reward.coins) rewards.push(`+${option.reward.coins} 金币`);
+                            if (option.reward.exp) rewards.push(`+${option.reward.exp} 经验`);
+                            if (rewards.length > 0) rewardHtml = `<div class="event-option-reward">${rewards.join('、')}</div>`;
+                        }
+                        return `<button class="event-option" onclick="chooseOption(${index})">${option.text}${costHtml}${rewardHtml}</button>`;
+                    }).join('');
+                    container.innerHTML = `<div class="event-card"><div class="event-title">${result.event.title}</div><div class="event-description">${result.event.description}</div><div class="event-options">${optionsHtml}</div></div>`;
                     btn.textContent = '触发事件';
                     btn.disabled = false;
-                } else {
-                    throw new Error(result.message);
-                }
+                } else { throw new Error(result.message); }
             } catch (error) {
                 container.innerHTML = `<div class="empty-state">${error.message}</div>`;
                 btn.textContent = '触发事件';
                 btn.disabled = false;
             }
         }
-
-        // 渲染事件
-        function renderEvent(event) {
-            const container = document.getElementById('event-container');
-            
-            const optionsHtml = event.options.map((option, index) => {
-                let costHtml = '';
-                let rewardHtml = '';
-                
-                if (option.cost) {
-                    const costs = [];
-                    if (option.cost.energy) costs.push(`消耗 ${option.cost.energy} 体力`);
-                    if (option.cost.coins) costs.push(`消耗 ${option.cost.coins} 金币`);
-                    if (costs.length > 0) {
-                        costHtml = `<div class="event-option-cost">${costs.join('、')}</div>`;
-                    }
-                }
-                
-                if (option.reward) {
-                    const rewards = [];
-                    if (option.reward.coins) rewards.push(`+${option.reward.coins} 金币`);
-                    if (option.reward.exp) rewards.push(`+${option.reward.exp} 经验`);
-                    if (rewards.length > 0) {
-                        rewardHtml = `<div class="event-option-reward">${rewards.join('、')}</div>`;
-                    }
-                }
-                
-                return `
-                    <button class="event-option" onclick="chooseOption(${index})">
-                        ${option.text}
-                        ${costHtml}
-                        ${rewardHtml}
-                    </button>
-                `;
-            }).join('');
-            
-            container.innerHTML = `
-                <div class="event-card">
-                    <div class="event-title">${event.title}</div>
-                    <div class="event-description">${event.description}</div>
-                    <div class="event-options">
-                        ${optionsHtml}
-                    </div>
-                </div>
-            `;
-        }
-
-        // 选择事件选项
         async function chooseOption(optionIndex) {
             if (!currentEvent) return;
-            
             const email = getUserEmail();
             const container = document.getElementById('event-container');
             container.innerHTML = '<div class="loading">处理中...</div>';
-
             try {
                 const result = await apiRequest('/api/game/event/choose', {
                     method: 'POST',
-                    body: JSON.stringify({
-                        email,
-                        eventId: currentEvent.id,
-                        optionIndex
-                    })
+                    body: JSON.stringify({ email, eventId: currentEvent.id, optionIndex })
                 });
-
                 if (result.success) {
                     currentProfile = result.profile;
                     updateStats();
-                    
                     let message = '选择完成！';
                     if (result.rewards.failed) {
                         message = '很遗憾，这次没有成功...';
@@ -524,62 +274,275 @@
                         const rewards = [];
                         if (result.rewards.coins) rewards.push(`+${result.rewards.coins} 金币`);
                         if (result.rewards.exp) rewards.push(`+${result.rewards.exp} 经验`);
-                        if (rewards.length > 0) {
-                            message = `获得：${rewards.join('、')}`;
-                        }
+                        if (rewards.length > 0) message = `获得：${rewards.join('、')}`;
                     }
-                    
-                    container.innerHTML = `
-                        <div class="event-card">
-                            <div class="event-title">✨ ${message}</div>
-                            <button class="btn-primary" onclick="handleNextEvent()" style="margin-top: var(--spacing-md);">
-                                继续冒险
-                            </button>
-                        </div>
-                    `;
-                } else {
-                    throw new Error(result.message);
-                }
+                    container.innerHTML = `<div class="event-card"><div class="event-title">✨ ${message}</div><button class="btn-primary" onclick="handleNextEvent()" style="margin-top: var(--spacing-md);">继续冒险</button></div>`;
+                } else { throw new Error(result.message); }
             } catch (error) {
                 container.innerHTML = `<div class="empty-state">${error.message}</div>`;
             }
         }
-
-        // 切换标签页
-        function switchTab(tabName) {
-            // 隐藏所有标签页
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.style.display = 'none';
-            });
-            
-            // 移除所有按钮的active状态
-            document.querySelectorAll('.game-nav-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // 显示选中的标签页
-            document.getElementById(`tab-${tabName}`).style.display = 'block';
-            
-            // 添加active状态
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        async function loadFarm() {
+            const email = getUserEmail();
+            const container = document.getElementById('farm-container');
+            const visitorsContainer = document.getElementById('farm-visitors');
+            container.innerHTML = '<div class="loading">加载花园中...</div>';
+            try {
+                const result = await apiRequest(`/api/game/farm/status?email=${encodeURIComponent(email)}`);
+                if (result.success) {
+                    currentFarm = result.farm;
+                    const plotsHtml = result.farm.plots.map(plot => {
+                        let protectedBadge = plot.protected ? '<span style="color: var(--success-color);">🛡️ 受保护</span>' : '';
+                        if (!plot.planted) {
+                            return `<div class="farm-plot"><div class="plot-icon">🌱</div><div class="plot-status">空地</div><button class="btn-secondary" onclick="plantSeed(${plot.id})">种植</button></div>`;
+                        } else {
+                            const now = new Date();
+                            const harvestTime = new Date(plot.harvestAt);
+                            const isReady = now >= harvestTime;
+                            const icon = plot.seedType === 'seed_rare' ? '🌺' : '🌱';
+                            const wateredInfo = plot.watered > 0 ? `<div style="color: var(--success-color); font-size: 0.75rem;">💧 被浇水 ${plot.watered} 次</div>` : '';
+                            const stolenInfo = plot.stolen > 0 ? `<div style="color: var(--error-color); font-size: 0.75rem;">🥷 被偷 ${plot.stolen} 次</div>` : '';
+                            if (isReady) {
+                                return `<div class="farm-plot"><div class="plot-icon">${icon}</div><div class="plot-status">已成熟！${protectedBadge}</div>${wateredInfo}${stolenInfo}<div class="plot-actions"><button class="btn-primary" onclick="harvestPlot(${plot.id})">收获</button><button class="btn-secondary" onclick="useFertilizer(${plot.id})">肥料</button></div></div>`;
+                            } else {
+                                const remaining = Math.ceil((harvestTime - now) / 1000 / 60);
+                                return `<div class="farm-plot"><div class="plot-icon">${icon}</div><div class="plot-status">生长中 ${protectedBadge}</div><div class="plot-timer">还需 ${remaining} 分钟</div>${wateredInfo}${stolenInfo}<div class="plot-actions"><button class="btn-secondary" onclick="useFertilizer(${plot.id})">肥料</button><button class="btn-secondary" onclick="useSpeedCard(${plot.id})">加速</button></div></div>`;
+                            }
+                        }
+                    }).join('');
+                    container.innerHTML = plotsHtml;
+                    
+                    // 显示访客记录
+                    if (result.farm.visitors && result.farm.visitors.length > 0) {
+                        const visitorsHtml = result.farm.visitors.slice(-5).reverse().map(v => {
+                            const actionText = v.action === 'water' ? '💧 浇水了你的花园' : v.action === 'steal' ? `🥷 偷走了 ${v.amount || 0} 金币` : '🎁 送了你礼物';
+                            const userName = v.email.split('@')[0];
+                            return `<div>• ${userName} ${actionText}</div>`;
+                        }).join('');
+                        visitorsContainer.innerHTML = visitorsHtml;
+                    } else {
+                        visitorsContainer.innerHTML = '<div>暂无访客</div>';
+                    }
+                    
+                    setTimeout(loadFarm, 60000);
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state">加载失败: ${error.message}</div>`;
+            }
         }
-
-        // 页面加载
+        async function harvestAll() {
+            const email = getUserEmail();
+            try {
+                const result = await apiRequest('/api/game/farm/harvest-all', { method: 'POST', body: JSON.stringify({ email }) });
+                if (result.success) {
+                    alert(`一键收获成功！收获 ${result.harvested} 块地，获得 ${result.rewards.coins} 金币、${result.rewards.exp} 经验`);
+                    currentProfile = result.profile;
+                    updateStats();
+                    await loadFarm();
+                } else { throw new Error(result.message); }
+            } catch (error) { alert('收获失败: ' + error.message); }
+        }
+        async function useFertilizer(plotId) {
+            await useItem('fertilizer', plotId, '肥料');
+        }
+        async function useSpeedCard(plotId) {
+            await useItem('speed_card', plotId, '加速卡');
+        }
+        async function useItem(itemId, targetPlotId, itemName) {
+            const email = getUserEmail();
+            try {
+                const result = await apiRequest('/api/game/item/use', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, itemId, targetPlotId })
+                });
+                if (result.success) {
+                    alert(result.message || `${itemName}使用成功！`);
+                    await loadProfile();
+                    await loadFarm();
+                } else { throw new Error(result.message); }
+            } catch (error) { alert(`使用失败: ${error.message}`); }
+        }
+        async function plantSeed(plotId) {
+            const seedType = prompt('请选择种子类型：\n1. seed_common (普通种子)\n2. seed_rare (稀有种子)', 'seed_common');
+            if (!seedType) return;
+            const email = getUserEmail();
+            try {
+                const result = await apiRequest('/api/game/farm/plant', { method: 'POST', body: JSON.stringify({ email, plotId, seedType }) });
+                if (result.success) {
+                    alert('种植成功！');
+                    await loadProfile();
+                    await loadFarm();
+                } else { throw new Error(result.message); }
+            } catch (error) { alert('种植失败: ' + error.message); }
+        }
+        async function harvestPlot(plotId) {
+            const email = getUserEmail();
+            try {
+                const result = await apiRequest('/api/game/farm/harvest', { method: 'POST', body: JSON.stringify({ email, plotId }) });
+                if (result.success) {
+                    alert(`收获成功！获得 ${result.rewards.coins} 金币、${result.rewards.exp} 经验`);
+                    currentProfile = result.profile;
+                    updateStats();
+                    await loadFarm();
+                } else { throw new Error(result.message); }
+            } catch (error) { alert('收获失败: ' + error.message); }
+        }
+        async function loadShop() {
+            const container = document.getElementById('shop-container');
+            const items = [
+                { id: 'seed_common', name: '普通种子', icon: '🌱', desc: '可种植普通作物', price: 10 },
+                { id: 'seed_rare', name: '稀有种子', icon: '🌺', desc: '可种植稀有作物', price: 50 },
+                { id: 'fertilizer', name: '肥料', icon: '💩', desc: '加速作物生长50%', price: 30 },
+                { id: 'speed_card', name: '加速卡', icon: '⚡', desc: '立即完成生长', price: 100 },
+                { id: 'protection_shield', name: '防偷保护罩', icon: '🛡️', desc: '保护花园24小时', price: 200 }
+            ];
+            const html = items.map(item => `
+                <div class="shop-item">
+                    <div class="shop-item-icon">${item.icon}</div>
+                    <div class="shop-item-name">${item.name}</div>
+                    <div class="shop-item-desc">${item.desc}</div>
+                    <div class="shop-item-price">💰 ${item.price}</div>
+                    <button class="btn-primary" onclick="buyItem('${item.id}', ${item.price})">购买</button>
+                </div>
+            `).join('');
+            container.innerHTML = html;
+        }
+        async function buyItem(itemId, price) {
+            if (!currentProfile || currentProfile.coins < price) {
+                alert('金币不足！');
+                return;
+            }
+            const email = getUserEmail();
+            try {
+                const profilesData = await apiRequest(`/api/game/profile?email=${encodeURIComponent(email)}`);
+                if (profilesData.success) {
+                    currentProfile = profilesData.profile;
+                    currentProfile.coins -= price;
+                    currentProfile.inventory[itemId] = (currentProfile.inventory[itemId] || 0) + 1;
+                    alert(`购买成功！`);
+                    updateStats();
+                }
+            } catch (error) {
+                alert('购买失败: ' + error.message);
+            }
+        }
+        async function visitFriend() {
+            const targetEmail = document.getElementById('friend-email').value.trim();
+            if (!targetEmail) { alert('请输入好友邮箱'); return; }
+            const container = document.getElementById('friends-container');
+            container.innerHTML = `
+                <div class="friend-item">
+                    <div>正在访问 ${targetEmail} 的花园...</div>
+                </div>
+                <div style="margin-top: var(--spacing-md);">
+                    <button class="btn-primary" onclick="doFriendAction('${targetEmail}', 'water')" style="margin-right: 8px;">💧 浇水</button>
+                    <button class="btn-secondary" onclick="doFriendAction('${targetEmail}', 'steal')" style="margin-right: 8px;">🥷 偷菜</button>
+                    <button class="btn-secondary" onclick="doFriendAction('${targetEmail}', 'gift')">🎁 送礼</button>
+                </div>
+            `;
+        }
+        async function doFriendAction(targetEmail, action) {
+            const email = getUserEmail();
+            try {
+                const result = await apiRequest('/api/game/farm/visit', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, targetEmail, action })
+                });
+                if (result.success) {
+                    const messages = {
+                        water: '浇水成功！获得经验',
+                        steal: `偷菜成功！获得 ${result.rewards.coins} 金币`,
+                        gift: '送礼成功！增加好感度'
+                    };
+                    alert(messages[action] || '操作成功');
+                    await loadProfile();
+                } else { throw new Error(result.message); }
+            } catch (error) { alert('操作失败: ' + error.message); }
+        }
+        async function loadRankings(type) {
+            const container = document.getElementById('rankings-container');
+            container.innerHTML = '<div class="loading">加载排行榜...</div>';
+            try {
+                const result = await apiRequest(`/api/game/rankings?type=${type}&limit=20`);
+                if (result.success && result.rankings.length > 0) {
+                    const html = result.rankings.map((item, index) => {
+                        let rankClass = '';
+                        if (index === 0) rankClass = 'rank-gold';
+                        else if (index === 1) rankClass = 'rank-silver';
+                        else if (index === 2) rankClass = 'rank-bronze';
+                        const userName = item.email.split('@')[0];
+                        return `
+                            <div class="ranking-item">
+                                <div class="rank-number ${rankClass}">#${item.rank}</div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600;">${userName}</div>
+                                    <div style="font-size: 0.875rem; color: var(--text-secondary);">Lv.${item.level}</div>
+                                </div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color);">${item.score}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div class="empty-state">暂无排行数据</div>';
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state">加载失败: ${error.message}</div>`;
+            }
+        }
+        async function loadInventory() {
+            const email = getUserEmail();
+            const container = document.getElementById('inventory-container');
+            container.innerHTML = '<div class="loading">加载背包中...</div>';
+            try {
+                const result = await apiRequest(`/api/game/inventory?email=${encodeURIComponent(email)}`);
+                if (result.success && result.inventory.length > 0) {
+                    const html = result.inventory.map(item => `
+                        <div class="shop-item">
+                            <div class="shop-item-icon">${item.icon}</div>
+                            <div class="shop-item-name">${item.name}</div>
+                            <div class="shop-item-desc">${item.description}</div>
+                            <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color); margin: var(--spacing-sm) 0;">数量: ${item.count}</div>
+                            ${item.type === 'consumable' ? `<button class="btn-primary" onclick="selectItemToUse('${item.id}', '${item.name}')">使用</button>` : ''}
+                        </div>
+                    `).join('');
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div class="empty-state">背包空空如也，去商店购买道具吧！</div>';
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state">加载失败: ${error.message}</div>`;
+            }
+        }
+        function selectItemToUse(itemId, itemName) {
+            if (itemId === 'fertilizer' || itemId === 'speed_card') {
+                const plotId = prompt('请输入要使用的格子编号（0-3）:', '0');
+                if (plotId !== null) {
+                    useItem(itemId, parseInt(plotId), itemName);
+                }
+            } else if (itemId === 'protection_shield') {
+                useItem(itemId, null, itemName);
+            } else {
+                alert('该道具暂时无法使用');
+            }
+        }
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+            document.querySelectorAll('.game-nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`).style.display = 'block';
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            if (tabName === 'farm') loadFarm();
+            else if (tabName === 'shop') loadShop();
+            else if (tabName === 'inventory') loadInventory();
+            else if (tabName === 'rankings') loadRankings('wealth');
+        }
         document.addEventListener('DOMContentLoaded', async () => {
             await loadGameConfig();
             await loadProfile();
-            
-            // 签到按钮
             document.getElementById('checkin-btn').addEventListener('click', handleCheckin);
-            
-            // 触发事件按钮
             document.getElementById('next-event-btn').addEventListener('click', handleNextEvent);
-            
-            // 标签页切换
             document.querySelectorAll('.game-nav-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    switchTab(btn.dataset.tab);
-                });
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
             });
         });
     </script>
