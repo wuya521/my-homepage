@@ -2680,6 +2680,15 @@ async function resetGameData(type) {
     }
 }
 
+// 确保所有管理函数全局可访问
+window.resetGameData = resetGameData;
+window.openGrantBlackDiamondModal = openGrantBlackDiamondModal;
+window.closeGrantBlackDiamondModal = closeGrantBlackDiamondModal;
+window.handleGrantBlackDiamond = handleGrantBlackDiamond;
+window.grantGameRewardTo = grantGameRewardTo;
+window.handleGrantGameReward = handleGrantGameReward;
+window.loadGamePlayers = loadGamePlayers;
+
 // ==================== 实时通知管理（管理后台）====================
 
 // 加载通知配置（管理后台）
