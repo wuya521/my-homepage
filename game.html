@@ -80,6 +80,10 @@
                     <div class="stat-label">📅 事件</div>
                     <div class="stat-value" id="stat-events">--/--</div>
                 </div>
+                <div class="stat-item" id="blackdiamond-status" style="display: none; background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 140, 0, 0.2)); border-color: #FFD700;">
+                    <div class="stat-label">💎 黑钻</div>
+                    <div class="stat-value" id="stat-blackdiamond">--</div>
+                </div>
             </div>
         </div>
         <div class="game-nav">
@@ -124,12 +128,17 @@
             </div>
             <div id="tab-friends" class="tab-content" style="display: none;">
                 <h2>👥 好友互动</h2>
-                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">访问好友的花园，浇水、送礼或偷菜！输入好友邮箱开始互动：</p>
+                <p style="color: var(--text-secondary); margin: var(--spacing-md) 0;">访问好友的花园，浇水、送礼或偷菜！</p>
                 <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-lg);">
                     <input type="email" id="friend-email" class="input-field" placeholder="输入好友邮箱" style="flex: 1;">
                     <button onclick="visitFriend()" class="btn-primary">访问</button>
                 </div>
                 <div id="friends-container" style="margin-top: var(--spacing-lg);"></div>
+                <div style="margin-top: var(--spacing-lg);">
+                    <h3 style="margin-bottom: var(--spacing-sm);">推荐玩家</h3>
+                    <button onclick="loadPlayerList()" class="btn-secondary" style="margin-bottom: var(--spacing-sm);">刷新列表</button>
+                    <div id="player-list" class="friend-list"></div>
+                </div>
             </div>
             <div id="tab-shop" class="tab-content" style="display: none;">
                 <h2>🏪 神秘商店</h2>
@@ -189,6 +198,17 @@
             document.getElementById('stat-coins').textContent = currentProfile.coins;
             document.getElementById('stat-level').textContent = `Lv.${currentProfile.gameLevel}`;
             document.getElementById('stat-events').textContent = `${currentProfile.dailyEvents}/${dailyEventLimit}`;
+            
+            // 显示黑钻状态
+            if (currentProfile.blackDiamond && currentProfile.blackDiamond.active) {
+                const bdStatus = document.getElementById('blackdiamond-status');
+                const bdValue = document.getElementById('stat-blackdiamond');
+                if (bdStatus && bdValue) {
+                    bdStatus.style.display = 'flex';
+                    const levelNames = ['', '黑钻1', '黑钻2', '黑钻3', '黑钻4'];
+                    bdValue.textContent = levelNames[currentProfile.blackDiamond.level] || '黑钻1';
+                }
+            }
         }
         async function handleCheckin() {
             const email = getUserEmail();
@@ -226,7 +246,7 @@
             container.innerHTML = '<div class="loading">正在寻找奇遇...</div>';
             try {
                 const result = await apiRequest('/api/game/event/next', { method: 'POST', body: JSON.stringify({ email }) });
-                if (result.success) {
+                if (result.success && result.event && result.event.options) {
                     currentEvent = result.event;
                     const optionsHtml = result.event.options.map((option, index) => {
                         let costHtml = '', rewardHtml = '';
@@ -240,6 +260,11 @@
                             const rewards = [];
                             if (option.reward.coins) rewards.push(`+${option.reward.coins} 金币`);
                             if (option.reward.exp) rewards.push(`+${option.reward.exp} 经验`);
+                            if (option.reward.items) {
+                                Object.entries(option.reward.items).forEach(([itemId, count]) => {
+                                    rewards.push(`+${count} ${itemId}`);
+                                });
+                            }
                             if (rewards.length > 0) rewardHtml = `<div class="event-option-reward">${rewards.join('、')}</div>`;
                         }
                         return `<button class="event-option" onclick="chooseOption(${index})">${option.text}${costHtml}${rewardHtml}</button>`;
@@ -247,8 +272,9 @@
                     container.innerHTML = `<div class="event-card"><div class="event-title">${result.event.title}</div><div class="event-description">${result.event.description}</div><div class="event-options">${optionsHtml}</div></div>`;
                     btn.textContent = '触发事件';
                     btn.disabled = false;
-                } else { throw new Error(result.message); }
+                } else { throw new Error(result.message || '事件数据无效'); }
             } catch (error) {
+                showGameMessage(error.message, 'error');
                 container.innerHTML = `<div class="empty-state">${error.message}</div>`;
                 btn.textContent = '触发事件';
                 btn.disabled = false;
@@ -270,15 +296,25 @@
                     let message = '选择完成！';
                     if (result.rewards.failed) {
                         message = '很遗憾，这次没有成功...';
+                        showGameMessage(message, 'error');
                     } else {
                         const rewards = [];
-                        if (result.rewards.coins) rewards.push(`+${result.rewards.coins} 金币`);
-                        if (result.rewards.exp) rewards.push(`+${result.rewards.exp} 经验`);
-                        if (rewards.length > 0) message = `获得：${rewards.join('、')}`;
+                        if (result.rewards.coins) rewards.push(`${result.rewards.coins} 金币`);
+                        if (result.rewards.exp) rewards.push(`${result.rewards.exp} 经验`);
+                        if (result.rewards.items) {
+                            Object.entries(result.rewards.items).forEach(([itemId, count]) => {
+                                rewards.push(`${count} ${itemId}`);
+                            });
+                        }
+                        if (rewards.length > 0) {
+                            message = `获得：${rewards.join('、')}`;
+                            showGameMessage(message, 'success');
+                        }
                     }
                     container.innerHTML = `<div class="event-card"><div class="event-title">✨ ${message}</div><button class="btn-primary" onclick="handleNextEvent()" style="margin-top: var(--spacing-md);">继续冒险</button></div>`;
                 } else { throw new Error(result.message); }
             } catch (error) {
+                showGameMessage(error.message, 'error');
                 container.innerHTML = `<div class="empty-state">${error.message}</div>`;
             }
         }
@@ -335,12 +371,12 @@
             try {
                 const result = await apiRequest('/api/game/farm/harvest-all', { method: 'POST', body: JSON.stringify({ email }) });
                 if (result.success) {
-                    alert(`一键收获成功！收获 ${result.harvested} 块地，获得 ${result.rewards.coins} 金币、${result.rewards.exp} 经验`);
+                    showGameMessage(`一键收获成功！收获 ${result.harvested} 块地，获得 ${result.rewards.coins} 金币、${result.rewards.exp} 经验`, 'success');
                     currentProfile = result.profile;
                     updateStats();
                     await loadFarm();
                 } else { throw new Error(result.message); }
-            } catch (error) { alert('收获失败: ' + error.message); }
+            } catch (error) { showGameMessage('收获失败: ' + error.message, 'error'); }
         }
         async function useFertilizer(plotId) {
             await useItem('fertilizer', plotId, '肥料');
@@ -350,94 +386,193 @@
         }
         async function useItem(itemId, targetPlotId, itemName) {
             const email = getUserEmail();
+            
+            // 检查是否有道具
+            if (!currentProfile?.inventory?.[itemId] || currentProfile.inventory[itemId] <= 0) {
+                showGameMessage(`没有${itemName}！`, 'error');
+                return;
+            }
+            
             try {
                 const result = await apiRequest('/api/game/item/use', {
                     method: 'POST',
                     body: JSON.stringify({ email, itemId, targetPlotId })
                 });
                 if (result.success) {
-                    alert(result.message || `${itemName}使用成功！`);
+                    showGameMessage(result.message || `${itemName}使用成功！`, 'success');
                     await loadProfile();
                     await loadFarm();
                 } else { throw new Error(result.message); }
-            } catch (error) { alert(`使用失败: ${error.message}`); }
+            } catch (error) { showGameMessage(`使用失败: ${error.message}`, 'error'); }
         }
         async function plantSeed(plotId) {
-            const seedType = prompt('请选择种子类型：\n1. seed_common (普通种子)\n2. seed_rare (稀有种子)', 'seed_common');
-            if (!seedType) return;
+            const commonCount = currentProfile?.inventory?.seed_common || 0;
+            const rareCount = currentProfile?.inventory?.seed_rare || 0;
+            
+            if (commonCount === 0 && rareCount === 0) {
+                showGameMessage('没有种子！请先去商店购买', 'error');
+                return;
+            }
+            
+            let options = '请选择要种植的种子：\n';
+            if (commonCount > 0) options += `1. 普通种子 (拥有${commonCount}个)\n`;
+            if (rareCount > 0) options += `2. 稀有种子 (拥有${rareCount}个)\n`;
+            
+            const choice = prompt(options, '1');
+            if (!choice) return;
+            
+            let seedType = '';
+            if (choice === '1' && commonCount > 0) {
+                seedType = 'seed_common';
+            } else if (choice === '2' && rareCount > 0) {
+                seedType = 'seed_rare';
+            } else {
+                showGameMessage('无效的选择或种子不足', 'error');
+                return;
+            }
+            
             const email = getUserEmail();
             try {
                 const result = await apiRequest('/api/game/farm/plant', { method: 'POST', body: JSON.stringify({ email, plotId, seedType }) });
                 if (result.success) {
-                    alert('种植成功！');
+                    showGameMessage('种植成功！等待作物成熟吧', 'success');
                     await loadProfile();
                     await loadFarm();
                 } else { throw new Error(result.message); }
-            } catch (error) { alert('种植失败: ' + error.message); }
+            } catch (error) { showGameMessage('种植失败: ' + error.message, 'error'); }
         }
         async function harvestPlot(plotId) {
             const email = getUserEmail();
             try {
                 const result = await apiRequest('/api/game/farm/harvest', { method: 'POST', body: JSON.stringify({ email, plotId }) });
                 if (result.success) {
-                    alert(`收获成功！获得 ${result.rewards.coins} 金币、${result.rewards.exp} 经验`);
+                    showGameMessage(`收获成功！获得 ${result.rewards.coins} 金币、${result.rewards.exp} 经验`, 'success');
                     currentProfile = result.profile;
                     updateStats();
                     await loadFarm();
                 } else { throw new Error(result.message); }
-            } catch (error) { alert('收获失败: ' + error.message); }
+            } catch (error) { showGameMessage('收获失败: ' + error.message, 'error'); }
         }
         async function loadShop() {
             const container = document.getElementById('shop-container');
             const items = [
-                { id: 'seed_common', name: '普通种子', icon: '🌱', desc: '可种植普通作物', price: 10 },
-                { id: 'seed_rare', name: '稀有种子', icon: '🌺', desc: '可种植稀有作物', price: 50 },
+                { id: 'seed_common', name: '普通种子', icon: '🌱', desc: '2小时成熟，收获100金币', price: 10 },
+                { id: 'seed_rare', name: '稀有种子', icon: '🌺', desc: '4小时成熟，收获200金币', price: 50 },
                 { id: 'fertilizer', name: '肥料', icon: '💩', desc: '加速作物生长50%', price: 30 },
                 { id: 'speed_card', name: '加速卡', icon: '⚡', desc: '立即完成生长', price: 100 },
                 { id: 'protection_shield', name: '防偷保护罩', icon: '🛡️', desc: '保护花园24小时', price: 200 }
             ];
-            const html = items.map(item => `
+            const html = items.map(item => {
+                const owned = currentProfile?.inventory?.[item.id] || 0;
+                return `
                 <div class="shop-item">
                     <div class="shop-item-icon">${item.icon}</div>
                     <div class="shop-item-name">${item.name}</div>
                     <div class="shop-item-desc">${item.desc}</div>
                     <div class="shop-item-price">💰 ${item.price}</div>
-                    <button class="btn-primary" onclick="buyItem('${item.id}', ${item.price})">购买</button>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary); margin: 4px 0;">拥有: ${owned}</div>
+                    <button class="btn-primary" onclick="buyItem('${item.id}', ${item.price}, '${item.name}')">购买</button>
                 </div>
-            `).join('');
+            `}).join('');
             container.innerHTML = html;
         }
-        async function buyItem(itemId, price) {
+        async function buyItem(itemId, price, itemName) {
             if (!currentProfile || currentProfile.coins < price) {
-                alert('金币不足！');
+                showGameMessage('金币不足！', 'error');
+                return;
+            }
+            if (!confirm(`确定要花费 ${price} 金币购买 ${itemName} 吗？`)) {
                 return;
             }
             const email = getUserEmail();
             try {
-                const profilesData = await apiRequest(`/api/game/profile?email=${encodeURIComponent(email)}`);
-                if (profilesData.success) {
-                    currentProfile = profilesData.profile;
-                    currentProfile.coins -= price;
-                    currentProfile.inventory[itemId] = (currentProfile.inventory[itemId] || 0) + 1;
-                    alert(`购买成功！`);
+                const result = await apiRequest('/api/game/shop/buy', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, itemId, price })
+                });
+                if (result.success) {
+                    currentProfile = result.profile;
                     updateStats();
+                    showGameMessage(`购买成功！${itemName} 已放入背包`, 'success');
+                } else {
+                    throw new Error(result.message);
                 }
             } catch (error) {
-                alert('购买失败: ' + error.message);
+                showGameMessage('购买失败: ' + error.message, 'error');
             }
+        }
+        function showGameMessage(message, type = 'success') {
+            const messageEl = document.createElement('div');
+            messageEl.className = `game-toast ${type}`;
+            messageEl.textContent = message;
+            messageEl.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: ${type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)'};
+                color: white;
+                padding: 16px 24px;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                animation: slideInRight 0.3s ease-out, fadeOut 0.3s ease-out 2.7s forwards;
+                font-weight: 600;
+            `;
+            document.body.appendChild(messageEl);
+            setTimeout(() => messageEl.remove(), 3000);
+        }
+        async function loadPlayerList() {
+            const container = document.getElementById('player-list');
+            const email = getUserEmail();
+            container.innerHTML = '<div class="loading">加载中...</div>';
+            try {
+                const result = await apiRequest('/api/game/players?limit=10');
+                if (result.success && result.players.length > 0) {
+                    const html = result.players.filter(p => p.email !== email).slice(0, 8).map(player => {
+                        const userName = player.email.split('@')[0];
+                        return `
+                            <div class="friend-item">
+                                <div>
+                                    <div style="font-weight: 600;">${userName}</div>
+                                    <div style="font-size: 0.875rem; color: var(--text-secondary);">Lv.${player.level} | 💰${player.coins} | 🌾${player.totalHarvest}</div>
+                                </div>
+                                <button class="btn-secondary" onclick="quickVisit('${player.email}')">访问</button>
+                            </div>
+                        `;
+                    }).join('');
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div class="empty-state">暂无其他玩家</div>';
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state">加载失败</div>`;
+            }
+        }
+        function quickVisit(targetEmail) {
+            document.getElementById('friend-email').value = targetEmail;
+            visitFriend();
         }
         async function visitFriend() {
             const targetEmail = document.getElementById('friend-email').value.trim();
-            if (!targetEmail) { alert('请输入好友邮箱'); return; }
+            if (!targetEmail) { showGameMessage('请输入好友邮箱', 'error'); return; }
+            const email = getUserEmail();
+            if (targetEmail === email) { showGameMessage('不能访问自己的花园', 'error'); return; }
+            
             const container = document.getElementById('friends-container');
+            const userName = targetEmail.split('@')[0];
             container.innerHTML = `
-                <div class="friend-item">
-                    <div>正在访问 ${targetEmail} 的花园...</div>
-                </div>
-                <div style="margin-top: var(--spacing-md);">
-                    <button class="btn-primary" onclick="doFriendAction('${targetEmail}', 'water')" style="margin-right: 8px;">💧 浇水</button>
-                    <button class="btn-secondary" onclick="doFriendAction('${targetEmail}', 'steal')" style="margin-right: 8px;">🥷 偷菜</button>
-                    <button class="btn-secondary" onclick="doFriendAction('${targetEmail}', 'gift')">🎁 送礼</button>
+                <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: var(--spacing-lg);">
+                    <h3 style="margin-bottom: var(--spacing-md);">访问 ${userName} 的花园</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-md); font-size: 0.875rem;">
+                        💧 浇水：帮助好友增加收益，获得经验<br>
+                        🥷 偷菜：偷取部分金币（会减少好友收益）<br>
+                        🎁 送礼：消耗20金币，增加好感度和经验
+                    </p>
+                    <div style="display: flex; gap: var(--spacing-sm);">
+                        <button class="btn-primary" onclick="doFriendAction('${targetEmail}', 'water')" style="flex: 1;">💧 浇水</button>
+                        <button class="btn-secondary" onclick="doFriendAction('${targetEmail}', 'steal')" style="flex: 1;">🥷 偷菜</button>
+                        <button class="btn-secondary" onclick="doFriendAction('${targetEmail}', 'gift')" style="flex: 1;">🎁 送礼 (20金币)</button>
+                    </div>
                 </div>
             `;
         }
@@ -450,14 +585,14 @@
                 });
                 if (result.success) {
                     const messages = {
-                        water: '浇水成功！获得经验',
+                        water: `浇水成功！获得 ${result.rewards.exp} 经验`,
                         steal: `偷菜成功！获得 ${result.rewards.coins} 金币`,
-                        gift: '送礼成功！增加好感度'
+                        gift: `送礼成功！获得 ${result.rewards.exp} 经验`
                     };
-                    alert(messages[action] || '操作成功');
+                    showGameMessage(messages[action] || '操作成功', 'success');
                     await loadProfile();
                 } else { throw new Error(result.message); }
-            } catch (error) { alert('操作失败: ' + error.message); }
+            } catch (error) { showGameMessage('操作失败: ' + error.message, 'error'); }
         }
         async function loadRankings(type) {
             const container = document.getElementById('rankings-container');
@@ -534,6 +669,7 @@
             if (tabName === 'farm') loadFarm();
             else if (tabName === 'shop') loadShop();
             else if (tabName === 'inventory') loadInventory();
+            else if (tabName === 'friends') loadPlayerList();
             else if (tabName === 'rankings') loadRankings('wealth');
         }
         document.addEventListener('DOMContentLoaded', async () => {

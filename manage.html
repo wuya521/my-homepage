@@ -111,6 +111,14 @@
                     <span class="nav-icon">🎮</span>
                     <span>游戏配置</span>
                 </a>
+                <a href="#game-players" class="nav-item" data-section="game-players">
+                    <span class="nav-icon">👥</span>
+                    <span>游戏玩家</span>
+                </a>
+                <a href="#blackdiamond" class="nav-item" data-section="blackdiamond">
+                    <span class="nav-icon">💎</span>
+                    <span>黑钻管理</span>
+                </a>
                 <a href="#settings" class="nav-item" data-section="settings">
                     <span class="nav-icon">⚙️</span>
                     <span>系统设置</span>
@@ -533,6 +541,118 @@
                         <button type="submit" class="btn-primary">保存设置</button>
                     </form>
                     <div id="fish-tank-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
+            <!-- 黑钻管理 -->
+            <section id="blackdiamond-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💎 黑钻会员管理</h3>
+                        <p class="card-description">查看和管理黑钻会员</p>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>邮箱</th>
+                                    <th>等级</th>
+                                    <th>到期时间</th>
+                                    <th>累计月数</th>
+                                    <th>连续月数</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="blackdiamond-tbody">
+                                <tr><td colspan="6" class="empty-state-text">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button onclick="openGrantBlackDiamondModal()" class="btn-primary" style="margin-top: var(--spacing-md);">开通黑钻</button>
+                </div>
+            </section>
+
+            <!-- 黑钻开通弹窗 -->
+            <div id="grant-blackdiamond-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <span class="modal-close" onclick="closeGrantBlackDiamondModal()">&times;</span>
+                    <h2>💎 开通黑钻会员</h2>
+                    <form id="grant-blackdiamond-form" class="modal-form" onsubmit="handleGrantBlackDiamond(event)">
+                        <div class="form-group">
+                            <label for="bd-email">玩家邮箱</label>
+                            <input type="email" id="bd-email" placeholder="player@example.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="bd-months">开通月数</label>
+                            <input type="number" id="bd-months" placeholder="1" min="1" max="12" required>
+                            <span class="form-hint">1个月=黑钻1，3个月=黑钻2，6个月=黑钻3，12个月=黑钻4</span>
+                        </div>
+                        <button type="submit" class="btn-primary">确认开通</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 游戏玩家管理 -->
+            <section id="game-players-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>👥 游戏玩家管理</h3>
+                        <p class="card-description">查看和管理所有游戏玩家</p>
+                    </div>
+                    <div class="form">
+                        <div style="margin-bottom: var(--spacing-md);">
+                            <button onclick="loadGamePlayers()" class="btn-secondary">🔄 刷新列表</button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>邮箱</th>
+                                        <th>等级</th>
+                                        <th>金币</th>
+                                        <th>体力</th>
+                                        <th>收获次数</th>
+                                        <th>助人次数</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="game-players-tbody">
+                                    <tr><td colspan="7" class="empty-state-text">加载中...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h3>🎁 发放奖励</h3>
+                        <p class="card-description">给指定玩家发放金币或道具</p>
+                    </div>
+                    <form id="grant-game-reward-form" class="form" onsubmit="handleGrantGameReward(event)">
+                        <div class="form-group">
+                            <label for="grant-game-email">玩家邮箱</label>
+                            <input type="email" id="grant-game-email" placeholder="player@example.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="grant-game-type">奖励类型</label>
+                            <select id="grant-game-type" required>
+                                <option value="coins">金币</option>
+                                <option value="energy">体力</option>
+                                <option value="item">道具</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="grant-game-amount">数量</label>
+                            <input type="number" id="grant-game-amount" placeholder="100" min="1" required>
+                        </div>
+                        <div class="form-group" id="grant-game-item-group" style="display: none;">
+                            <label for="grant-game-item">道具ID</label>
+                            <input type="text" id="grant-game-item" placeholder="seed_common">
+                            <span class="form-hint">如: seed_common, seed_rare, fertilizer</span>
+                        </div>
+                        <button type="submit" class="btn-primary">发放奖励</button>
+                    </form>
+                    <div id="grant-game-message" class="message" style="display: none;"></div>
                 </div>
             </section>
 

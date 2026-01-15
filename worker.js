@@ -1768,6 +1768,70 @@ async function handleRequest(request, env) {
     return jsonResponse({ success: true, inventory });
   }
 
+  // 购买商品
+  if (path === '/api/game/shop/buy' && method === 'POST') {
+    const { email, itemId, price } = await request.json();
+    if (!email || !itemId || !price) {
+      return jsonResponse({ success: false, message: '参数不完整' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profileIndex = profiles.findIndex(p => p.email === email);
+    
+    if (profileIndex === -1) {
+      return jsonResponse({ success: false, message: '请先进入游戏' }, 400);
+    }
+
+    const profile = profiles[profileIndex];
+
+    // 检查金币是否足够
+    if (profile.coins < price) {
+      return jsonResponse({ success: false, message: '金币不足' }, 400);
+    }
+
+    // 扣除金币
+    profile.coins -= price;
+    
+    // 添加道具到背包
+    if (!profile.inventory) profile.inventory = {};
+    profile.inventory[itemId] = (profile.inventory[itemId] || 0) + 1;
+    
+    profile.updatedAt = new Date().toISOString();
+
+    profiles[profileIndex] = profile;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+    
+    // 记录流水
+    await recordLedger(env.MY_HOME_KV, email, 'coins', 'spend', price, null, 'shop_buy');
+    await recordLedger(env.MY_HOME_KV, email, 'item', 'earn', 1, itemId, 'shop_buy');
+
+    return jsonResponse({ 
+      success: true, 
+      message: '购买成功！',
+      profile: profile 
+    });
+  }
+
+  // 获取所有玩家列表（用于好友系统）
+  if (path === '/api/game/players' && method === 'GET') {
+    const limit = parseInt(url.searchParams.get('limit')) || 20;
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    
+    const players = profiles
+      .sort((a, b) => (b.totalHarvest || 0) - (a.totalHarvest || 0))
+      .slice(0, limit)
+      .map(p => ({
+        email: p.email,
+        level: p.gameLevel || 1,
+        coins: p.coins || 0,
+        totalHarvest: p.totalHarvest || 0
+      }));
+
+    return jsonResponse({ success: true, players });
+  }
+
   // ==================== 前端页面路由（无需认证）====================
 
   // Favicon 路由（避免 404）
@@ -2536,6 +2600,137 @@ async function handleRequest(request, env) {
     const items = await request.json();
     await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_ITEMS, JSON.stringify(items));
     return jsonResponse({ success: true, message: '游戏道具更新成功' });
+  }
+
+  // 获取所有玩家（管理员）
+  if (path === '/api/admin/game/players' && method === 'GET') {
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    return jsonResponse(profiles);
+  }
+
+  // 发放游戏奖励（管理员）
+  if (path === '/api/admin/game/grant' && method === 'POST') {
+    const { email, type, amount, itemId } = await request.json();
+    if (!email || !type || !amount) {
+      return jsonResponse({ success: false, message: '参数不完整' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profileIndex = profiles.findIndex(p => p.email === email);
+    
+    if (profileIndex === -1) {
+      return jsonResponse({ success: false, message: '玩家不存在' }, 400);
+    }
+
+    const profile = profiles[profileIndex];
+
+    if (type === 'coins') {
+      profile.coins += parseInt(amount);
+      await recordLedger(env.MY_HOME_KV, email, 'coins', 'earn', amount, null, 'admin_grant');
+    } else if (type === 'energy') {
+      profile.energy = Math.min(profile.energy + parseInt(amount), profile.maxEnergy);
+      await recordLedger(env.MY_HOME_KV, email, 'energy', 'earn', amount, null, 'admin_grant');
+    } else if (type === 'item') {
+      if (!itemId) {
+        return jsonResponse({ success: false, message: '请提供道具ID' }, 400);
+      }
+      if (!profile.inventory) profile.inventory = {};
+      profile.inventory[itemId] = (profile.inventory[itemId] || 0) + parseInt(amount);
+      await recordLedger(env.MY_HOME_KV, email, 'item', 'earn', amount, itemId, 'admin_grant');
+    }
+
+    profile.updatedAt = new Date().toISOString();
+    profiles[profileIndex] = profile;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+
+    return jsonResponse({ success: true, message: '奖励发放成功' });
+  }
+
+  // 开通黑钻（管理员赠送）
+  if (path === '/api/admin/game/blackdiamond/grant' && method === 'POST') {
+    const { email, months } = await request.json();
+    if (!email || !months) {
+      return jsonResponse({ success: false, message: '参数不完整' }, 400);
+    }
+
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    const profileIndex = profiles.findIndex(p => p.email === email);
+    
+    if (profileIndex === -1) {
+      return jsonResponse({ success: false, message: '玩家不存在' }, 400);
+    }
+
+    const profile = profiles[profileIndex];
+    const now = new Date();
+    const expireDate = new Date(now.getTime() + months * 30 * 24 * 60 * 60 * 1000);
+
+    if (!profile.blackDiamond) {
+      profile.blackDiamond = {
+        active: true,
+        level: 1,
+        expireAt: expireDate.toISOString(),
+        activatedAt: now.toISOString(),
+        renewedAt: now.toISOString(),
+        totalMonths: months,
+        consecutiveMonths: months,
+        autoRenew: false,
+        benefits: { dailyShield: false, weeklyCards: 0 },
+        history: []
+      };
+    } else {
+      // 续费
+      const currentExpire = new Date(profile.blackDiamond.expireAt);
+      const newExpire = currentExpire > now ? 
+        new Date(currentExpire.getTime() + months * 30 * 24 * 60 * 60 * 1000) :
+        expireDate;
+      
+      profile.blackDiamond.active = true;
+      profile.blackDiamond.expireAt = newExpire.toISOString();
+      profile.blackDiamond.renewedAt = now.toISOString();
+      profile.blackDiamond.totalMonths += months;
+      profile.blackDiamond.consecutiveMonths += months;
+      
+      // 计算等级
+      if (profile.blackDiamond.consecutiveMonths >= 12) profile.blackDiamond.level = 4;
+      else if (profile.blackDiamond.consecutiveMonths >= 6) profile.blackDiamond.level = 3;
+      else if (profile.blackDiamond.consecutiveMonths >= 3) profile.blackDiamond.level = 2;
+      else profile.blackDiamond.level = 1;
+    }
+
+    // 提升体力上限
+    profile.maxEnergy = 120;
+
+    profile.blackDiamond.history.push({
+      type: 'grant',
+      months: months,
+      time: now.toISOString()
+    });
+
+    profiles[profileIndex] = profile;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify(profiles));
+
+    return jsonResponse({ success: true, message: '黑钻开通成功' });
+  }
+
+  // 获取黑钻用户列表（管理员）
+  if (path === '/api/admin/game/blackdiamond' && method === 'GET') {
+    const profilesData = await env.MY_HOME_KV.get(STORAGE_KEYS.GAME_PROFILES);
+    const profiles = profilesData ? JSON.parse(profilesData) : [];
+    
+    const blackDiamondUsers = profiles
+      .filter(p => p.blackDiamond && p.blackDiamond.active)
+      .map(p => ({
+        email: p.email,
+        level: p.blackDiamond.level,
+        expireAt: p.blackDiamond.expireAt,
+        totalMonths: p.blackDiamond.totalMonths,
+        consecutiveMonths: p.blackDiamond.consecutiveMonths
+      }));
+
+    return jsonResponse(blackDiamondUsers);
   }
 
   // 404 响应

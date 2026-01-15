@@ -1116,6 +1116,8 @@ function switchSection(sectionName) {
         'fish-tank': '鱼缸设置',
         'notifications': '实时通知',
         'game-config': '游戏配置',
+        'game-players': '游戏玩家',
+        'blackdiamond': '黑钻管理',
         'settings': '系统设置'
     };
 
@@ -1145,6 +1147,8 @@ async function loadAdminData() {
     await loadNotificationsAdmin();
     await loadGameConfig();
     await loadGameStats();
+    await loadGamePlayers();
+    await loadBlackDiamondUsers();
 }
 
 // 加载管理员个人资料
@@ -2445,6 +2449,81 @@ async function handleFishTankSubmit(e) {
 
 // ==================== 游戏配置管理（管理后台）====================
 
+// 加载游戏玩家列表
+async function loadGamePlayers() {
+    try {
+        const players = await apiRequest('/api/admin/game/players');
+        renderGamePlayers(players);
+    } catch (error) {
+        console.error('加载游戏玩家失败:', error);
+    }
+}
+
+// 渲染游戏玩家列表
+function renderGamePlayers(players) {
+    const tbody = document.getElementById('game-players-tbody');
+    if (!tbody) return;
+
+    if (players.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state-text">暂无游戏玩家</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = players.map(player => `
+        <tr>
+            <td>${player.email}</td>
+            <td>Lv.${player.gameLevel || 1}</td>
+            <td>${player.coins || 0}</td>
+            <td>${player.energy || 0}/${player.maxEnergy || 100}</td>
+            <td>${player.totalHarvest || 0}</td>
+            <td>${player.totalHelp || 0}</td>
+            <td>
+                <button class="btn-secondary" onclick="grantGameRewardTo('${player.email}')">发放奖励</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 快速发放奖励
+function grantGameRewardTo(email) {
+    document.getElementById('grant-game-email').value = email;
+    // 滚动到发放奖励表单
+    document.getElementById('grant-game-reward-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+// 处理发放奖励
+async function handleGrantGameReward(e) {
+    e.preventDefault();
+    
+    const type = document.getElementById('grant-game-type').value;
+    const data = {
+        email: document.getElementById('grant-game-email').value.trim(),
+        type: type,
+        amount: parseInt(document.getElementById('grant-game-amount').value)
+    };
+    
+    if (type === 'item') {
+        data.itemId = document.getElementById('grant-game-item').value.trim();
+        if (!data.itemId) {
+            showMessage('grant-game-message', '请输入道具ID', 'error');
+            return;
+        }
+    }
+
+    try {
+        await apiRequest('/api/admin/game/grant', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        showMessage('grant-game-message', '奖励发放成功！', 'success');
+        document.getElementById('grant-game-reward-form').reset();
+        await loadGamePlayers();
+    } catch (error) {
+        showMessage('grant-game-message', error.message, 'error');
+    }
+}
+
 // 加载游戏配置
 async function loadGameConfig() {
     try {
@@ -2503,6 +2582,83 @@ async function loadGameStats() {
         document.getElementById('stat-average-level').textContent = stats.averageLevel || '0.00';
     } catch (error) {
         console.error('加载游戏统计失败:', error);
+    }
+}
+
+// 加载黑钻用户列表
+async function loadBlackDiamondUsers() {
+    try {
+        const users = await apiRequest('/api/admin/game/blackdiamond');
+        renderBlackDiamondUsers(users);
+    } catch (error) {
+        console.error('加载黑钻用户失败:', error);
+    }
+}
+
+// 渲染黑钻用户列表
+function renderBlackDiamondUsers(users) {
+    const tbody = document.getElementById('blackdiamond-tbody');
+    if (!tbody) return;
+
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state-text">暂无黑钻会员</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = users.map(user => {
+        const levelNames = ['', '黑钻1', '黑钻2', '黑钻3', '黑钻4'];
+        return `
+            <tr>
+                <td>${user.email}</td>
+                <td><span class="status-badge enabled">${levelNames[user.level] || '黑钻1'}</span></td>
+                <td>${formatDate(user.expireAt)}</td>
+                <td>${user.totalMonths || 0}个月</td>
+                <td>${user.consecutiveMonths || 0}个月</td>
+                <td>
+                    <button class="btn-secondary" onclick="openGrantBlackDiamondModal('${user.email}')">续费</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 打开黑钻开通弹窗
+function openGrantBlackDiamondModal(email = '') {
+    const modal = document.getElementById('grant-blackdiamond-modal');
+    const form = document.getElementById('grant-blackdiamond-form');
+    form.reset();
+    if (email) {
+        document.getElementById('bd-email').value = email;
+    }
+    modal.style.display = 'flex';
+}
+
+// 关闭黑钻开通弹窗
+function closeGrantBlackDiamondModal() {
+    const modal = document.getElementById('grant-blackdiamond-modal');
+    modal.style.display = 'none';
+}
+
+// 处理黑钻开通
+async function handleGrantBlackDiamond(e) {
+    e.preventDefault();
+    
+    const data = {
+        email: document.getElementById('bd-email').value.trim(),
+        months: parseInt(document.getElementById('bd-months').value)
+    };
+
+    try {
+        await apiRequest('/api/admin/game/blackdiamond/grant', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        alert('黑钻开通成功！');
+        closeGrantBlackDiamondModal();
+        await loadBlackDiamondUsers();
+    } catch (error) {
+        alert('开通失败: ' + error.message);
     }
 }
 
@@ -2727,6 +2883,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const gameConfigForm = document.getElementById('game-config-form');
         if (gameConfigForm) gameConfigForm.addEventListener('submit', handleGameConfigSubmit);
+
+        // 游戏奖励类型切换
+        const grantGameType = document.getElementById('grant-game-type');
+        if (grantGameType) {
+            grantGameType.addEventListener('change', (e) => {
+                const itemGroup = document.getElementById('grant-game-item-group');
+                if (itemGroup) {
+                    itemGroup.style.display = e.target.value === 'item' ? 'block' : 'none';
+                }
+            });
+        }
 
         const grantBadgeBtn = document.getElementById('grant-badge-btn');
         if (grantBadgeBtn) grantBadgeBtn.addEventListener('click', openGrantBadgeModal);
