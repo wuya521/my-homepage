@@ -857,6 +857,46 @@ async function loadTimeline() {
     }
 }
 
+// 加载推荐关注用户
+async function loadFeaturedUsers() {
+    try {
+        const result = await apiRequest('/api/featured-users');
+        const section = document.getElementById('featured-users-section');
+        const container = document.getElementById('featured-users-container');
+        
+        if (!section || !container) return;
+
+        if (result.users && result.users.length > 0) {
+            container.innerHTML = result.users.map(user => {
+                const roleClass = user.roleType || 'official';
+                const roleIcon = user.roleIcon || '👤';
+                const stats = [];
+                if (user.followers) stats.push(`<span class="featured-user-stat">👥 ${user.followers}</span>`);
+                if (user.posts) stats.push(`<span class="featured-user-stat">📝 ${user.posts}</span>`);
+                
+                return `
+                    <a href="${user.link || '#'}" target="_blank" class="featured-user-card ${roleClass}">
+                        <img src="${user.avatar}" alt="${user.name}" class="featured-user-avatar" onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}'">
+                        <div class="featured-user-info">
+                            <div class="featured-user-title-wrapper">
+                                <h3 class="featured-user-name">${user.name}</h3>
+                                <span class="featured-user-role">${roleIcon} ${user.role}</span>
+                            </div>
+                            <p class="featured-user-bio">${user.bio || '暂无简介'}</p>
+                            ${stats.length > 0 ? `<div class="featured-user-stats">${stats.join('')}</div>` : ''}
+                        </div>
+                    </a>
+                `;
+            }).join('');
+            section.style.display = 'block';
+        } else {
+            section.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('加载推荐用户失败:', error);
+    }
+}
+
 // ==================== 实时通知系统 ====================
 
 let notificationConfig = {
@@ -1118,6 +1158,7 @@ function switchSection(sectionName) {
         'game-config': '游戏配置',
         'game-players': '游戏玩家',
         'blackdiamond': '黑钻管理',
+        'featured-users': '推荐关注',
         'settings': '系统设置'
     };
 
@@ -1149,6 +1190,7 @@ async function loadAdminData() {
     await loadGameStats();
     await loadGamePlayers();
     await loadBlackDiamondUsers();
+    await loadFeaturedUsersAdmin();
 }
 
 // 加载管理员个人资料
@@ -2680,6 +2722,144 @@ async function resetGameData(type) {
     }
 }
 
+// ==================== 推荐关注用户管理 ====================
+
+let currentFeaturedUsers = [];
+
+async function loadFeaturedUsersAdmin() {
+    try {
+        currentFeaturedUsers = await apiRequest('/api/admin/featured-users');
+        renderFeaturedUsersList();
+    } catch (error) {
+        console.error('加载推荐用户失败:', error);
+    }
+}
+
+function renderFeaturedUsersList() {
+    const container = document.getElementById('featured-users-list');
+    if (!container) return;
+
+    if (currentFeaturedUsers.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p class="empty-state-text">暂无推荐用户</p></div>';
+        return;
+    }
+
+    // 按排序字段排序
+    const sortedUsers = [...currentFeaturedUsers].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    container.innerHTML = sortedUsers.map((user, index) => {
+        const roleTypeNames = {
+            emperor: '👑 皇上',
+            empress: '👸 皇后',
+            prince: '🤴 太子',
+            official: '📜 大臣'
+        };
+        
+        return `
+            <div class="item-card">
+                <img src="${user.avatar}" alt="${user.name}" style="width: 50px; height: 50px; border-radius: 50%; margin-right: 12px;" onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}'">
+                <div class="item-info">
+                    <div class="item-name">${user.name} <small style="color: var(--text-muted);">${roleTypeNames[user.roleType] || user.role}</small></div>
+                    <div class="item-desc">${user.bio || '暂无简介'}</div>
+                    <div class="item-url" style="font-size: 0.8rem;">${user.link || '-'}</div>
+                </div>
+                <span class="item-badge ${user.enabled ? 'enabled' : 'disabled'}">
+                    ${user.enabled ? '启用' : '禁用'}
+                </span>
+                <div class="item-actions">
+                    <button class="btn-secondary" onclick="editFeaturedUser(${index})">编辑</button>
+                    <button class="btn-danger" onclick="deleteFeaturedUser(${index})">删除</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function openAddFeaturedUserModal() {
+    const modal = document.getElementById('add-featured-user-modal');
+    const form = document.getElementById('featured-user-form');
+    form.reset();
+    document.getElementById('featured-user-id').value = '';
+    document.getElementById('featured-user-modal-title').textContent = '添加推荐用户';
+    document.getElementById('featured-user-enabled').checked = true;
+    modal.style.display = 'flex';
+}
+
+function closeAddFeaturedUserModal() {
+    const modal = document.getElementById('add-featured-user-modal');
+    modal.style.display = 'none';
+}
+
+function editFeaturedUser(index) {
+    const user = currentFeaturedUsers[index];
+    const modal = document.getElementById('add-featured-user-modal');
+    
+    document.getElementById('featured-user-id').value = index;
+    document.getElementById('featured-user-name').value = user.name;
+    document.getElementById('featured-user-role').value = user.role;
+    document.getElementById('featured-user-role-type').value = user.roleType || 'official';
+    document.getElementById('featured-user-role-icon').value = user.roleIcon || '👤';
+    document.getElementById('featured-user-avatar').value = user.avatar;
+    document.getElementById('featured-user-bio').value = user.bio || '';
+    document.getElementById('featured-user-link').value = user.link || '';
+    document.getElementById('featured-user-followers').value = user.followers || '';
+    document.getElementById('featured-user-posts').value = user.posts || '';
+    document.getElementById('featured-user-order').value = user.order || 0;
+    document.getElementById('featured-user-enabled').checked = user.enabled !== false;
+    document.getElementById('featured-user-modal-title').textContent = '编辑推荐用户';
+    
+    modal.style.display = 'flex';
+}
+
+async function deleteFeaturedUser(index) {
+    if (!confirm('确定要删除这个推荐用户吗？')) return;
+    
+    currentFeaturedUsers.splice(index, 1);
+    await saveFeaturedUsers();
+}
+
+async function handleFeaturedUserSubmit(e) {
+    e.preventDefault();
+    
+    const index = document.getElementById('featured-user-id').value;
+    const user = {
+        name: document.getElementById('featured-user-name').value.trim(),
+        role: document.getElementById('featured-user-role').value.trim(),
+        roleType: document.getElementById('featured-user-role-type').value,
+        roleIcon: document.getElementById('featured-user-role-icon').value.trim(),
+        avatar: document.getElementById('featured-user-avatar').value.trim(),
+        bio: document.getElementById('featured-user-bio').value.trim(),
+        link: document.getElementById('featured-user-link').value.trim(),
+        followers: parseInt(document.getElementById('featured-user-followers').value) || 0,
+        posts: parseInt(document.getElementById('featured-user-posts').value) || 0,
+        order: parseInt(document.getElementById('featured-user-order').value) || 0,
+        enabled: document.getElementById('featured-user-enabled').checked
+    };
+
+    if (index !== '') {
+        currentFeaturedUsers[parseInt(index)] = user;
+    } else {
+        currentFeaturedUsers.push(user);
+    }
+
+    await saveFeaturedUsers();
+    closeAddFeaturedUserModal();
+}
+
+async function saveFeaturedUsers() {
+    try {
+        await apiRequest('/api/admin/featured-users', {
+            method: 'PUT',
+            body: JSON.stringify(currentFeaturedUsers)
+        });
+
+        showMessage('featured-users-message', '推荐用户列表保存成功！', 'success');
+        renderFeaturedUsersList();
+    } catch (error) {
+        showMessage('featured-users-message', error.message, 'error');
+    }
+}
+
 // 确保所有管理函数全局可访问
 window.resetGameData = resetGameData;
 window.openGrantBlackDiamondModal = openGrantBlackDiamondModal;
@@ -2688,6 +2868,11 @@ window.handleGrantBlackDiamond = handleGrantBlackDiamond;
 window.grantGameRewardTo = grantGameRewardTo;
 window.handleGrantGameReward = handleGrantGameReward;
 window.loadGamePlayers = loadGamePlayers;
+window.openAddFeaturedUserModal = openAddFeaturedUserModal;
+window.closeAddFeaturedUserModal = closeAddFeaturedUserModal;
+window.editFeaturedUser = editFeaturedUser;
+window.deleteFeaturedUser = deleteFeaturedUser;
+window.handleFeaturedUserSubmit = handleFeaturedUserSubmit;
 
 // ==================== 实时通知管理（管理后台）====================
 
@@ -2957,6 +3142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 主页初始化
         loadProfile();
         loadAnnouncement();
+        loadFeaturedUsers();
         loadAdvertisements();
         loadPortals();
         // 延迟加载弹窗广告，避免影响页面加载

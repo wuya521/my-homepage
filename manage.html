@@ -119,6 +119,10 @@
                     <span class="nav-icon">💎</span>
                     <span>黑钻管理</span>
                 </a>
+                <a href="#featured-users" class="nav-item" data-section="featured-users">
+                    <span class="nav-icon">👑</span>
+                    <span>推荐关注</span>
+                </a>
                 <a href="#settings" class="nav-item" data-section="settings">
                     <span class="nav-icon">⚙️</span>
                     <span>系统设置</span>
@@ -543,6 +547,84 @@
                     <div id="fish-tank-message" class="message" style="display: none;"></div>
                 </div>
             </section>
+
+            <!-- 推荐关注用户管理 -->
+            <section id="featured-users-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>👑 推荐关注用户管理</h3>
+                        <p class="card-description">配置首页显示的推荐关注用户（皇上、皇后、太子等）</p>
+                    </div>
+                    <div id="featured-users-list" class="items-list">
+                        <!-- 用户列表将通过 JS 动态加载 -->
+                    </div>
+                    <button onclick="openAddFeaturedUserModal()" class="btn-primary" style="margin-top: var(--spacing-md);">添加推荐用户</button>
+                    <div id="featured-users-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
+            <!-- 添加推荐用户弹窗 -->
+            <div id="add-featured-user-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <span class="modal-close" onclick="closeAddFeaturedUserModal()">&times;</span>
+                    <h2 id="featured-user-modal-title">添加推荐用户</h2>
+                    <form id="featured-user-form" class="modal-form" onsubmit="handleFeaturedUserSubmit(event)">
+                        <input type="hidden" id="featured-user-id">
+                        <div class="form-group">
+                            <label for="featured-user-name">用户名</label>
+                            <input type="text" id="featured-user-name" placeholder="皇上" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="featured-user-role">身份称号</label>
+                            <input type="text" id="featured-user-role" placeholder="至高无上的统治者" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="featured-user-role-type">身份类型</label>
+                            <select id="featured-user-role-type" required>
+                                <option value="emperor">👑 皇上（金色）</option>
+                                <option value="empress">👸 皇后（粉色）</option>
+                                <option value="prince">🤴 太子（紫色）</option>
+                                <option value="official">📜 大臣（绿色）</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="featured-user-role-icon">身份图标</label>
+                            <input type="text" id="featured-user-role-icon" placeholder="👑" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="featured-user-avatar">头像URL</label>
+                            <input type="url" id="featured-user-avatar" placeholder="https://..." required>
+                        </div>
+                        <div class="form-group">
+                            <label for="featured-user-bio">个人简介</label>
+                            <textarea id="featured-user-bio" placeholder="简短介绍..." rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="featured-user-link">链接地址</label>
+                            <input type="url" id="featured-user-link" placeholder="https://">
+                        </div>
+                        <div class="form-group">
+                            <label for="featured-user-followers">粉丝数（可选）</label>
+                            <input type="number" id="featured-user-followers" placeholder="1000" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="featured-user-posts">帖子数（可选）</label>
+                            <input type="number" id="featured-user-posts" placeholder="500" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="featured-user-order">排序（数字越小越靠前）</label>
+                            <input type="number" id="featured-user-order" placeholder="0" required>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="featured-user-enabled" checked>
+                                <span>启用显示</span>
+                            </label>
+                        </div>
+                        <button type="submit" class="btn-primary">保存</button>
+                    </form>
+                </div>
+            </div>
 
             <!-- 黑钻管理 -->
             <section id="blackdiamond-section" class="content-section">

@@ -36,6 +36,7 @@ const STORAGE_KEYS = {
   FISH_TANK_CONFIG: 'fish_tank_config',
   NOTIFICATIONS: 'notifications',
   NOTIFICATION_CONFIG: 'notification_config',
+  FEATURED_USERS: 'featured_users',
   // 游戏系统
   GAME_PROFILES: 'game_profiles',
   GAME_EVENTS: 'game_events',
@@ -311,6 +312,9 @@ async function initializeDefaultData(KV) {
     
     // 初始化排行榜（空）
     await KV.put(STORAGE_KEYS.GAME_RANKINGS, JSON.stringify({ weekly: [], monthly: [] }));
+
+    // 初始化推荐关注用户（空）
+    await KV.put(STORAGE_KEYS.FEATURED_USERS, JSON.stringify([]));
 
     console.log('默认数据初始化完成');
   } catch (error) {
@@ -965,6 +969,15 @@ async function handleRequest(request, env) {
       minPortalsToHide: 3
     };
     return jsonResponse(config);
+  }
+
+  // 获取推荐关注用户（公开接口）
+  if (path === '/api/featured-users' && method === 'GET') {
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.FEATURED_USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    // 只返回启用的用户
+    const enabledUsers = users.filter(u => u.enabled !== false);
+    return jsonResponse({ users: enabledUsers });
   }
 
   // 获取最新通知（公开接口）
@@ -2743,6 +2756,20 @@ async function handleRequest(request, env) {
       }));
 
     return jsonResponse(blackDiamondUsers);
+  }
+
+  // 获取推荐用户列表（管理员）
+  if (path === '/api/admin/featured-users' && method === 'GET') {
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.FEATURED_USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    return jsonResponse(users);
+  }
+
+  // 更新推荐用户列表（管理员）
+  if (path === '/api/admin/featured-users' && method === 'PUT') {
+    const users = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.FEATURED_USERS, JSON.stringify(users));
+    return jsonResponse({ success: true, message: '推荐用户列表更新成功' });
   }
 
   // 重置游戏数据（管理员 - 危险操作）

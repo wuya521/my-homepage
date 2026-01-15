@@ -545,6 +545,265 @@ body {
     color: var(--text-primary);
 }
 
+/* ==================== 推荐关注用户 ==================== */
+.featured-users-section {
+    animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+.featured-users-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.featured-user-card {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 140, 0, 0.1));
+    border: 2px solid #FFD700;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.2);
+}
+
+.featured-user-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        transparent,
+        rgba(255, 215, 0, 0.3),
+        transparent
+    );
+    animation: shine 3s infinite;
+}
+
+@keyframes shine {
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+}
+
+.featured-user-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 8px 32px rgba(255, 215, 0, 0.4);
+    border-color: #FFA500;
+}
+
+.featured-user-card:hover::before {
+    animation-duration: 1s;
+}
+
+/* 不同身份的边框颜色 */
+.featured-user-card.emperor {
+    border-color: #FFD700;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 140, 0, 0.15));
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3), 0 0 30px rgba(255, 215, 0, 0.2);
+}
+
+.featured-user-card.empress {
+    border-color: #FF69B4;
+    background: linear-gradient(135deg, rgba(255, 105, 180, 0.15), rgba(255, 182, 193, 0.15));
+    box-shadow: 0 4px 20px rgba(255, 105, 180, 0.3), 0 0 30px rgba(255, 105, 180, 0.2);
+}
+
+.featured-user-card.prince {
+    border-color: #9370DB;
+    background: linear-gradient(135deg, rgba(147, 112, 219, 0.15), rgba(186, 85, 211, 0.15));
+    box-shadow: 0 4px 20px rgba(147, 112, 219, 0.3), 0 0 30px rgba(147, 112, 219, 0.2);
+}
+
+.featured-user-card.official {
+    border-color: #32CD32;
+    background: linear-gradient(135deg, rgba(50, 205, 50, 0.15), rgba(144, 238, 144, 0.15));
+    box-shadow: 0 4px 20px rgba(50, 205, 50, 0.3), 0 0 30px rgba(50, 205, 50, 0.2);
+}
+
+.featured-user-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid currentColor;
+    object-fit: cover;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.featured-user-card.emperor .featured-user-avatar {
+    border-color: #FFD700;
+    animation: glow-gold 2s ease-in-out infinite;
+}
+
+.featured-user-card.empress .featured-user-avatar {
+    border-color: #FF69B4;
+    animation: glow-pink 2s ease-in-out infinite;
+}
+
+.featured-user-card.prince .featured-user-avatar {
+    border-color: #9370DB;
+    animation: glow-purple 2s ease-in-out infinite;
+}
+
+.featured-user-card.official .featured-user-avatar {
+    border-color: #32CD32;
+    animation: glow-green 2s ease-in-out infinite;
+}
+
+@keyframes glow-gold {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.5);
+    }
+}
+
+@keyframes glow-pink {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(255, 105, 180, 0.5), 0 0 20px rgba(255, 105, 180, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(255, 105, 180, 0.8), 0 0 30px rgba(255, 105, 180, 0.5);
+    }
+}
+
+@keyframes glow-purple {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(147, 112, 219, 0.5), 0 0 20px rgba(147, 112, 219, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(147, 112, 219, 0.8), 0 0 30px rgba(147, 112, 219, 0.5);
+    }
+}
+
+@keyframes glow-green {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(50, 205, 50, 0.5), 0 0 20px rgba(50, 205, 50, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(50, 205, 50, 0.8), 0 0 30px rgba(50, 205, 50, 0.5);
+    }
+}
+
+.featured-user-info {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.featured-user-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+}
+
+.featured-user-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.featured-user-role {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    white-space: nowrap;
+    animation: pulse-role 2s ease-in-out infinite;
+}
+
+.featured-user-card.emperor .featured-user-role {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+}
+
+.featured-user-card.empress .featured-user-role {
+    background: linear-gradient(135deg, #FF69B4, #FFB6C1);
+    color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(255, 105, 180, 0.4);
+}
+
+.featured-user-card.prince .featured-user-role {
+    background: linear-gradient(135deg, #9370DB, #BA55D3);
+    color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(147, 112, 219, 0.4);
+}
+
+.featured-user-card.official .featured-user-role {
+    background: linear-gradient(135deg, #32CD32, #90EE90);
+    color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(50, 205, 50, 0.4);
+}
+
+@keyframes pulse-role {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.featured-user-bio {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: var(--spacing-xs);
+}
+
+.featured-user-stats {
+    display: flex;
+    gap: var(--spacing-sm);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.featured-user-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+@media (max-width: 768px) {
+    .featured-users-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .featured-user-card {
+        padding: var(--spacing-md);
+    }
+    
+    .featured-user-avatar {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .featured-user-name {
+        font-size: 1.1rem;
+    }
+}
+
 /* ==================== 游戏入口 ==================== */
 .game-entrance-section {
     animation: fadeInUp 0.6s ease-out 0.15s both;
