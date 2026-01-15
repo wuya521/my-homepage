@@ -2662,6 +2662,24 @@ async function handleGrantBlackDiamond(e) {
     }
 }
 
+// 重置游戏数据
+async function resetGameData(type) {
+    if (!confirm(`确定要重置${type === 'items' ? '道具' : '事件'}数据吗？这将覆盖现有配置！`)) {
+        return;
+    }
+    
+    try {
+        const result = await apiRequest('/api/admin/game/reset-data', {
+            method: 'POST',
+            body: JSON.stringify({ type })
+        });
+
+        showMessage('reset-data-message', result.message, 'success');
+    } catch (error) {
+        showMessage('reset-data-message', error.message, 'error');
+    }
+}
+
 // ==================== 实时通知管理（管理后台）====================
 
 // 加载通知配置（管理后台）

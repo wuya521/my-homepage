@@ -722,6 +722,20 @@
                         </div>
                     </div>
                 </div>
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h3>🔧 数据管理</h3>
+                        <p class="card-description">重置游戏基础数据（谨慎操作）</p>
+                    </div>
+                    <div class="form">
+                        <button onclick="resetGameData('items')" class="btn-secondary" style="margin-right: 8px;">重置道具数据</button>
+                        <button onclick="resetGameData('events')" class="btn-secondary">重置事件数据</button>
+                        <p style="color: var(--warning-color); margin-top: var(--spacing-sm); font-size: 0.875rem;">
+                            ⚠️ 重置后会用默认数据覆盖现有配置，不影响玩家存档
+                        </p>
+                    </div>
+                    <div id="reset-data-message" class="message" style="display: none;"></div>
+                </div>
             </section>
 
             <!-- 实时通知管理 -->

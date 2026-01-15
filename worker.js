@@ -216,8 +216,10 @@ async function initializeDefaultData(KV) {
       await KV.put(STORAGE_KEYS.GAME_CONFIG, JSON.stringify(defaultGameConfig));
     }
 
-    // 初始化游戏事件
-    const defaultGameEvents = [
+    // 初始化游戏事件（强制更新，确保最新）
+    const existingGameEvents = await KV.get(STORAGE_KEYS.GAME_EVENTS);
+    if (!existingGameEvents) {
+      const defaultGameEvents = [
       {
         id: 'event_1',
         title: '路过花市',
@@ -280,10 +282,13 @@ async function initializeDefaultData(KV) {
         ]
       }
     ];
-    await KV.put(STORAGE_KEYS.GAME_EVENTS, JSON.stringify(defaultGameEvents));
+      await KV.put(STORAGE_KEYS.GAME_EVENTS, JSON.stringify(defaultGameEvents));
+    }
 
-    // 初始化游戏道具
-    const defaultGameItems = {
+    // 初始化游戏道具（强制更新，确保最新）
+    const existingGameItems = await KV.get(STORAGE_KEYS.GAME_ITEMS);
+    if (!existingGameItems) {
+      const defaultGameItems = {
       seed_common: { name: '普通种子', icon: '🌱', description: '可种植普通作物', type: 'seed', growTime: 7200 },
       seed_rare: { name: '稀有种子', icon: '🌺', description: '可种植稀有作物', type: 'seed', growTime: 14400 },
       fertilizer: { name: '肥料', icon: '💩', description: '加速作物生长', type: 'consumable', effect: { speedUp: 0.5 } },
@@ -292,7 +297,8 @@ async function initializeDefaultData(KV) {
       material_rare: { name: '稀有材料', icon: '💎', description: '稀有材料', type: 'material' },
       protection_shield: { name: '防偷保护罩', icon: '🛡️', description: '保护花园24小时', type: 'consumable', effect: { protection: 86400 } }
     };
-    await KV.put(STORAGE_KEYS.GAME_ITEMS, JSON.stringify(defaultGameItems));
+      await KV.put(STORAGE_KEYS.GAME_ITEMS, JSON.stringify(defaultGameItems));
+    }
 
     // 初始化用户游戏档案（空）
     await KV.put(STORAGE_KEYS.GAME_PROFILES, JSON.stringify([]));
@@ -1759,11 +1765,17 @@ async function handleRequest(request, env) {
 
     const inventory = Object.entries(profile.inventory || {})
       .filter(([id, count]) => count > 0)
-      .map(([id, count]) => ({
-        id,
-        count,
-        ...items[id]
-      }));
+      .map(([id, count]) => {
+        const itemDef = items[id] || { name: id, icon: '📦', description: '未知道具', type: 'unknown' };
+        return {
+          id,
+          count,
+          name: itemDef.name,
+          icon: itemDef.icon,
+          description: itemDef.description,
+          type: itemDef.type
+        };
+      });
 
     return jsonResponse({ success: true, inventory });
   }
@@ -2731,6 +2743,95 @@ async function handleRequest(request, env) {
       }));
 
     return jsonResponse(blackDiamondUsers);
+  }
+
+  // 重置游戏数据（管理员 - 危险操作）
+  if (path === '/api/admin/game/reset-data' && method === 'POST') {
+    const { type } = await request.json();
+    
+    if (type === 'items') {
+      // 重新初始化道具
+      const defaultGameItems = {
+        seed_common: { name: '普通种子', icon: '🌱', description: '可种植普通作物', type: 'seed', growTime: 7200 },
+        seed_rare: { name: '稀有种子', icon: '🌺', description: '可种植稀有作物', type: 'seed', growTime: 14400 },
+        fertilizer: { name: '肥料', icon: '💩', description: '加速作物生长50%', type: 'consumable', effect: { speedUp: 0.5 } },
+        speed_card: { name: '加速卡', icon: '⚡', description: '立即完成生长', type: 'consumable', effect: { instant: true } },
+        material_wood: { name: '木材', icon: '🪵', description: '基础材料', type: 'material' },
+        material_rare: { name: '稀有材料', icon: '💎', description: '稀有材料', type: 'material' },
+        protection_shield: { name: '防偷保护罩', icon: '🛡️', description: '保护花园24小时', type: 'consumable', effect: { protection: 86400 } }
+      };
+      await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_ITEMS, JSON.stringify(defaultGameItems));
+      return jsonResponse({ success: true, message: '道具数据已重置' });
+    } else if (type === 'events') {
+      // 重新初始化事件
+      const defaultGameEvents = [
+        {
+          id: 'event_1',
+          title: '路过花市',
+          description: '你路过花市，看到一位老人在卖种子...',
+          weight: 10,
+          cooldown: 0,
+          options: [
+            { text: '花10金币买一包种子', cost: { coins: 10 }, reward: { items: { seed_common: 1 } } },
+            { text: '花50金币买稀有种子', cost: { coins: 50 }, reward: { items: { seed_rare: 1 } } },
+            { text: '和老人聊天', cost: {}, reward: { exp: 5, status: { luck: 1 } } },
+            { text: '离开', cost: {}, reward: { coins: 5 } }
+          ]
+        },
+        {
+          id: 'event_2',
+          title: '神秘商人',
+          description: '一个神秘商人出现在你面前，他说可以用材料换取稀有道具...',
+          weight: 5,
+          cooldown: 3600,
+          options: [
+            { text: '用材料换取肥料', cost: { items: { material_wood: 3 } }, reward: { items: { fertilizer: 2 } } },
+            { text: '用金币购买加速卡', cost: { coins: 100 }, reward: { items: { speed_card: 1 } } },
+            { text: '拒绝交易', cost: {}, reward: { coins: 10 } }
+          ]
+        },
+        {
+          id: 'event_3',
+          title: '打工机会',
+          description: '村长需要人手帮忙，你愿意去打工吗？',
+          weight: 15,
+          cooldown: 0,
+          options: [
+            { text: '轻松打工（消耗10体力）', cost: { energy: 10 }, reward: { coins: 30, exp: 5 } },
+            { text: '辛苦打工（消耗20体力）', cost: { energy: 20 }, reward: { coins: 80, exp: 15 } },
+            { text: '拒绝', cost: {}, reward: {} }
+          ]
+        },
+        {
+          id: 'event_4',
+          title: '冒险探索',
+          description: '你发现了一个神秘洞穴，要进去探险吗？',
+          weight: 8,
+          cooldown: 1800,
+          options: [
+            { text: '谨慎探索（消耗15体力）', cost: { energy: 15 }, reward: { coins: 50, items: { material_wood: 2 }, probability: 0.8 } },
+            { text: '深入探索（消耗30体力）', cost: { energy: 30 }, reward: { coins: 150, items: { material_rare: 1 }, probability: 0.5 } },
+            { text: '放弃探索', cost: {}, reward: { coins: 5 } }
+          ]
+        },
+        {
+          id: 'event_5',
+          title: '好友求助',
+          description: '你的好友需要帮助，是否愿意帮忙？',
+          weight: 12,
+          cooldown: 0,
+          options: [
+            { text: '帮忙浇水（消耗5体力）', cost: { energy: 5 }, reward: { exp: 10, status: { friendship: 1 } } },
+            { text: '送礼物（消耗20金币）', cost: { coins: 20 }, reward: { exp: 15, status: { friendship: 2 } } },
+            { text: '婉拒', cost: {}, reward: {} }
+          ]
+        }
+      ];
+      await env.MY_HOME_KV.put(STORAGE_KEYS.GAME_EVENTS, JSON.stringify(defaultGameEvents));
+      return jsonResponse({ success: true, message: '事件数据已重置' });
+    }
+    
+    return jsonResponse({ success: false, message: '无效的重置类型' }, 400);
   }
 
   // 404 响应

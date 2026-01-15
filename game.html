@@ -632,15 +632,21 @@
             try {
                 const result = await apiRequest(`/api/game/inventory?email=${encodeURIComponent(email)}`);
                 if (result.success && result.inventory.length > 0) {
-                    const html = result.inventory.map(item => `
+                    const html = result.inventory.map(item => {
+                        const itemName = item.name || item.id || '未知道具';
+                        const itemIcon = item.icon || '📦';
+                        const itemDesc = item.description || '暂无描述';
+                        const itemType = item.type || 'unknown';
+                        
+                        return `
                         <div class="shop-item">
-                            <div class="shop-item-icon">${item.icon}</div>
-                            <div class="shop-item-name">${item.name}</div>
-                            <div class="shop-item-desc">${item.description}</div>
+                            <div class="shop-item-icon">${itemIcon}</div>
+                            <div class="shop-item-name">${itemName}</div>
+                            <div class="shop-item-desc">${itemDesc}</div>
                             <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color); margin: var(--spacing-sm) 0;">数量: ${item.count}</div>
-                            ${item.type === 'consumable' ? `<button class="btn-primary" onclick="selectItemToUse('${item.id}', '${item.name}')">使用</button>` : ''}
+                            ${itemType === 'consumable' || itemType === 'seed' ? `<button class="btn-primary" onclick="selectItemToUse('${item.id}', '${itemName}')">使用</button>` : ''}
                         </div>
-                    `).join('');
+                    `}).join('');
                     container.innerHTML = html;
                 } else {
                     container.innerHTML = '<div class="empty-state">背包空空如也，去商店购买道具吧！</div>';
