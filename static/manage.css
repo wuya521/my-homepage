@@ -977,3 +977,94 @@ body {
     color: white;
 }
 
+/* ==================== 金色闪光文字效果 ==================== */
+.golden-text {
+    background: linear-gradient(
+        90deg,
+        #B8860B 0%,
+        #FFD700 25%,
+        #FFF8DC 50%,
+        #FFD700 75%,
+        #B8860B 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: golden-shine 3s linear infinite;
+}
+
+@keyframes golden-shine {
+    0% { background-position: 200% center; }
+    100% { background-position: -200% center; }
+}
+
+/* ==================== 加热/置顶行样式 ==================== */
+.row-heated {
+    background: rgba(255, 215, 0, 0.1) !important;
+    border-left: 3px solid #FFD700;
+}
+
+.row-pinned {
+    background: rgba(231, 76, 60, 0.1) !important;
+    border-left: 3px solid #E74C3C;
+}
+
+.btn-primary {
+    background: var(--primary-gradient);
+    border: none;
+    color: white;
+}
+
+/* ==================== VIP 和认证标记 ==================== */
+.verified-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: #000;
+    border-radius: 50%;
+    font-size: 9px;
+    font-weight: bold;
+    margin-left: 4px;
+}
+
+.vip-mark {
+    display: inline-block;
+    background: linear-gradient(135deg, #E74C3C, #C0392B);
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+}
+
+.user-coins {
+    color: #FFD700;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.user-level {
+    color: var(--primary-color);
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-left: 8px;
+}
+
+.row-verified {
+    background: rgba(255, 215, 0, 0.05) !important;
+}
+
+.row-vip {
+    background: rgba(231, 76, 60, 0.05) !important;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #3498DB, #2980B9);
+    border: none;
+    color: white;
+}
+

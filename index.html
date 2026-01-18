@@ -95,12 +95,18 @@
                         <div class="level-checkin-card">
                             <div class="level-checkin-header">
                                 <span class="level-icon">⭐</span>
-                                <h3>等级系统</h3>
+                                <h3>等级 & 积分</h3>
                             </div>
                             <div class="level-info">
-                                <div class="level-display">
-                                    <span class="level-label">等级</span>
-                                    <span id="user-level" class="level-value">Lv.1</span>
+                                <div class="stats-row">
+                                    <div class="stat-item">
+                                        <span class="stat-label">等级</span>
+                                        <span id="user-level" class="stat-value level-value">Lv.1</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">💰 积分</span>
+                                        <span id="user-coins" class="stat-value coins-value">0</span>
+                                    </div>
                                 </div>
                                 <div class="exp-display">
                                     <div class="exp-bar-wrapper">
@@ -108,15 +114,16 @@
                                             <div id="exp-progress" class="exp-progress" style="width: 0%"></div>
                                         </div>
                                         <div class="exp-text">
-                                            <span id="current-exp">0</span> / <span id="next-level-exp">100</span>
+                                            <span id="current-exp">0</span> / <span id="next-level-exp">100</span> EXP
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <button id="checkin-btn" class="btn-checkin" disabled>
-                                <span class="btn-text">今日已签到</span>
+                            <button id="checkin-btn" class="btn-checkin" onclick="handleUserCheckin()">
+                                <span class="btn-text">✨ 每日签到</span>
                             </button>
                             <div id="checkin-message" class="checkin-message" style="display: none;"></div>
+                            <p class="checkin-hint">签到可获得积分，积分可用于加热文章</p>
                         </div>
                     </section>
 

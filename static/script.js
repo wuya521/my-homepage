@@ -3372,6 +3372,9 @@ function updateUserUI() {
         if (nameEl) nameEl.textContent = currentUser.nickname || currentUser.email;
         if (bioEl) bioEl.textContent = currentUser.bio || '这个人很懒，什么都没写~';
         if (avatarEl) avatarEl.src = currentUser.avatar || generateRandomAvatar(currentUser.email);
+        
+        // 加载用户统计信息
+        loadUserStats();
     } else {
         // 未登录
         if (guestActions) guestActions.style.display = 'flex';
@@ -3380,6 +3383,183 @@ function updateUserUI() {
         if (loginPromptSection) loginPromptSection.style.display = 'block';
         if (profileCard) profileCard.style.display = 'none';
     }
+}
+
+// 加载用户统计信息
+async function loadUserStats() {
+    if (!userToken) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/user/stats`, {
+            headers: { 'Authorization': `Bearer ${userToken}` }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            const stats = data.stats;
+            
+            // 更新等级和积分显示
+            const levelEl = document.getElementById('user-level');
+            const coinsEl = document.getElementById('user-coins');
+            const currentExpEl = document.getElementById('current-exp');
+            const nextLevelExpEl = document.getElementById('next-level-exp');
+            const expProgressEl = document.getElementById('exp-progress');
+            const checkinBtn = document.getElementById('checkin-btn');
+            
+            if (levelEl) levelEl.textContent = `Lv.${stats.level}`;
+            if (coinsEl) coinsEl.textContent = stats.coins;
+            if (currentExpEl) currentExpEl.textContent = stats.exp;
+            if (nextLevelExpEl) nextLevelExpEl.textContent = stats.nextLevelExp;
+            
+            if (expProgressEl) {
+                const progress = stats.nextLevelExp > 0 ? (stats.exp / stats.nextLevelExp) * 100 : 0;
+                expProgressEl.style.width = `${Math.min(progress, 100)}%`;
+            }
+            
+            if (checkinBtn) {
+                if (stats.canCheckin) {
+                    checkinBtn.disabled = false;
+                    checkinBtn.innerHTML = '<span class="btn-text">✨ 每日签到</span>';
+                    checkinBtn.classList.remove('btn-checked');
+                } else {
+                    checkinBtn.disabled = true;
+                    checkinBtn.innerHTML = '<span class="btn-text">✅ 今日已签到</span>';
+                    checkinBtn.classList.add('btn-checked');
+                }
+            }
+            
+            // 更新 VIP 显示
+            const vipCard = document.querySelector('.vip-card-section');
+            if (vipCard) {
+                if (stats.vip && stats.vip.level) {
+                    vipCard.style.display = 'block';
+                    const vipLevelEl = vipCard.querySelector('.vip-level');
+                    const vipExpireEl = vipCard.querySelector('.vip-expire');
+                    if (vipLevelEl) vipLevelEl.textContent = stats.vip.level;
+                    if (vipExpireEl) vipExpireEl.textContent = `有效期至: ${stats.vip.expireAt || '永久'}`;
+                }
+            }
+            
+            // 更新勋章显示
+            renderUserBadges(stats.badges || []);
+            
+            // 更新认证状态
+            if (stats.verified) {
+                const nameEl = document.getElementById('name');
+                if (nameEl && !nameEl.querySelector('.verified-badge')) {
+                    nameEl.innerHTML += '<span class="verified-badge" title="金V认证">✓</span>';
+                    nameEl.classList.add('golden-text');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('加载用户统计失败:', error);
+    }
+}
+
+// 渲染用户勋章
+async function renderUserBadges(userBadges) {
+    const container = document.getElementById('badges-container');
+    if (!container) return;
+    
+    if (!userBadges || userBadges.length === 0) {
+        container.innerHTML = '<p class="empty-badges">暂无勋章，继续努力吧！</p>';
+        return;
+    }
+    
+    // 获取所有勋章定义
+    try {
+        const badgesData = await fetch(`${API_BASE}/api/badges`).then(r => r.json());
+        const allBadges = badgesData || [];
+        
+        container.innerHTML = userBadges.map(ub => {
+            const badge = allBadges.find(b => b.id === ub.id);
+            return badge ? `
+                <div class="badge-item" data-badge-name="${badge.name}" title="${badge.description || '获得于 ' + formatDate(ub.awardedAt)}">
+                    <span class="badge-icon">${badge.icon || '🏆'}</span>
+                    <span class="badge-name">${badge.name}</span>
+                </div>
+            ` : '';
+        }).join('');
+    } catch (error) {
+        console.error('加载勋章失败:', error);
+        container.innerHTML = '<p class="empty-badges">加载失败</p>';
+    }
+}
+
+// 用户签到
+async function handleUserCheckin() {
+    if (!userToken) {
+        showLoginModal();
+        return;
+    }
+    
+    const checkinBtn = document.getElementById('checkin-btn');
+    if (checkinBtn) {
+        checkinBtn.disabled = true;
+        checkinBtn.innerHTML = '<span class="btn-text">签到中...</span>';
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/user/checkin`, {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${userToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(data.message);
+            
+            // 更新显示
+            const coinsEl = document.getElementById('user-coins');
+            const levelEl = document.getElementById('user-level');
+            
+            if (coinsEl) coinsEl.textContent = data.coins;
+            if (levelEl) levelEl.textContent = `Lv.${data.level}`;
+            
+            if (checkinBtn) {
+                checkinBtn.innerHTML = '<span class="btn-text">✅ 今日已签到</span>';
+                checkinBtn.classList.add('btn-checked');
+            }
+            
+            // 显示签到奖励动画
+            showCheckinReward(data.reward);
+        } else {
+            showToast(data.message || '签到失败', 'error');
+            if (checkinBtn) {
+                checkinBtn.disabled = false;
+                checkinBtn.innerHTML = '<span class="btn-text">✨ 每日签到</span>';
+            }
+        }
+    } catch (error) {
+        console.error('签到失败:', error);
+        showToast('网络错误，请稍后重试', 'error');
+        if (checkinBtn) {
+            checkinBtn.disabled = false;
+            checkinBtn.innerHTML = '<span class="btn-text">✨ 每日签到</span>';
+        }
+    }
+}
+
+// 显示签到奖励动画
+function showCheckinReward(reward) {
+    const notification = document.createElement('div');
+    notification.className = 'checkin-reward-popup';
+    notification.innerHTML = `
+        <div class="reward-content">
+            <span class="reward-icon">🎉</span>
+            <span class="reward-text">+${reward} 积分</span>
+        </div>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => notification.remove(), 500);
+    }, 2000);
 }
 
 // 显示登录弹窗
@@ -3823,22 +4003,45 @@ function renderArticles() {
         const categoryObj = articleCategories.find(c => c.id === article.category);
         const categoryName = categoryObj ? `${categoryObj.icon} ${categoryObj.name}` : article.category;
         
-        // 检查是否有火爆或推荐标签
+        // 检查状态
         const isHot = article.tags && article.tags.includes('hot');
         const isRecommend = article.tags && article.tags.includes('recommend');
+        const isHeated = article.isHeated;
+        const isPinned = article.isPinned;
+        
+        // 计算加热剩余时间
+        let heatTimeLeft = '';
+        if (isHeated && article.heatExpireAt) {
+            const remaining = new Date(article.heatExpireAt) - new Date();
+            if (remaining > 0) {
+                const hours = Math.floor(remaining / (1000 * 60 * 60));
+                const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                heatTimeLeft = hours > 0 ? `${hours}h${minutes}m` : `${minutes}m`;
+            }
+        }
+        
+        // 构建样式类
+        let cardClasses = 'article-card';
+        if (isPinned) cardClasses += ' article-pinned';
+        else if (isHeated) cardClasses += ' article-heated';
+        else if (isHot) cardClasses += ' article-hot';
+        else if (isRecommend) cardClasses += ' article-recommend';
         
         return `
-            <div class="article-card ${isHot ? 'article-hot' : ''} ${isRecommend ? 'article-recommend' : ''}" onclick="showArticleDetail('${article.id}')">
-                ${isHot ? '<span class="article-badge hot">🔥 火爆</span>' : ''}
-                ${isRecommend && !isHot ? '<span class="article-badge recommend">📌 推荐</span>' : ''}
+            <div class="${cardClasses}" onclick="showArticleDetail('${article.id}')">
+                ${isPinned ? '<span class="article-badge pinned">📌 置顶</span>' : ''}
+                ${isHeated && !isPinned ? '<span class="article-badge heated">🔥 加热中</span>' : ''}
+                ${isHot && !isPinned && !isHeated ? '<span class="article-badge hot">🔥 火爆</span>' : ''}
+                ${isRecommend && !isPinned && !isHeated && !isHot ? '<span class="article-badge recommend">📌 推荐</span>' : ''}
                 ${article.cover ? `<img src="${article.cover}" alt="" class="article-cover">` : ''}
                 <div class="article-info">
-                    <h3 class="article-title">${escapeHtml(article.title)}</h3>
+                    <h3 class="article-title ${isHeated ? 'golden-text' : ''}">${escapeHtml(article.title)}</h3>
                     <p class="article-summary">${escapeHtml(article.summary)}</p>
                     <div class="article-meta">
                         <div class="article-author" onclick="event.stopPropagation(); showAuthorPage('${article.authorId}')" style="cursor: pointer;" title="查看作者主页">
                             <img src="${article.authorAvatar || generateRandomAvatar(article.authorName)}" alt="" class="article-author-avatar">
-                            <span class="article-author-name">${escapeHtml(article.authorName)}</span>
+                            <span class="article-author-name ${article.authorVerified ? 'golden-text' : ''}">${escapeHtml(article.authorName)}</span>
+                            ${article.authorVerified ? '<span class="verified-badge" title="金V认证">✓</span>' : ''}
                         </div>
                         <span class="article-category">${categoryName}</span>
                         <div class="article-tags">
@@ -3849,6 +4052,8 @@ function renderArticles() {
                         </div>
                         <div class="article-stats">
                             <span>👁️ ${article.views || 0}</span>
+                            ${isHeated ? `<span class="heat-countdown">${heatTimeLeft}</span>` : ''}
+                            ${isPinned ? `<span class="pin-mark">置顶</span>` : ''}
                             <span>📅 ${formatDate(article.publishedAt || article.createdAt).split(' ')[0]}</span>
                         </div>
                     </div>
@@ -3977,24 +4182,40 @@ async function showArticleDetail(articleId) {
                 contentHtml = marked.parse(article.content);
             }
             
-            // 判断是否可以编辑/删除
+            // 判断权限
             const canEdit = currentUser && (currentUser.id === article.authorId || currentUser.role === 'admin');
+            const isOwner = currentUser && currentUser.id === article.authorId;
+            const isHeated = article.isHeated;
+            
+            // 计算加热剩余时间
+            let heatTimeInfo = '';
+            if (isHeated && article.heatExpireAt) {
+                const remaining = new Date(article.heatExpireAt) - new Date();
+                if (remaining > 0) {
+                    const hours = Math.floor(remaining / (1000 * 60 * 60));
+                    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                    heatTimeInfo = `加热中，剩余 ${hours}h ${minutes}m`;
+                }
+            }
             
             container.innerHTML = `
-                <div class="article-detail">
+                <div class="article-detail ${isHeated ? 'article-detail-heated' : ''}">
+                    ${isHeated ? '<div class="heated-banner">🔥 热门文章 - ${heatTimeInfo}</div>' : ''}
                     <div class="article-detail-header">
-                        <h1 class="article-detail-title">${escapeHtml(article.title)}</h1>
+                        <h1 class="article-detail-title ${isHeated ? 'golden-text' : ''}">${escapeHtml(article.title)}</h1>
                         <div class="article-detail-meta">
-                            <div class="article-detail-author">
+                            <div class="article-detail-author" onclick="showAuthorPage('${article.authorId}')" style="cursor: pointer;">
                                 <img src="${article.authorAvatar || generateRandomAvatar(article.authorName)}" alt="" class="article-detail-author-avatar">
                                 <div class="article-detail-author-info">
-                                    <span class="article-detail-author-name">${escapeHtml(article.authorName)}</span>
+                                    <span class="article-detail-author-name ${article.authorVerified ? 'golden-text' : ''}">${escapeHtml(article.authorName)}</span>
+                                    ${article.authorVerified ? '<span class="verified-badge">✓</span>' : ''}
                                     <span class="article-detail-date">${formatDate(article.publishedAt || article.createdAt)}</span>
                                 </div>
                             </div>
                             <span class="article-category">${categoryName}</span>
                             <div class="article-detail-stats">
                                 <span>👁️ ${article.views || 0} 次浏览</span>
+                                ${isHeated ? `<span class="heat-status">🔥 ${heatTimeInfo}</span>` : ''}
                             </div>
                         </div>
                     </div>
@@ -4008,12 +4229,17 @@ async function showArticleDetail(articleId) {
                             }).join('')}
                         </div>
                     ` : ''}
-                    ${canEdit ? `
-                        <div class="article-detail-actions">
+                    <div class="article-detail-actions">
+                        ${isOwner && !isHeated ? `
+                            <button class="btn-heat-article" onclick="heatMyArticle('${article.id}')">
+                                🔥 加热文章
+                            </button>
+                        ` : ''}
+                        ${canEdit ? `
                             <button class="btn-edit-article" onclick="editArticle('${article.id}')">✏️ 编辑</button>
                             <button class="btn-delete-article" onclick="deleteArticle('${article.id}')">🗑️ 删除</button>
-                        </div>
-                    ` : ''}
+                        ` : ''}
+                    </div>
                 </div>
             `;
         } else {
@@ -4253,6 +4479,140 @@ async function deleteArticle(articleId) {
         }
     } catch (error) {
         console.error('删除文章失败:', error);
+        showToast('网络错误，请稍后重试', 'error');
+    }
+}
+
+// 用户加热自己的文章
+async function heatMyArticle(articleId) {
+    if (!userToken) {
+        showLoginModal();
+        return;
+    }
+    
+    // 获取加热配置
+    let config = { costPerHour: 10, minHours: 1, maxHours: 72 };
+    try {
+        const configRes = await fetch(`${API_BASE}/api/heat/config`);
+        const configData = await configRes.json();
+        if (configData.success && configData.config) {
+            config = configData.config;
+        }
+    } catch (e) {}
+    
+    // 弹窗选择加热时长
+    showHeatModal(articleId, config);
+}
+
+// 显示加热选项弹窗
+function showHeatModal(articleId, config) {
+    const existingModal = document.getElementById('heat-modal');
+    if (existingModal) existingModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'heat-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="heat-modal-content">
+            <div class="heat-modal-header">
+                <h3>🔥 加热文章</h3>
+                <button class="modal-close-btn" onclick="closeHeatModal()">×</button>
+            </div>
+            <div class="heat-modal-body">
+                <p class="heat-tip">加热后文章将在列表中优先展示，标题显示金色闪光效果</p>
+                <div class="heat-options">
+                    <button class="heat-option" onclick="confirmHeat('${articleId}', 6, ${config.costPerHour * 6})">
+                        <span class="heat-duration">6小时</span>
+                        <span class="heat-cost">${config.costPerHour * 6} 积分</span>
+                    </button>
+                    <button class="heat-option heat-option-popular" onclick="confirmHeat('${articleId}', 12, ${config.costPerHour * 12})">
+                        <span class="popular-badge">推荐</span>
+                        <span class="heat-duration">12小时</span>
+                        <span class="heat-cost">${config.costPerHour * 12} 积分</span>
+                    </button>
+                    <button class="heat-option" onclick="confirmHeat('${articleId}', 24, ${config.costPerHour * 24})">
+                        <span class="heat-duration">24小时</span>
+                        <span class="heat-cost">${config.costPerHour * 24} 积分</span>
+                    </button>
+                    <button class="heat-option" onclick="confirmHeat('${articleId}', 48, ${config.costPerHour * 48})">
+                        <span class="heat-duration">48小时</span>
+                        <span class="heat-cost">${config.costPerHour * 48} 积分</span>
+                    </button>
+                </div>
+                <div class="heat-custom">
+                    <label>自定义时长（${config.minHours}-${config.maxHours}小时）</label>
+                    <div class="heat-custom-input">
+                        <input type="number" id="heat-custom-hours" min="${config.minHours}" max="${config.maxHours}" value="24">
+                        <span>小时</span>
+                        <span class="heat-custom-cost">= <span id="heat-custom-price">${config.costPerHour * 24}</span> 积分</span>
+                    </div>
+                    <button class="btn-heat-confirm" onclick="confirmCustomHeat('${articleId}', ${config.costPerHour})">确认加热</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // 监听自定义时长输入
+    const customInput = document.getElementById('heat-custom-hours');
+    const customPrice = document.getElementById('heat-custom-price');
+    customInput.addEventListener('input', () => {
+        const hours = parseInt(customInput.value) || 0;
+        customPrice.textContent = hours * config.costPerHour;
+    });
+}
+
+function closeHeatModal() {
+    const modal = document.getElementById('heat-modal');
+    if (modal) modal.remove();
+}
+
+// 确认加热（快捷选项）
+async function confirmHeat(articleId, hours, cost) {
+    if (!confirm(`确定消耗 ${cost} 积分加热 ${hours} 小时吗？`)) return;
+    await executeHeat(articleId, hours);
+}
+
+// 确认加热（自定义时长）
+async function confirmCustomHeat(articleId, costPerHour) {
+    const customInput = document.getElementById('heat-custom-hours');
+    const hours = parseInt(customInput.value);
+    
+    if (isNaN(hours) || hours < 1) {
+        showToast('请输入有效的小时数', 'error');
+        return;
+    }
+    
+    const cost = hours * costPerHour;
+    if (!confirm(`确定消耗 ${cost} 积分加热 ${hours} 小时吗？`)) return;
+    await executeHeat(articleId, hours);
+}
+
+// 执行加热
+async function executeHeat(articleId, hours) {
+    try {
+        const response = await fetch(`${API_BASE}/api/articles/heat`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${userToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ articleId, hours })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            closeHeatModal();
+            closeArticleDetail();
+            showToast(`🔥 ${data.message}`);
+            loadArticles(1); // 刷新文章列表
+            loadUserStats(); // 刷新用户积分
+        } else {
+            showToast(data.message || '加热失败', 'error');
+        }
+    } catch (error) {
+        console.error('加热文章失败:', error);
         showToast('网络错误，请稍后重试', 'error');
     }
 }
@@ -4586,20 +4946,27 @@ async function loadForumUsers() {
         const data = await apiRequest('/api/admin/forum-users');
         
         if (!data.users || data.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state-text">暂无注册用户</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state-text">暂无注册用户</td></tr>';
             return;
         }
         
         tbody.innerHTML = data.users.map(user => `
-            <tr>
+            <tr class="${user.verified ? 'row-verified' : ''} ${user.vip ? 'row-vip' : ''}">
                 <td>
                     <img src="${user.avatar || generateRandomAvatar(user.email)}" 
                          alt="${user.nickname}" 
                          style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
                 </td>
-                <td><strong>${escapeHtml(user.nickname)}</strong></td>
+                <td>
+                    <strong class="${user.verified ? 'golden-text' : ''}">${escapeHtml(user.nickname)}</strong>
+                    ${user.verified ? '<span class="verified-mark">✓</span>' : ''}
+                    ${user.vip ? `<span class="vip-mark">${user.vip.level}</span>` : ''}
+                </td>
                 <td>${escapeHtml(user.email)}</td>
-                <td>${escapeHtml(user.bio || '暂无')}</td>
+                <td>
+                    <span class="user-coins">💰 ${user.coins || 0}</span>
+                    <span class="user-level">Lv.${user.level || 1}</span>
+                </td>
                 <td>${formatDate(user.createdAt)}</td>
                 <td>
                     <span class="status-badge ${user.status === 'active' ? 'status-active' : 'status-banned'}">
@@ -4607,17 +4974,104 @@ async function loadForumUsers() {
                     </span>
                 </td>
                 <td>
-                    <button class="btn-small ${user.status === 'active' ? 'btn-warning' : 'btn-success'}" 
-                            onclick="toggleUserStatus('${user.id}', '${user.status === 'active' ? 'banned' : 'active'}')">
-                        ${user.status === 'active' ? '禁用' : '启用'}
+                    <button class="btn-small ${user.verified ? 'btn-warning' : 'btn-success'}" 
+                            onclick="toggleUserVerify('${user.id}', ${!user.verified})">
+                        ${user.verified ? '取消认证' : '金V认证'}
                     </button>
-                    <button class="btn-small btn-danger" onclick="deleteForumUser('${user.id}')">删除</button>
+                </td>
+                <td>
+                    <button class="btn-small ${user.vip ? 'btn-warning' : 'btn-primary'}" 
+                            onclick="manageUserVip('${user.id}', ${!!user.vip})">
+                        ${user.vip ? '取消VIP' : '授予VIP'}
+                    </button>
+                </td>
+                <td>
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                        <button class="btn-small btn-info" onclick="manageUserCoins('${user.id}')">积分</button>
+                        <button class="btn-small ${user.status === 'active' ? 'btn-warning' : 'btn-success'}" 
+                                onclick="toggleUserStatus('${user.id}', '${user.status === 'active' ? 'banned' : 'active'}')">
+                            ${user.status === 'active' ? '禁用' : '启用'}
+                        </button>
+                        <button class="btn-small btn-danger" onclick="deleteForumUser('${user.id}')">删除</button>
+                    </div>
                 </td>
             </tr>
         `).join('');
     } catch (error) {
         console.error('加载用户列表失败:', error);
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-state-text">加载失败</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state-text">加载失败</td></tr>';
+    }
+}
+
+// 切换用户金V认证
+async function toggleUserVerify(userId, verified) {
+    const confirmMsg = verified ? '确定授予此用户金V认证吗？' : '确定取消此用户的金V认证吗？';
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        await apiRequest(`/api/admin/forum-users/${userId}/verify`, {
+            method: 'POST',
+            body: JSON.stringify({ verified })
+        });
+        showMessage('forum-users-message', verified ? '已授予金V认证' : '已取消金V认证', 'success');
+        loadForumUsers();
+    } catch (error) {
+        showMessage('forum-users-message', error.message || '操作失败', 'error');
+    }
+}
+
+// 管理用户VIP
+async function manageUserVip(userId, hasVip) {
+    if (hasVip) {
+        if (!confirm('确定取消此用户的VIP吗？')) return;
+        try {
+            await apiRequest(`/api/admin/forum-users/${userId}/vip`, {
+                method: 'POST',
+                body: JSON.stringify({ level: null })
+            });
+            showMessage('forum-users-message', 'VIP已取消', 'success');
+            loadForumUsers();
+        } catch (error) {
+            showMessage('forum-users-message', error.message || '操作失败', 'error');
+        }
+    } else {
+        const level = prompt('请输入VIP等级（如 VIP1, VIP2, SVIP）：', 'VIP1');
+        if (!level) return;
+        const expireAt = prompt('请输入到期日期（如 2025-12-31，留空表示永久）：', '');
+        
+        try {
+            await apiRequest(`/api/admin/forum-users/${userId}/vip`, {
+                method: 'POST',
+                body: JSON.stringify({ level, expireAt: expireAt || null })
+            });
+            showMessage('forum-users-message', 'VIP已授予', 'success');
+            loadForumUsers();
+        } catch (error) {
+            showMessage('forum-users-message', error.message || '操作失败', 'error');
+        }
+    }
+}
+
+// 管理用户积分
+async function manageUserCoins(userId) {
+    const action = prompt('输入正数增加积分，负数扣除积分：', '100');
+    if (action === null) return;
+    
+    const amount = parseInt(action);
+    if (isNaN(amount)) {
+        alert('请输入有效的数字');
+        return;
+    }
+    
+    try {
+        const result = await apiRequest(`/api/admin/forum-users/${userId}/coins`, {
+            method: 'POST',
+            body: JSON.stringify({ amount })
+        });
+        showMessage('forum-users-message', `操作成功，当前余额: ${result.newBalance}`, 'success');
+        loadForumUsers();
+    } catch (error) {
+        showMessage('forum-users-message', error.message || '操作失败', 'error');
     }
 }
 
@@ -4668,17 +5122,29 @@ async function loadForumArticles() {
         const data = await apiRequest(url);
         
         if (!data.articles || data.articles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="empty-state-text">暂无文章</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="empty-state-text">暂无文章</td></tr>';
             return;
         }
         
         tbody.innerHTML = data.articles.map(article => {
             const hasHot = article.tags && article.tags.includes('hot');
             const hasRecommend = article.tags && article.tags.includes('recommend');
+            const isHeated = article.isHeated;
+            const isPinned = article.isPinned;
+            
+            // 计算加热剩余时间
+            let heatInfo = '';
+            if (isHeated && article.heatExpireAt) {
+                const remaining = new Date(article.heatExpireAt) - new Date();
+                if (remaining > 0) {
+                    const hours = Math.floor(remaining / (1000 * 60 * 60));
+                    heatInfo = `剩${hours}h`;
+                }
+            }
             
             return `
-                <tr>
-                    <td><strong>${escapeHtml(article.title)}</strong></td>
+                <tr class="${isHeated ? 'row-heated' : ''} ${isPinned ? 'row-pinned' : ''}">
+                    <td><strong class="${isHeated ? 'golden-text' : ''}">${escapeHtml(article.title)}</strong></td>
                     <td>${escapeHtml(article.authorName)} <br><small>${escapeHtml(article.authorEmail)}</small></td>
                     <td>${article.category}</td>
                     <td>
@@ -4699,6 +5165,21 @@ async function loadForumArticles() {
                             </button>
                         </div>
                     </td>
+                    <td>
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap; align-items: center;">
+                            <button class="btn-small ${isHeated ? 'btn-warning' : 'btn-success'}" 
+                                    onclick="adminHeatArticle('${article.id}', ${isHeated})">
+                                ${isHeated ? '🔥 取消加热' : '🔥 加热'}
+                            </button>
+                            ${heatInfo ? `<span style="font-size: 0.7rem; color: #ffd700;">${heatInfo}</span>` : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn-small ${isPinned ? 'btn-danger' : 'btn-primary'}" 
+                                onclick="adminPinArticle('${article.id}', ${isPinned})">
+                            ${isPinned ? '📌 取消置顶' : '📌 置顶'}
+                        </button>
+                    </td>
                     <td>${formatDate(article.publishedAt || article.createdAt)}</td>
                     <td>
                         <button class="btn-small btn-danger" onclick="deleteForumArticle('${article.id}')">删除</button>
@@ -4708,7 +5189,46 @@ async function loadForumArticles() {
         }).join('');
     } catch (error) {
         console.error('加载文章列表失败:', error);
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-state-text">加载失败</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-state-text">加载失败</td></tr>';
+    }
+}
+
+// 管理员加热文章
+async function adminHeatArticle(articleId, isCurrentlyHeated) {
+    let hours = 0;
+    if (!isCurrentlyHeated) {
+        const input = prompt('请输入加热时长（小时）：', '24');
+        if (input === null) return;
+        hours = parseInt(input);
+        if (isNaN(hours) || hours < 1) {
+            alert('请输入有效的小时数');
+            return;
+        }
+    }
+    
+    try {
+        await apiRequest(`/api/admin/forum-articles/${articleId}/heat`, {
+            method: 'POST',
+            body: JSON.stringify({ hours })
+        });
+        showMessage('forum-articles-message', hours > 0 ? `文章加热${hours}小时成功` : '已取消加热', 'success');
+        loadForumArticles();
+    } catch (error) {
+        showMessage('forum-articles-message', error.message || '操作失败', 'error');
+    }
+}
+
+// 管理员置顶文章
+async function adminPinArticle(articleId, isCurrentlyPinned) {
+    try {
+        await apiRequest(`/api/admin/forum-articles/${articleId}/pin`, {
+            method: 'POST',
+            body: JSON.stringify({ isPinned: !isCurrentlyPinned })
+        });
+        showMessage('forum-articles-message', !isCurrentlyPinned ? '文章已置顶' : '已取消置顶', 'success');
+        loadForumArticles();
+    } catch (error) {
+        showMessage('forum-articles-message', error.message || '操作失败', 'error');
     }
 }
 

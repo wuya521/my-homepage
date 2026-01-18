@@ -51,7 +51,10 @@ const STORAGE_KEYS = {
   // 文章系统
   ARTICLES: 'articles',
   ARTICLE_CATEGORIES: 'article_categories',
-  ARTICLE_TAGS: 'article_tags'
+  ARTICLE_TAGS: 'article_tags',
+  // 加热系统
+  ARTICLE_HEAT: 'article_heat', // 文章加热记录
+  HEAT_CONFIG: 'heat_config' // 加热配置
 };
 
 // 初始化默认数据
@@ -386,6 +389,27 @@ async function initializeArticleSystem(KV) {
       ];
       await KV.put(STORAGE_KEYS.ARTICLE_TAGS, JSON.stringify(defaultTags));
       console.log('文章标签初始化完成');
+    }
+
+    // 初始化加热配置
+    const existingHeatConfig = await KV.get(STORAGE_KEYS.HEAT_CONFIG);
+    if (!existingHeatConfig) {
+      const defaultHeatConfig = {
+        enabled: true,
+        costPerHour: 10, // 每小时消耗积分
+        minHours: 1, // 最少加热1小时
+        maxHours: 72, // 最多加热72小时
+        freeHeatHours: 24, // 管理员免费加热时长
+        dailyUserQuota: 3 // 用户每日加热次数限制
+      };
+      await KV.put(STORAGE_KEYS.HEAT_CONFIG, JSON.stringify(defaultHeatConfig));
+      console.log('加热配置初始化完成');
+    }
+
+    // 初始化加热记录
+    const existingHeat = await KV.get(STORAGE_KEYS.ARTICLE_HEAT);
+    if (!existingHeat) {
+      await KV.put(STORAGE_KEYS.ARTICLE_HEAT, JSON.stringify([]));
     }
   } catch (error) {
     console.error('文章系统初始化失败:', error);
@@ -1175,7 +1199,7 @@ async function handleRequest(request, env) {
       return jsonResponse({ success: false, message: '该昵称已被使用' }, 400);
     }
 
-    // 创建用户
+    // 创建用户（每个用户独立的数据）
     const hashedPassword = await hashPassword(password);
     const newUser = {
       id: 'user_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9),
@@ -1189,7 +1213,19 @@ async function handleRequest(request, env) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       articleCount: 0,
-      lastLoginAt: null
+      lastLoginAt: null,
+      // 用户独立数据
+      coins: 100, // 初始积分
+      level: 1, // 等级
+      exp: 0, // 经验值
+      totalExp: 0, // 累计经验
+      checkinCount: 0, // 签到次数
+      lastCheckin: null, // 最后签到日期
+      vip: null, // VIP状态 { level: 'VIP1', expireAt: '2025-12-31' }
+      verified: false, // 金V认证
+      verifiedAt: null,
+      badges: [], // 用户勋章列表 [{ id, awardedAt }]
+      heatQuota: 3 // 每日可用加热次数
     };
 
     users.push(newUser);
@@ -1449,8 +1485,41 @@ async function handleRequest(request, env) {
       );
     }
 
-    // 按时间倒序
-    articles.sort((a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt));
+    // 获取加热记录
+    const heatData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLE_HEAT);
+    const heats = heatData ? JSON.parse(heatData) : [];
+    const now = new Date();
+
+    // 清理过期的加热记录
+    const activeHeats = heats.filter(h => new Date(h.expireAt) > now);
+    if (activeHeats.length !== heats.length) {
+      await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLE_HEAT, JSON.stringify(activeHeats));
+    }
+
+    // 为文章添加加热状态
+    articles = articles.map(a => {
+      const heat = activeHeats.find(h => h.articleId === a.id);
+      return {
+        ...a,
+        isHeated: !!heat,
+        heatExpireAt: heat?.expireAt || null,
+        heatStartAt: heat?.startAt || null,
+        isPinned: a.isPinned || false,
+        pinnedAt: a.pinnedAt || null
+      };
+    });
+
+    // 排序：置顶 > 加热 > 时间倒序
+    articles.sort((a, b) => {
+      // 置顶文章优先
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      // 加热文章次优先
+      if (a.isHeated && !b.isHeated) return -1;
+      if (!a.isHeated && b.isHeated) return 1;
+      // 时间倒序
+      return new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt);
+    });
 
     // 分页
     const total = articles.length;
@@ -1463,20 +1532,30 @@ async function handleRequest(request, env) {
     const users = usersData ? JSON.parse(usersData) : [];
 
     // 返回文章列表（不包含完整内容）
-    const articleList = paginatedArticles.map(a => ({
-      id: a.id,
-      title: a.title,
-      summary: a.summary || (a.content ? a.content.substring(0, 200) + '...' : ''),
-      cover: a.cover,
-      category: a.category,
-      tags: a.tags,
-      authorId: a.authorId,
-      authorName: users.find(u => u.id === a.authorId)?.nickname || '匿名',
-      authorAvatar: users.find(u => u.id === a.authorId)?.avatar || '',
-      views: a.views || 0,
-      publishedAt: a.publishedAt,
-      createdAt: a.createdAt
-    }));
+    const articleList = paginatedArticles.map(a => {
+      const author = users.find(u => u.id === a.authorId);
+      return {
+        id: a.id,
+        title: a.title,
+        summary: a.summary || (a.content ? a.content.substring(0, 200) + '...' : ''),
+        cover: a.cover,
+        category: a.category,
+        tags: a.tags,
+        authorId: a.authorId,
+        authorName: author?.nickname || '匿名',
+        authorAvatar: author?.avatar || '',
+        authorVerified: author?.verified || false,
+        authorVip: author?.vip || null,
+        views: a.views || 0,
+        publishedAt: a.publishedAt,
+        createdAt: a.createdAt,
+        // 加热和置顶状态
+        isHeated: a.isHeated,
+        heatExpireAt: a.heatExpireAt,
+        isPinned: a.isPinned,
+        pinnedAt: a.pinnedAt
+      };
+    });
 
     return jsonResponse({
       success: true,
@@ -2726,6 +2805,229 @@ async function handleRequest(request, env) {
     });
   }
 
+  // ==================== 文章加热系统 ====================
+
+  // 获取加热配置
+  if (path === '/api/heat/config' && method === 'GET') {
+    const config = await env.MY_HOME_KV.get(STORAGE_KEYS.HEAT_CONFIG);
+    return jsonResponse({
+      success: true,
+      config: config ? JSON.parse(config) : { enabled: true, costPerHour: 10, minHours: 1, maxHours: 72 }
+    });
+  }
+
+  // 用户加热自己的文章
+  if (path === '/api/articles/heat' && method === 'POST') {
+    const user = await verifyUserSession(request, env.MY_HOME_KV);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '请先登录' }, 401);
+    }
+
+    const { articleId, hours } = await request.json();
+
+    if (!articleId || !hours) {
+      return jsonResponse({ success: false, message: '参数不完整' }, 400);
+    }
+
+    // 获取加热配置
+    const configData = await env.MY_HOME_KV.get(STORAGE_KEYS.HEAT_CONFIG);
+    const config = configData ? JSON.parse(configData) : { enabled: true, costPerHour: 10, minHours: 1, maxHours: 72 };
+
+    if (!config.enabled) {
+      return jsonResponse({ success: false, message: '加热功能已关闭' }, 400);
+    }
+
+    // 验证时长
+    if (hours < config.minHours || hours > config.maxHours) {
+      return jsonResponse({ success: false, message: `加热时长需在${config.minHours}-${config.maxHours}小时之间` }, 400);
+    }
+
+    // 验证文章存在且是用户自己的
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    const article = articles.find(a => a.id === articleId);
+
+    if (!article) {
+      return jsonResponse({ success: false, message: '文章不存在' }, 404);
+    }
+
+    if (article.authorId !== user.id) {
+      return jsonResponse({ success: false, message: '只能加热自己的文章' }, 403);
+    }
+
+    if (article.status !== 'published') {
+      return jsonResponse({ success: false, message: '只能加热已发布的文章' }, 400);
+    }
+
+    // 获取用户最新信息
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userIndex = users.findIndex(u => u.id === user.id);
+
+    if (userIndex === -1) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+
+    // 计算费用
+    const cost = hours * config.costPerHour;
+
+    // 检查积分是否足够
+    if ((users[userIndex].coins || 0) < cost) {
+      return jsonResponse({ success: false, message: `积分不足，需要${cost}积分` }, 400);
+    }
+
+    // 检查是否已经在加热
+    const heatData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLE_HEAT);
+    const heats = heatData ? JSON.parse(heatData) : [];
+    const existingHeat = heats.find(h => h.articleId === articleId && new Date(h.expireAt) > new Date());
+
+    if (existingHeat) {
+      return jsonResponse({ success: false, message: '该文章正在加热中' }, 400);
+    }
+
+    // 扣除积分
+    users[userIndex].coins = (users[userIndex].coins || 0) - cost;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+    // 添加加热记录
+    const now = new Date();
+    const expireAt = new Date(now.getTime() + hours * 60 * 60 * 1000);
+    
+    heats.push({
+      id: 'heat_' + Date.now().toString(36),
+      articleId,
+      userId: user.id,
+      hours,
+      cost,
+      startAt: now.toISOString(),
+      expireAt: expireAt.toISOString(),
+      type: 'user' // user / admin
+    });
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLE_HEAT, JSON.stringify(heats));
+
+    return jsonResponse({
+      success: true,
+      message: `加热成功！将持续${hours}小时`,
+      heat: {
+        expireAt: expireAt.toISOString(),
+        cost
+      }
+    });
+  }
+
+  // 获取文章加热状态
+  if (path.match(/^\/api\/articles\/([^\/]+)\/heat$/) && method === 'GET') {
+    const articleId = path.split('/')[3];
+
+    const heatData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLE_HEAT);
+    const heats = heatData ? JSON.parse(heatData) : [];
+    const heat = heats.find(h => h.articleId === articleId && new Date(h.expireAt) > new Date());
+
+    return jsonResponse({
+      success: true,
+      isHeated: !!heat,
+      heat: heat || null
+    });
+  }
+
+  // 用户签到获取积分
+  if (path === '/api/user/checkin' && method === 'POST') {
+    const user = await verifyUserSession(request, env.MY_HOME_KV);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '请先登录' }, 401);
+    }
+
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userIndex = users.findIndex(u => u.id === user.id);
+
+    if (userIndex === -1) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const lastCheckin = users[userIndex].lastCheckin;
+
+    if (lastCheckin === today) {
+      return jsonResponse({ success: false, message: '今日已签到' }, 400);
+    }
+
+    // 签到奖励
+    const baseReward = 10;
+    const continuousBonus = Math.min((users[userIndex].checkinCount || 0) % 7, 6) * 2; // 连续签到奖励
+    const reward = baseReward + continuousBonus;
+
+    users[userIndex].coins = (users[userIndex].coins || 0) + reward;
+    users[userIndex].checkinCount = (users[userIndex].checkinCount || 0) + 1;
+    users[userIndex].lastCheckin = today;
+    users[userIndex].exp = (users[userIndex].exp || 0) + 5;
+    users[userIndex].totalExp = (users[userIndex].totalExp || 0) + 5;
+
+    // 检查升级
+    const newLevel = Math.floor(Math.sqrt(users[userIndex].totalExp / 50)) + 1;
+    const levelUp = newLevel > (users[userIndex].level || 1);
+    if (levelUp) {
+      users[userIndex].level = newLevel;
+    }
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+    return jsonResponse({
+      success: true,
+      message: levelUp ? `签到成功！获得${reward}积分，恭喜升级到Lv.${newLevel}！` : `签到成功！获得${reward}积分`,
+      reward,
+      coins: users[userIndex].coins,
+      checkinCount: users[userIndex].checkinCount,
+      level: users[userIndex].level,
+      exp: users[userIndex].exp,
+      levelUp
+    });
+  }
+
+  // 获取用户积分和等级信息
+  if (path === '/api/user/stats' && method === 'GET') {
+    const user = await verifyUserSession(request, env.MY_HOME_KV);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '请先登录' }, 401);
+    }
+
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userData = users.find(u => u.id === user.id);
+
+    if (!userData) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const canCheckin = userData.lastCheckin !== today;
+
+    // 计算下一级需要的经验
+    const currentLevel = userData.level || 1;
+    const nextLevelExp = Math.pow(currentLevel, 2) * 50;
+
+    return jsonResponse({
+      success: true,
+      stats: {
+        coins: userData.coins || 0,
+        level: currentLevel,
+        exp: userData.exp || 0,
+        totalExp: userData.totalExp || 0,
+        nextLevelExp,
+        checkinCount: userData.checkinCount || 0,
+        lastCheckin: userData.lastCheckin,
+        canCheckin,
+        vip: userData.vip,
+        verified: userData.verified,
+        badges: userData.badges || []
+      }
+    });
+  }
+
   // ==================== 管理员 API ====================
 
   // 验证管理员登录（不需要提前认证）
@@ -2779,7 +3081,15 @@ async function handleRequest(request, env) {
       bio: u.bio,
       status: u.status || 'active',
       createdAt: u.createdAt,
-      lastLoginAt: u.lastLoginAt
+      lastLoginAt: u.lastLoginAt,
+      // 新增字段
+      coins: u.coins || 0,
+      level: u.level || 1,
+      exp: u.exp || 0,
+      vip: u.vip || null,
+      verified: u.verified || false,
+      badges: u.badges || [],
+      checkinCount: u.checkinCount || 0
     }));
     
     return jsonResponse({ success: true, users: safeUsers });
@@ -2817,6 +3127,101 @@ async function handleRequest(request, env) {
     return jsonResponse({ success: true, message: '用户删除成功' });
   }
 
+  // 授予/取消用户VIP
+  if (path.match(/^\/api\/admin\/forum-users\/([^\/]+)\/vip$/) && method === 'POST') {
+    const userId = path.split('/')[4];
+    const { level, expireAt } = await request.json();
+    
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userIndex = users.findIndex(u => u.id === userId);
+    
+    if (userIndex === -1) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+    
+    if (level) {
+      users[userIndex].vip = { level, expireAt: expireAt || null };
+    } else {
+      users[userIndex].vip = null;
+    }
+    
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+    return jsonResponse({ success: true, message: level ? 'VIP已授予' : 'VIP已取消' });
+  }
+
+  // 授予/取消用户金V认证
+  if (path.match(/^\/api\/admin\/forum-users\/([^\/]+)\/verify$/) && method === 'POST') {
+    const userId = path.split('/')[4];
+    const { verified } = await request.json();
+    
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userIndex = users.findIndex(u => u.id === userId);
+    
+    if (userIndex === -1) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+    
+    users[userIndex].verified = verified;
+    users[userIndex].verifiedAt = verified ? new Date().toISOString() : null;
+    
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+    return jsonResponse({ success: true, message: verified ? '已授予金V认证' : '已取消金V认证' });
+  }
+
+  // 授予用户勋章
+  if (path.match(/^\/api\/admin\/forum-users\/([^\/]+)\/badge$/) && method === 'POST') {
+    const userId = path.split('/')[4];
+    const { badgeId, action } = await request.json(); // action: 'add' | 'remove'
+    
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userIndex = users.findIndex(u => u.id === userId);
+    
+    if (userIndex === -1) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+    
+    if (!users[userIndex].badges) {
+      users[userIndex].badges = [];
+    }
+    
+    if (action === 'add') {
+      if (!users[userIndex].badges.find(b => b.id === badgeId)) {
+        users[userIndex].badges.push({ id: badgeId, awardedAt: new Date().toISOString() });
+      }
+    } else if (action === 'remove') {
+      users[userIndex].badges = users[userIndex].badges.filter(b => b.id !== badgeId);
+    }
+    
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+    return jsonResponse({ success: true, message: action === 'add' ? '勋章已授予' : '勋章已移除' });
+  }
+
+  // 给用户增加/减少积分
+  if (path.match(/^\/api\/admin\/forum-users\/([^\/]+)\/coins$/) && method === 'POST') {
+    const userId = path.split('/')[4];
+    const { amount, reason } = await request.json();
+    
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userIndex = users.findIndex(u => u.id === userId);
+    
+    if (userIndex === -1) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+    
+    users[userIndex].coins = Math.max(0, (users[userIndex].coins || 0) + amount);
+    
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+    return jsonResponse({ 
+      success: true, 
+      message: amount > 0 ? `已增加${amount}积分` : `已扣除${-amount}积分`,
+      newBalance: users[userIndex].coins
+    });
+  }
+
   // ==================== 文章管理 ====================
   
   // 获取所有文章（管理员）
@@ -2837,13 +3242,24 @@ async function handleRequest(request, env) {
     // 获取作者信息
     const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
     const users = usersData ? JSON.parse(usersData) : [];
+
+    // 获取加热记录
+    const heatData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLE_HEAT);
+    const heats = heatData ? JSON.parse(heatData) : [];
+    const now = new Date();
     
-    // 添加作者信息
-    articles = articles.map(a => ({
-      ...a,
-      authorName: users.find(u => u.id === a.authorId)?.nickname || '未知',
-      authorEmail: users.find(u => u.id === a.authorId)?.email || ''
-    }));
+    // 添加作者信息和加热状态
+    articles = articles.map(a => {
+      const heat = heats.find(h => h.articleId === a.id && new Date(h.expireAt) > now);
+      return {
+        ...a,
+        authorName: users.find(u => u.id === a.authorId)?.nickname || '未知',
+        authorEmail: users.find(u => u.id === a.authorId)?.email || '',
+        isHeated: !!heat,
+        heatExpireAt: heat?.expireAt || null,
+        heatType: heat?.type || null
+      };
+    });
     
     // 按时间倒序
     articles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -2868,6 +3284,106 @@ async function handleRequest(request, env) {
     await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLES, JSON.stringify(articles));
     
     return jsonResponse({ success: true, message: '文章标签更新成功' });
+  }
+
+  // 管理员加热文章（免费）
+  if (path.match(/^\/api\/admin\/forum-articles\/([^\/]+)\/heat$/) && method === 'POST') {
+    const articleId = path.split('/')[4];
+    const { hours } = await request.json();
+
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    const article = articles.find(a => a.id === articleId);
+
+    if (!article) {
+      return jsonResponse({ success: false, message: '文章不存在' }, 404);
+    }
+
+    const heatData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLE_HEAT);
+    const heats = heatData ? JSON.parse(heatData) : [];
+
+    // 移除该文章现有的加热记录
+    const filteredHeats = heats.filter(h => h.articleId !== articleId);
+
+    if (hours > 0) {
+      const now = new Date();
+      const expireAt = new Date(now.getTime() + hours * 60 * 60 * 1000);
+      
+      filteredHeats.push({
+        id: 'heat_' + Date.now().toString(36),
+        articleId,
+        userId: 'admin',
+        hours,
+        cost: 0,
+        startAt: now.toISOString(),
+        expireAt: expireAt.toISOString(),
+        type: 'admin'
+      });
+    }
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLE_HEAT, JSON.stringify(filteredHeats));
+
+    return jsonResponse({ 
+      success: true, 
+      message: hours > 0 ? `文章加热${hours}小时成功` : '已取消加热'
+    });
+  }
+
+  // 管理员置顶/取消置顶文章
+  if (path.match(/^\/api\/admin\/forum-articles\/([^\/]+)\/pin$/) && method === 'POST') {
+    const articleId = path.split('/')[4];
+    const { isPinned } = await request.json();
+
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    
+    const articleIndex = articles.findIndex(a => a.id === articleId);
+    if (articleIndex === -1) {
+      return jsonResponse({ success: false, message: '文章不存在' }, 404);
+    }
+
+    articles[articleIndex].isPinned = isPinned;
+    articles[articleIndex].pinnedAt = isPinned ? new Date().toISOString() : null;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLES, JSON.stringify(articles));
+
+    return jsonResponse({ 
+      success: true, 
+      message: isPinned ? '文章已置顶' : '已取消置顶'
+    });
+  }
+
+  // 获取加热配置（管理员）
+  if (path === '/api/admin/heat-config' && method === 'GET') {
+    const config = await env.MY_HOME_KV.get(STORAGE_KEYS.HEAT_CONFIG);
+    return jsonResponse({
+      success: true,
+      config: config ? JSON.parse(config) : { enabled: true, costPerHour: 10, minHours: 1, maxHours: 72 }
+    });
+  }
+
+  // 更新加热配置（管理员）
+  if (path === '/api/admin/heat-config' && method === 'PUT') {
+    const config = await request.json();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.HEAT_CONFIG, JSON.stringify(config));
+    return jsonResponse({ success: true, message: '加热配置已保存' });
+  }
+
+  // 获取所有加热记录（管理员）
+  if (path === '/api/admin/heats' && method === 'GET') {
+    const heatData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLE_HEAT);
+    const heats = heatData ? JSON.parse(heatData) : [];
+    
+    // 获取文章信息
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    
+    const heatsWithInfo = heats.map(h => ({
+      ...h,
+      articleTitle: articles.find(a => a.id === h.articleId)?.title || '未知',
+      isActive: new Date(h.expireAt) > new Date()
+    }));
+
+    return jsonResponse({ success: true, heats: heatsWithInfo });
   }
 
   // 删除文章（软删除）
