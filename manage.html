@@ -123,6 +123,14 @@
                     <span class="nav-icon">👑</span>
                     <span>推荐关注</span>
                 </a>
+                <a href="#forum-users" class="nav-item" data-section="forum-users">
+                    <span class="nav-icon">👥</span>
+                    <span>注册用户</span>
+                </a>
+                <a href="#forum-articles" class="nav-item" data-section="forum-articles">
+                    <span class="nav-icon">📝</span>
+                    <span>文章管理</span>
+                </a>
                 <a href="#settings" class="nav-item" data-section="settings">
                     <span class="nav-icon">⚙️</span>
                     <span>系统设置</span>
@@ -903,6 +911,103 @@
                     <div id="notifications-list" class="items-list">
                         <!-- 通知列表将通过 JS 动态加载 -->
                     </div>
+                </div>
+            </section>
+
+            <!-- 注册用户管理 -->
+            <section id="forum-users-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>👥 注册用户管理</h3>
+                        <p class="card-description">管理论坛注册用户，查看用户信息</p>
+                        <button onclick="loadForumUsers()" class="btn-secondary">🔄 刷新列表</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>头像</th>
+                                    <th>昵称</th>
+                                    <th>邮箱</th>
+                                    <th>简介</th>
+                                    <th>注册时间</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="forum-users-tbody">
+                                <tr><td colspan="7" class="empty-state-text">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="forum-users-message" class="message" style="display: none;"></div>
+                </div>
+            </section>
+
+            <!-- 文章管理 -->
+            <section id="forum-articles-section" class="content-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📝 文章管理</h3>
+                        <p class="card-description">管理用户发布的文章，设置推荐和火爆标签</p>
+                        <button onclick="loadForumArticles()" class="btn-secondary">🔄 刷新列表</button>
+                    </div>
+                    <div class="form" style="margin-bottom: var(--spacing-md);">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>状态筛选</label>
+                                <select id="article-status-filter" onchange="loadForumArticles()">
+                                    <option value="">全部</option>
+                                    <option value="published">已发布</option>
+                                    <option value="draft">草稿</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>标题</th>
+                                    <th>作者</th>
+                                    <th>分类</th>
+                                    <th>状态</th>
+                                    <th>浏览量</th>
+                                    <th>标签</th>
+                                    <th>发布时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="forum-articles-tbody">
+                                <tr><td colspan="8" class="empty-state-text">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="forum-articles-message" class="message" style="display: none;"></div>
+                </div>
+                
+                <!-- 推送设置卡片 -->
+                <div class="card" style="margin-top: var(--spacing-lg);">
+                    <div class="card-header">
+                        <h3>🔥 推送设置</h3>
+                        <p class="card-description">设置文章推送相关参数</p>
+                    </div>
+                    <form id="push-config-form" class="form" onsubmit="savePushConfig(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="push-hot-threshold">火爆标签阈值（浏览量）</label>
+                                <input type="number" id="push-hot-threshold" placeholder="100" min="1" value="100">
+                                <span class="form-hint">超过此浏览量自动添加火爆标签</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="push-recommend-count">首页推荐数量</label>
+                                <input type="number" id="push-recommend-count" placeholder="3" min="1" max="10" value="3">
+                                <span class="form-hint">首页推荐文章显示数量</span>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary">保存设置</button>
+                    </form>
+                    <div id="push-config-message" class="message" style="display: none;"></div>
                 </div>
             </section>
 

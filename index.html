@@ -250,6 +250,11 @@
                             </div>
                         </div>
                     </div>
+                    <!-- 标签筛选 -->
+                    <div class="tags-filter" id="tags-filter">
+                        <button class="tag-filter-btn active" data-tag="" onclick="clearTagFilter()">全部</button>
+                        <!-- 标签按钮将通过 JS 动态加载 -->
+                    </div>
                     <div id="articles-container" class="articles-list">
                         <!-- 文章列表将通过 JS 动态加载 -->
                         <div class="article-loading">
@@ -258,7 +263,7 @@
                         </div>
                     </div>
                     <div id="articles-pagination" class="pagination" style="display: none;">
-                        <!-- 分页将通过 JS 动态加载 -->
+                        <!-- 加载更多按钮将通过 JS 动态加载 -->
                     </div>
                 </section>
 
@@ -480,6 +485,33 @@
                 <div id="profile-error" class="form-error" style="display: none;"></div>
                 <button type="submit" class="btn-auth-submit">保存修改</button>
             </form>
+        </div>
+    </div>
+
+    <!-- 作者主页弹窗 -->
+    <div id="author-page-modal" class="my-articles-modal" style="display: none;">
+        <div class="my-articles-content">
+            <div class="my-articles-header">
+                <h2 id="author-page-title">👤 用户主页</h2>
+                <button class="my-articles-close" onclick="closeAuthorPage()">&times;</button>
+            </div>
+            <div class="author-profile-card">
+                <div class="author-avatar-wrapper">
+                    <img id="author-page-avatar" src="https://via.placeholder.com/80" alt="头像" class="author-page-avatar">
+                </div>
+                <div class="author-info">
+                    <h3 id="author-page-name">用户名</h3>
+                    <p id="author-page-bio" class="author-bio">暂无简介</p>
+                    <div class="author-stats">
+                        <span id="author-article-count">0 篇文章</span>
+                        <span id="author-join-date">加入于 --</span>
+                    </div>
+                </div>
+            </div>
+            <h4 class="author-articles-title">📝 TA的文章</h4>
+            <div id="author-articles-container" class="my-articles-list">
+                <!-- 作者的文章列表将通过 JS 动态加载 -->
+            </div>
         </div>
     </div>
 

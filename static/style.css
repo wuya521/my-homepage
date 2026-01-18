@@ -2915,6 +2915,156 @@ body {
     cursor: not-allowed;
 }
 
+/* ==================== 标签筛选 ==================== */
+.tags-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm) 0;
+}
+
+.tag-filter-btn {
+    padding: var(--spacing-xs) var(--spacing-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tag-filter-btn:hover {
+    border-color: var(--tag-color, var(--primary-color));
+    color: var(--tag-color, var(--primary-color));
+    background: rgba(251, 114, 153, 0.1);
+}
+
+.tag-filter-btn.active {
+    background: var(--primary-gradient);
+    border-color: var(--primary-color);
+    color: #FFFFFF;
+}
+
+/* ==================== 加载更多按钮 ==================== */
+.btn-load-more {
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--bg-card);
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-load-more:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: rgba(251, 114, 153, 0.05);
+}
+
+.load-more-info {
+    text-align: center;
+    padding: var(--spacing-md);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* ==================== 文章徽章 ==================== */
+.article-card {
+    position: relative;
+}
+
+.article-badge {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    z-index: 10;
+}
+
+.article-badge.hot {
+    background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+    color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+}
+
+.article-badge.recommend {
+    background: linear-gradient(135deg, #4ECDC4, #45B7AA);
+    color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(78, 205, 196, 0.4);
+}
+
+.article-card.article-hot {
+    border: 2px solid #FF6B6B;
+    box-shadow: 0 4px 16px rgba(255, 107, 107, 0.15);
+}
+
+.article-card.article-recommend {
+    border: 2px solid #4ECDC4;
+    box-shadow: 0 4px 16px rgba(78, 205, 196, 0.15);
+}
+
+/* ==================== 作者主页样式 ==================== */
+.author-profile-card {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    background: var(--bg-card-hover);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.author-avatar-wrapper {
+    flex-shrink: 0;
+}
+
+.author-page-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary-color);
+}
+
+.author-info {
+    flex: 1;
+}
+
+.author-info h3 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-xs);
+    color: var(--text-primary);
+}
+
+.author-bio {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: var(--spacing-sm);
+}
+
+.author-stats {
+    display: flex;
+    gap: var(--spacing-md);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.author-articles-title {
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 2px solid var(--border-color);
+}
+
 /* ==================== 文章编辑器 ==================== */
 .editor-modal {
     position: fixed;

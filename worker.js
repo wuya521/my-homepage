@@ -57,14 +57,21 @@ const STORAGE_KEYS = {
 // 初始化默认数据
 async function initializeDefaultData(KV) {
   try {
-    // 检查是否已初始化
+    // 检查管理员是否已初始化
     const existingAdmin = await KV.get(STORAGE_KEYS.ADMIN);
-    if (existingAdmin) {
-      return; // 已经初始化过
+    const isFirstInit = !existingAdmin;
+    
+    if (isFirstInit) {
+      // 初始化管理员账户
+      await KV.put(STORAGE_KEYS.ADMIN, JSON.stringify(DEFAULT_ADMIN));
     }
-
-    // 初始化管理员账户
-    await KV.put(STORAGE_KEYS.ADMIN, JSON.stringify(DEFAULT_ADMIN));
+    
+    // 独立初始化文章系统（不依赖于管理员是否存在）
+    await initializeArticleSystem(KV);
+    
+    if (!isFirstInit) {
+      return; // 只有首次初始化才继续初始化其他数据
+    }
 
     // 初始化个人资料
     const defaultProfile = {
@@ -335,6 +342,15 @@ async function initializeDefaultData(KV) {
       await KV.put(STORAGE_KEYS.USER_SESSIONS, JSON.stringify([]));
     }
 
+    console.log('默认数据初始化完成');
+  } catch (error) {
+    console.error('初始化数据失败:', error);
+  }
+}
+
+// 独立初始化文章系统（每次请求都检查）
+async function initializeArticleSystem(KV) {
+  try {
     // 初始化文章列表
     const existingArticles = await KV.get(STORAGE_KEYS.ARTICLES);
     if (!existingArticles) {
@@ -352,6 +368,7 @@ async function initializeDefaultData(KV) {
         { id: 'other', name: '其他', icon: '📝', description: '其他内容', order: 5 }
       ];
       await KV.put(STORAGE_KEYS.ARTICLE_CATEGORIES, JSON.stringify(defaultCategories));
+      console.log('文章分类初始化完成');
     }
 
     // 初始化文章标签
@@ -363,14 +380,15 @@ async function initializeDefaultData(KV) {
         { id: 'css', name: 'CSS', color: '#1572B6' },
         { id: 'tutorial', name: '教程', color: '#10B981' },
         { id: 'tips', name: '技巧', color: '#8B5CF6' },
-        { id: 'news', name: '资讯', color: '#EF4444' }
+        { id: 'news', name: '资讯', color: '#EF4444' },
+        { id: 'hot', name: '🔥火爆', color: '#FF6B6B' },
+        { id: 'recommend', name: '📌推荐', color: '#4ECDC4' }
       ];
       await KV.put(STORAGE_KEYS.ARTICLE_TAGS, JSON.stringify(defaultTags));
+      console.log('文章标签初始化完成');
     }
-
-    console.log('默认数据初始化完成');
   } catch (error) {
-    console.error('初始化数据失败:', error);
+    console.error('文章系统初始化失败:', error);
   }
 }
 
@@ -1277,6 +1295,32 @@ async function handleRequest(request, env) {
     }
     
     return jsonResponse({ success: true, message: '已登出' });
+  }
+
+  // 获取用户公开信息（不需要登录）
+  if (path.match(/^\/api\/user\/public\/([^\/]+)$/) && method === 'GET') {
+    const userId = path.split('/')[4];
+    
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+    
+    // 只返回公开信息
+    return jsonResponse({
+      success: true,
+      user: {
+        id: user.id,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        bio: user.bio,
+        createdAt: user.createdAt
+      }
+    });
   }
 
   // 获取当前用户信息
@@ -2717,6 +2761,147 @@ async function handleRequest(request, env) {
     await env.MY_HOME_KV.put(STORAGE_KEYS.ADMIN, JSON.stringify(admin));
 
     return jsonResponse({ success: true, message: '密码修改成功' });
+  }
+
+  // ==================== 注册用户管理 ====================
+  
+  // 获取所有注册用户
+  if (path === '/api/admin/forum-users' && method === 'GET') {
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    
+    // 不返回密码
+    const safeUsers = users.map(u => ({
+      id: u.id,
+      email: u.email,
+      nickname: u.nickname,
+      avatar: u.avatar,
+      bio: u.bio,
+      status: u.status || 'active',
+      createdAt: u.createdAt,
+      lastLoginAt: u.lastLoginAt
+    }));
+    
+    return jsonResponse({ success: true, users: safeUsers });
+  }
+
+  // 更新用户状态（禁用/启用）
+  if (path.match(/^\/api\/admin\/forum-users\/([^\/]+)\/status$/) && method === 'PUT') {
+    const userId = path.split('/')[4];
+    const { status } = await request.json();
+    
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+    
+    users[userIndex].status = status;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+    
+    return jsonResponse({ success: true, message: '用户状态更新成功' });
+  }
+
+  // 删除用户
+  if (path.match(/^\/api\/admin\/forum-users\/([^\/]+)$/) && method === 'DELETE') {
+    const userId = path.split('/')[4];
+    
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    let users = usersData ? JSON.parse(usersData) : [];
+    
+    users = users.filter(u => u.id !== userId);
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+    
+    return jsonResponse({ success: true, message: '用户删除成功' });
+  }
+
+  // ==================== 文章管理 ====================
+  
+  // 获取所有文章（管理员）
+  if (path === '/api/admin/forum-articles' && method === 'GET') {
+    const status = url.searchParams.get('status');
+    
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    let articles = articlesData ? JSON.parse(articlesData) : [];
+    
+    // 不显示已删除的
+    articles = articles.filter(a => !a.deleted);
+    
+    // 状态筛选
+    if (status) {
+      articles = articles.filter(a => a.status === status);
+    }
+    
+    // 获取作者信息
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    
+    // 添加作者信息
+    articles = articles.map(a => ({
+      ...a,
+      authorName: users.find(u => u.id === a.authorId)?.nickname || '未知',
+      authorEmail: users.find(u => u.id === a.authorId)?.email || ''
+    }));
+    
+    // 按时间倒序
+    articles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    return jsonResponse({ success: true, articles });
+  }
+
+  // 更新文章标签（添加/移除 火爆/推荐 标签）
+  if (path.match(/^\/api\/admin\/forum-articles\/([^\/]+)\/tags$/) && method === 'PUT') {
+    const articleId = path.split('/')[4];
+    const { tags } = await request.json();
+    
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    
+    const articleIndex = articles.findIndex(a => a.id === articleId);
+    if (articleIndex === -1) {
+      return jsonResponse({ success: false, message: '文章不存在' }, 404);
+    }
+    
+    articles[articleIndex].tags = tags;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLES, JSON.stringify(articles));
+    
+    return jsonResponse({ success: true, message: '文章标签更新成功' });
+  }
+
+  // 删除文章（软删除）
+  if (path.match(/^\/api\/admin\/forum-articles\/([^\/]+)$/) && method === 'DELETE') {
+    const articleId = path.split('/')[4];
+    
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    
+    const articleIndex = articles.findIndex(a => a.id === articleId);
+    if (articleIndex === -1) {
+      return jsonResponse({ success: false, message: '文章不存在' }, 404);
+    }
+    
+    articles[articleIndex].deleted = true;
+    articles[articleIndex].deletedAt = new Date().toISOString();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLES, JSON.stringify(articles));
+    
+    return jsonResponse({ success: true, message: '文章删除成功' });
+  }
+
+  // 获取/保存推送配置
+  if (path === '/api/admin/push-config' && method === 'GET') {
+    const config = await env.MY_HOME_KV.get('push_config');
+    return jsonResponse({ 
+      success: true, 
+      config: config ? JSON.parse(config) : { hotThreshold: 100, recommendCount: 3 }
+    });
+  }
+
+  if (path === '/api/admin/push-config' && method === 'PUT') {
+    const config = await request.json();
+    await env.MY_HOME_KV.put('push_config', JSON.stringify(config));
+    return jsonResponse({ success: true, message: '推送配置保存成功' });
   }
 
   // 更新个人资料

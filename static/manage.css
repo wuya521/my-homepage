@@ -901,3 +901,79 @@ body {
     margin-bottom: var(--spacing-md);
 }
 
+/* ==================== 状态徽章 ==================== */
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-active {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.status-banned {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.status-draft {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+
+/* ==================== 小型按钮 ==================== */
+.btn-small {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-small:hover {
+    opacity: 0.8;
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: white;
+}
+
+.btn-warning {
+    background: var(--warning-color);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--error-color);
+    color: white;
+}
+
+/* ==================== 标签按钮 ==================== */
+.btn-tag {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-tag:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-tag-active {
+    background: var(--primary-gradient);
+    border-color: var(--primary-color);
+    color: white;
+}
+

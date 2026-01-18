@@ -1191,6 +1191,9 @@ async function loadAdminData() {
     await loadGamePlayers();
     await loadBlackDiamondUsers();
     await loadFeaturedUsersAdmin();
+    await loadForumUsers();
+    await loadForumArticles();
+    await loadPushConfig();
 }
 
 // 加载管理员个人资料
@@ -3347,6 +3350,7 @@ function updateUserUI() {
     const headerNickname = document.getElementById('header-nickname');
     const userInfoSections = document.getElementById('user-info-sections');
     const loginPromptSection = document.getElementById('login-prompt-section');
+    const profileCard = document.querySelector('.profile-card');
     
     if (currentUser) {
         // 已登录
@@ -3354,17 +3358,27 @@ function updateUserUI() {
         if (userActions) userActions.style.display = 'flex';
         if (userInfoSections) userInfoSections.style.display = 'block';
         if (loginPromptSection) loginPromptSection.style.display = 'none';
+        if (profileCard) profileCard.style.display = 'block';
         
         if (headerNickname) headerNickname.textContent = currentUser.nickname;
         if (headerAvatar) {
             headerAvatar.src = currentUser.avatar || generateRandomAvatar(currentUser.email);
         }
+        
+        // 更新 profile-card 显示当前用户信息
+        const nameEl = document.getElementById('name');
+        const bioEl = document.getElementById('bio');
+        const avatarEl = document.getElementById('avatar');
+        if (nameEl) nameEl.textContent = currentUser.nickname || currentUser.email;
+        if (bioEl) bioEl.textContent = currentUser.bio || '这个人很懒，什么都没写~';
+        if (avatarEl) avatarEl.src = currentUser.avatar || generateRandomAvatar(currentUser.email);
     } else {
         // 未登录
         if (guestActions) guestActions.style.display = 'flex';
         if (userActions) userActions.style.display = 'none';
         if (userInfoSections) userInfoSections.style.display = 'none';
         if (loginPromptSection) loginPromptSection.style.display = 'block';
+        if (profileCard) profileCard.style.display = 'none';
     }
 }
 
@@ -3698,27 +3712,47 @@ async function loadArticleTags() {
                     tagSelector.innerHTML += `<option value="${tag.id}">${tag.name}</option>`;
                 });
             }
+            
+            // 更新标签筛选按钮
+            const tagsFilter = document.getElementById('tags-filter');
+            if (tagsFilter) {
+                let html = '<button class="tag-filter-btn active" data-tag="" onclick="clearTagFilter()">全部</button>';
+                articleTags.forEach(tag => {
+                    html += `<button class="tag-filter-btn" data-tag="${tag.id}" onclick="filterByTag('${tag.id}')" style="--tag-color: ${tag.color}">${tag.name}</button>`;
+                });
+                tagsFilter.innerHTML = html;
+            }
         }
     } catch (error) {
         console.error('加载文章标签失败:', error);
     }
 }
 
+// 文章每页数量
+const ARTICLES_PER_PAGE = 3;
+let currentTag = ''; // 当前标签筛选
+let allLoadedArticles = []; // 所有已加载的文章
+
 // 加载文章列表
-async function loadArticles(page = 1) {
+async function loadArticles(page = 1, append = false) {
     const container = document.getElementById('articles-container');
     if (!container) return;
     
-    container.innerHTML = `
-        <div class="article-loading">
-            <span class="loading-spinner"></span>
-            <p>正在加载文章...</p>
-        </div>
-    `;
+    if (!append) {
+        // 重新加载时显示加载状态
+        container.innerHTML = `
+            <div class="article-loading">
+                <span class="loading-spinner"></span>
+                <p>正在加载文章...</p>
+            </div>
+        `;
+        allLoadedArticles = [];
+    }
     
     try {
-        let url = `${API_BASE}/api/articles?page=${page}&limit=10`;
+        let url = `${API_BASE}/api/articles?page=${page}&limit=${ARTICLES_PER_PAGE}`;
         if (currentCategory) url += `&category=${currentCategory}`;
+        if (currentTag) url += `&tag=${currentTag}`;
         if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
         
         const response = await fetch(url);
@@ -3726,24 +3760,47 @@ async function loadArticles(page = 1) {
         
         if (data.success) {
             articlesData = data;
+            
+            if (append) {
+                // 追加模式：添加新文章到列表
+                allLoadedArticles = [...allLoadedArticles, ...data.articles];
+            } else {
+                // 新加载模式：替换文章列表
+                allLoadedArticles = data.articles;
+            }
+            
             renderArticles();
-            renderPagination();
+            renderLoadMoreButton();
         } else {
-            container.innerHTML = `
-                <div class="article-empty">
-                    <div class="article-empty-icon">📭</div>
-                    <p>加载文章失败</p>
-                </div>
-            `;
+            if (!append) {
+                container.innerHTML = `
+                    <div class="article-empty">
+                        <div class="article-empty-icon">📭</div>
+                        <p>加载文章失败</p>
+                    </div>
+                `;
+            }
         }
     } catch (error) {
         console.error('加载文章列表失败:', error);
-        container.innerHTML = `
-            <div class="article-empty">
-                <div class="article-empty-icon">❌</div>
-                <p>网络错误，请稍后重试</p>
-            </div>
-        `;
+        if (!append) {
+            container.innerHTML = `
+                <div class="article-empty">
+                    <div class="article-empty-icon">❌</div>
+                    <p>网络错误，请稍后重试</p>
+                </div>
+            `;
+        }
+    }
+}
+
+// 加载更多文章
+function loadMoreArticles() {
+    if (articlesData && articlesData.pagination) {
+        const { page, totalPages } = articlesData.pagination;
+        if (page < totalPages) {
+            loadArticles(page + 1, true);
+        }
     }
 }
 
@@ -3752,7 +3809,7 @@ function renderArticles() {
     const container = document.getElementById('articles-container');
     if (!container) return;
     
-    if (articlesData.articles.length === 0) {
+    if (allLoadedArticles.length === 0) {
         container.innerHTML = `
             <div class="article-empty">
                 <div class="article-empty-icon">📝</div>
@@ -3762,24 +3819,30 @@ function renderArticles() {
         return;
     }
     
-    container.innerHTML = articlesData.articles.map(article => {
+    container.innerHTML = allLoadedArticles.map(article => {
         const categoryObj = articleCategories.find(c => c.id === article.category);
         const categoryName = categoryObj ? `${categoryObj.icon} ${categoryObj.name}` : article.category;
         
+        // 检查是否有火爆或推荐标签
+        const isHot = article.tags && article.tags.includes('hot');
+        const isRecommend = article.tags && article.tags.includes('recommend');
+        
         return `
-            <div class="article-card" onclick="showArticleDetail('${article.id}')">
+            <div class="article-card ${isHot ? 'article-hot' : ''} ${isRecommend ? 'article-recommend' : ''}" onclick="showArticleDetail('${article.id}')">
+                ${isHot ? '<span class="article-badge hot">🔥 火爆</span>' : ''}
+                ${isRecommend && !isHot ? '<span class="article-badge recommend">📌 推荐</span>' : ''}
                 ${article.cover ? `<img src="${article.cover}" alt="" class="article-cover">` : ''}
                 <div class="article-info">
                     <h3 class="article-title">${escapeHtml(article.title)}</h3>
                     <p class="article-summary">${escapeHtml(article.summary)}</p>
                     <div class="article-meta">
-                        <div class="article-author">
+                        <div class="article-author" onclick="event.stopPropagation(); showAuthorPage('${article.authorId}')" style="cursor: pointer;" title="查看作者主页">
                             <img src="${article.authorAvatar || generateRandomAvatar(article.authorName)}" alt="" class="article-author-avatar">
                             <span class="article-author-name">${escapeHtml(article.authorName)}</span>
                         </div>
                         <span class="article-category">${categoryName}</span>
                         <div class="article-tags">
-                            ${(article.tags || []).slice(0, 2).map(tagId => {
+                            ${(article.tags || []).filter(t => t !== 'hot' && t !== 'recommend').slice(0, 2).map(tagId => {
                                 const tag = articleTags.find(t => t.id === tagId);
                                 return tag ? `<span class="article-tag" style="background: ${tag.color}20; color: ${tag.color}">${tag.name}</span>` : '';
                             }).join('')}
@@ -3795,56 +3858,72 @@ function renderArticles() {
     }).join('');
 }
 
-// 渲染分页
-function renderPagination() {
+// 渲染"加载更多"按钮
+function renderLoadMoreButton() {
     const container = document.getElementById('articles-pagination');
     if (!container) return;
     
-    const { page, totalPages } = articlesData.pagination;
-    
-    if (totalPages <= 1) {
+    if (!articlesData || !articlesData.pagination) {
         container.style.display = 'none';
         return;
     }
     
-    container.style.display = 'flex';
+    const { page, totalPages, total } = articlesData.pagination;
     
-    let html = `
-        <button onclick="loadArticles(${page - 1})" ${page === 1 ? 'disabled' : ''}>上一页</button>
+    if (page >= totalPages) {
+        // 已经加载完所有文章
+        if (allLoadedArticles.length > 0) {
+            container.style.display = 'block';
+            container.innerHTML = `
+                <div class="load-more-info">
+                    <span>已显示全部 ${total} 篇文章</span>
+                </div>
+            `;
+        } else {
+            container.style.display = 'none';
+        }
+        return;
+    }
+    
+    container.style.display = 'block';
+    container.innerHTML = `
+        <button class="btn-load-more" onclick="loadMoreArticles()">
+            加载更多 (${allLoadedArticles.length}/${total})
+        </button>
     `;
-    
-    // 显示页码
-    const startPage = Math.max(1, page - 2);
-    const endPage = Math.min(totalPages, page + 2);
-    
-    if (startPage > 1) {
-        html += `<button onclick="loadArticles(1)">1</button>`;
-        if (startPage > 2) html += `<span style="padding: 8px;">...</span>`;
-    }
-    
-    for (let i = startPage; i <= endPage; i++) {
-        html += `<button onclick="loadArticles(${i})" class="${i === page ? 'active' : ''}">${i}</button>`;
-    }
-    
-    if (endPage < totalPages) {
-        if (endPage < totalPages - 1) html += `<span style="padding: 8px;">...</span>`;
-        html += `<button onclick="loadArticles(${totalPages})">${totalPages}</button>`;
-    }
-    
-    html += `
-        <button onclick="loadArticles(${page + 1})" ${page === totalPages ? 'disabled' : ''}>下一页</button>
-    `;
-    
-    container.innerHTML = html;
 }
 
-// 筛选文章
+// 兼容旧的 renderPagination 调用
+function renderPagination() {
+    renderLoadMoreButton();
+}
+
+// 筛选文章（分类）
 function filterArticles() {
     const select = document.getElementById('category-filter');
     if (select) {
         currentCategory = select.value;
         loadArticles(1);
     }
+}
+
+// 筛选文章（标签）
+function filterByTag(tagId) {
+    currentTag = tagId;
+    // 更新标签按钮状态
+    document.querySelectorAll('.tag-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tag === tagId);
+    });
+    loadArticles(1);
+}
+
+// 清除标签筛选
+function clearTagFilter() {
+    currentTag = '';
+    document.querySelectorAll('.tag-filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    loadArticles(1);
 }
 
 // 搜索文章
@@ -4415,4 +4494,301 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.classList.contains('my-articles-modal')) closeMyArticles();
     });
 });
+
+// ==================== 用户个人主页 ====================
+
+// 显示作者主页
+async function showAuthorPage(authorId) {
+    const modal = document.getElementById('author-page-modal');
+    if (!modal) return;
+    
+    modal.style.display = 'flex';
+    
+    // 显示加载状态
+    document.getElementById('author-page-name').textContent = '加载中...';
+    document.getElementById('author-page-bio').textContent = '';
+    document.getElementById('author-page-avatar').src = 'https://via.placeholder.com/80';
+    document.getElementById('author-articles-container').innerHTML = `
+        <div class="article-loading">
+            <span class="loading-spinner"></span>
+            <p>正在加载...</p>
+        </div>
+    `;
+    
+    try {
+        // 获取用户信息
+        const userResponse = await fetch(`${API_BASE}/api/user/public/${authorId}`);
+        const userData = await userResponse.json();
+        
+        if (userData.success && userData.user) {
+            const user = userData.user;
+            document.getElementById('author-page-name').textContent = user.nickname || '匿名用户';
+            document.getElementById('author-page-bio').textContent = user.bio || '这个人很懒，什么都没写~';
+            document.getElementById('author-page-avatar').src = user.avatar || generateRandomAvatar(user.email || user.id);
+            document.getElementById('author-join-date').textContent = `加入于 ${formatDate(user.createdAt).split(' ')[0]}`;
+        }
+        
+        // 获取作者的文章
+        const articlesResponse = await fetch(`${API_BASE}/api/articles?authorId=${authorId}&limit=50`);
+        const articlesData = await articlesResponse.json();
+        
+        if (articlesData.success) {
+            const articles = articlesData.articles;
+            document.getElementById('author-article-count').textContent = `${articles.length} 篇文章`;
+            
+            if (articles.length === 0) {
+                document.getElementById('author-articles-container').innerHTML = `
+                    <div class="article-empty">
+                        <div class="article-empty-icon">📝</div>
+                        <p>暂无文章</p>
+                    </div>
+                `;
+            } else {
+                document.getElementById('author-articles-container').innerHTML = articles.map(article => `
+                    <div class="my-article-item" onclick="closeAuthorPage(); showArticleDetail('${article.id}')">
+                        <div class="my-article-info">
+                            <h4 class="my-article-title">${escapeHtml(article.title)}</h4>
+                            <p class="my-article-summary">${escapeHtml(article.summary || '')}</p>
+                            <div class="my-article-meta">
+                                <span>👁️ ${article.views || 0}</span>
+                                <span>📅 ${formatDate(article.publishedAt || article.createdAt).split(' ')[0]}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+    } catch (error) {
+        console.error('加载作者主页失败:', error);
+        document.getElementById('author-articles-container').innerHTML = `
+            <div class="article-empty">
+                <div class="article-empty-icon">❌</div>
+                <p>加载失败</p>
+            </div>
+        `;
+    }
+}
+
+// 关闭作者主页
+function closeAuthorPage() {
+    const modal = document.getElementById('author-page-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// ==================== 后台用户管理 ====================
+
+// 加载注册用户列表
+async function loadForumUsers() {
+    const tbody = document.getElementById('forum-users-tbody');
+    if (!tbody) return;
+    
+    try {
+        const data = await apiRequest('/api/admin/forum-users');
+        
+        if (!data.users || data.users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state-text">暂无注册用户</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = data.users.map(user => `
+            <tr>
+                <td>
+                    <img src="${user.avatar || generateRandomAvatar(user.email)}" 
+                         alt="${user.nickname}" 
+                         style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                </td>
+                <td><strong>${escapeHtml(user.nickname)}</strong></td>
+                <td>${escapeHtml(user.email)}</td>
+                <td>${escapeHtml(user.bio || '暂无')}</td>
+                <td>${formatDate(user.createdAt)}</td>
+                <td>
+                    <span class="status-badge ${user.status === 'active' ? 'status-active' : 'status-banned'}">
+                        ${user.status === 'active' ? '正常' : '已禁用'}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn-small ${user.status === 'active' ? 'btn-warning' : 'btn-success'}" 
+                            onclick="toggleUserStatus('${user.id}', '${user.status === 'active' ? 'banned' : 'active'}')">
+                        ${user.status === 'active' ? '禁用' : '启用'}
+                    </button>
+                    <button class="btn-small btn-danger" onclick="deleteForumUser('${user.id}')">删除</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('加载用户列表失败:', error);
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state-text">加载失败</td></tr>';
+    }
+}
+
+// 切换用户状态
+async function toggleUserStatus(userId, newStatus) {
+    const confirmMsg = newStatus === 'banned' ? '确定要禁用此用户吗？' : '确定要启用此用户吗？';
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        await apiRequest(`/api/admin/forum-users/${userId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+        });
+        showMessage('forum-users-message', '用户状态更新成功', 'success');
+        loadForumUsers();
+    } catch (error) {
+        showMessage('forum-users-message', error.message || '操作失败', 'error');
+    }
+}
+
+// 删除用户
+async function deleteForumUser(userId) {
+    if (!confirm('确定要删除此用户吗？此操作不可恢复！')) return;
+    
+    try {
+        await apiRequest(`/api/admin/forum-users/${userId}`, {
+            method: 'DELETE'
+        });
+        showMessage('forum-users-message', '用户删除成功', 'success');
+        loadForumUsers();
+    } catch (error) {
+        showMessage('forum-users-message', error.message || '删除失败', 'error');
+    }
+}
+
+// ==================== 后台文章管理 ====================
+
+// 加载文章列表
+async function loadForumArticles() {
+    const tbody = document.getElementById('forum-articles-tbody');
+    if (!tbody) return;
+    
+    try {
+        const statusFilter = document.getElementById('article-status-filter')?.value || '';
+        let url = '/api/admin/forum-articles';
+        if (statusFilter) url += `?status=${statusFilter}`;
+        
+        const data = await apiRequest(url);
+        
+        if (!data.articles || data.articles.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state-text">暂无文章</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = data.articles.map(article => {
+            const hasHot = article.tags && article.tags.includes('hot');
+            const hasRecommend = article.tags && article.tags.includes('recommend');
+            
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(article.title)}</strong></td>
+                    <td>${escapeHtml(article.authorName)} <br><small>${escapeHtml(article.authorEmail)}</small></td>
+                    <td>${article.category}</td>
+                    <td>
+                        <span class="status-badge ${article.status === 'published' ? 'status-active' : 'status-draft'}">
+                            ${article.status === 'published' ? '已发布' : '草稿'}
+                        </span>
+                    </td>
+                    <td>${article.views || 0}</td>
+                    <td>
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                            <button class="btn-tag ${hasHot ? 'btn-tag-active' : ''}" 
+                                    onclick="toggleArticleTag('${article.id}', 'hot', ${hasHot})">
+                                🔥 火爆
+                            </button>
+                            <button class="btn-tag ${hasRecommend ? 'btn-tag-active' : ''}" 
+                                    onclick="toggleArticleTag('${article.id}', 'recommend', ${hasRecommend})">
+                                📌 推荐
+                            </button>
+                        </div>
+                    </td>
+                    <td>${formatDate(article.publishedAt || article.createdAt)}</td>
+                    <td>
+                        <button class="btn-small btn-danger" onclick="deleteForumArticle('${article.id}')">删除</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('加载文章列表失败:', error);
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state-text">加载失败</td></tr>';
+    }
+}
+
+// 切换文章标签（火爆/推荐）
+async function toggleArticleTag(articleId, tagType, currentlyHas) {
+    try {
+        // 先获取文章当前标签
+        const data = await apiRequest('/api/admin/forum-articles');
+        const article = data.articles.find(a => a.id === articleId);
+        if (!article) return;
+        
+        let tags = article.tags || [];
+        
+        if (currentlyHas) {
+            // 移除标签
+            tags = tags.filter(t => t !== tagType);
+        } else {
+            // 添加标签
+            if (!tags.includes(tagType)) {
+                tags.push(tagType);
+            }
+        }
+        
+        await apiRequest(`/api/admin/forum-articles/${articleId}/tags`, {
+            method: 'PUT',
+            body: JSON.stringify({ tags })
+        });
+        
+        showMessage('forum-articles-message', '标签更新成功', 'success');
+        loadForumArticles();
+    } catch (error) {
+        showMessage('forum-articles-message', error.message || '操作失败', 'error');
+    }
+}
+
+// 删除文章
+async function deleteForumArticle(articleId) {
+    if (!confirm('确定要删除此文章吗？')) return;
+    
+    try {
+        await apiRequest(`/api/admin/forum-articles/${articleId}`, {
+            method: 'DELETE'
+        });
+        showMessage('forum-articles-message', '文章删除成功', 'success');
+        loadForumArticles();
+    } catch (error) {
+        showMessage('forum-articles-message', error.message || '删除失败', 'error');
+    }
+}
+
+// 加载推送配置
+async function loadPushConfig() {
+    try {
+        const data = await apiRequest('/api/admin/push-config');
+        if (data.config) {
+            document.getElementById('push-hot-threshold').value = data.config.hotThreshold || 100;
+            document.getElementById('push-recommend-count').value = data.config.recommendCount || 3;
+        }
+    } catch (error) {
+        console.error('加载推送配置失败:', error);
+    }
+}
+
+// 保存推送配置
+async function savePushConfig(event) {
+    event.preventDefault();
+    
+    const config = {
+        hotThreshold: parseInt(document.getElementById('push-hot-threshold').value) || 100,
+        recommendCount: parseInt(document.getElementById('push-recommend-count').value) || 3
+    };
+    
+    try {
+        await apiRequest('/api/admin/push-config', {
+            method: 'PUT',
+            body: JSON.stringify(config)
+        });
+        showMessage('push-config-message', '推送配置保存成功', 'success');
+    } catch (error) {
+        showMessage('push-config-message', error.message || '保存失败', 'error');
+    }
+}
 
