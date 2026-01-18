@@ -505,7 +505,12 @@ async function verifyUserSession(request, KV) {
     const users = usersData ? JSON.parse(usersData) : [];
     const user = users.find(u => u.email === session.email);
     
-    return user || null;
+    // 检查用户状态
+    if (!user || user.status === 'banned') {
+      return null;
+    }
+    
+    return user;
   } catch (error) {
     console.error('验证会话失败:', error);
     return null;

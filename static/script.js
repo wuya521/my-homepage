@@ -3406,7 +3406,7 @@ async function loadUserStats() {
             const expProgressEl = document.getElementById('exp-progress');
             const checkinBtn = document.getElementById('checkin-btn');
             
-            if (levelEl) levelEl.textContent = `Lv.${stats.level}`;
+            if (levelEl) levelEl.textContent = `Lv.${stats.level || 1}`;
             if (coinsEl) coinsEl.textContent = stats.coins;
             if (currentExpEl) currentExpEl.textContent = stats.exp;
             if (nextLevelExpEl) nextLevelExpEl.textContent = stats.nextLevelExp;
@@ -4512,6 +4512,10 @@ function showHeatModal(articleId, config) {
     const modal = document.createElement('div');
     modal.id = 'heat-modal';
     modal.className = 'modal-overlay';
+    
+    // 转义 articleId 以防包含特殊字符
+    const safeArticleId = articleId.replace(/'/g, "\\'");
+    
     modal.innerHTML = `
         <div class="heat-modal-content">
             <div class="heat-modal-header">
@@ -4521,20 +4525,20 @@ function showHeatModal(articleId, config) {
             <div class="heat-modal-body">
                 <p class="heat-tip">加热后文章将在列表中优先展示，标题显示金色闪光效果</p>
                 <div class="heat-options">
-                    <button class="heat-option" onclick="confirmHeat('${articleId}', 6, ${config.costPerHour * 6})">
+                    <button class="heat-option" onclick="confirmHeat('${safeArticleId}', 6, ${config.costPerHour * 6})">
                         <span class="heat-duration">6小时</span>
                         <span class="heat-cost">${config.costPerHour * 6} 积分</span>
                     </button>
-                    <button class="heat-option heat-option-popular" onclick="confirmHeat('${articleId}', 12, ${config.costPerHour * 12})">
+                    <button class="heat-option heat-option-popular" onclick="confirmHeat('${safeArticleId}', 12, ${config.costPerHour * 12})">
                         <span class="popular-badge">推荐</span>
                         <span class="heat-duration">12小时</span>
                         <span class="heat-cost">${config.costPerHour * 12} 积分</span>
                     </button>
-                    <button class="heat-option" onclick="confirmHeat('${articleId}', 24, ${config.costPerHour * 24})">
+                    <button class="heat-option" onclick="confirmHeat('${safeArticleId}', 24, ${config.costPerHour * 24})">
                         <span class="heat-duration">24小时</span>
                         <span class="heat-cost">${config.costPerHour * 24} 积分</span>
                     </button>
-                    <button class="heat-option" onclick="confirmHeat('${articleId}', 48, ${config.costPerHour * 48})">
+                    <button class="heat-option" onclick="confirmHeat('${safeArticleId}', 48, ${config.costPerHour * 48})">
                         <span class="heat-duration">48小时</span>
                         <span class="heat-cost">${config.costPerHour * 48} 积分</span>
                     </button>
@@ -4546,20 +4550,29 @@ function showHeatModal(articleId, config) {
                         <span>小时</span>
                         <span class="heat-custom-cost">= <span id="heat-custom-price">${config.costPerHour * 24}</span> 积分</span>
                     </div>
-                    <button class="btn-heat-confirm" onclick="confirmCustomHeat('${articleId}', ${config.costPerHour})">确认加热</button>
+                    <button class="btn-heat-confirm" onclick="confirmCustomHeat('${safeArticleId}', ${config.costPerHour})">确认加热</button>
                 </div>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
     
+    // 点击遮罩层关闭
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeHeatModal();
+        }
+    });
+    
     // 监听自定义时长输入
     const customInput = document.getElementById('heat-custom-hours');
     const customPrice = document.getElementById('heat-custom-price');
-    customInput.addEventListener('input', () => {
-        const hours = parseInt(customInput.value) || 0;
-        customPrice.textContent = hours * config.costPerHour;
-    });
+    if (customInput && customPrice) {
+        customInput.addEventListener('input', () => {
+            const hours = parseInt(customInput.value) || 0;
+            customPrice.textContent = hours * config.costPerHour;
+        });
+    }
 }
 
 function closeHeatModal() {
@@ -5037,14 +5050,37 @@ async function manageUserVip(userId, hasVip) {
     } else {
         const level = prompt('请输入VIP等级（如 VIP1, VIP2, SVIP）：', 'VIP1');
         if (!level) return;
-        const expireAt = prompt('请输入到期日期（如 2025-12-31，留空表示永久）：', '');
+        
+        const expireInput = prompt('请输入有效期：\n1) 输入天数（如 30 表示30天）\n2) 输入日期（如 2025-12-31）\n3) 留空表示永久', '30');
+        if (expireInput === null) return;
+        
+        let expireAt = null;
+        if (expireInput.trim() !== '') {
+            // 判断是数字（天数）还是日期字符串
+            const days = parseInt(expireInput);
+            if (!isNaN(days) && days > 0) {
+                // 是天数，计算到期日期
+                const now = new Date();
+                now.setDate(now.getDate() + days);
+                expireAt = now.toISOString().split('T')[0]; // 格式：YYYY-MM-DD
+            } else {
+                // 是日期字符串，直接使用（但要验证格式）
+                if (/^\d{4}-\d{2}-\d{2}$/.test(expireInput.trim())) {
+                    expireAt = expireInput.trim();
+                } else {
+                    alert('日期格式不正确，请使用 YYYY-MM-DD 格式');
+                    return;
+                }
+            }
+        }
         
         try {
             await apiRequest(`/api/admin/forum-users/${userId}/vip`, {
                 method: 'POST',
-                body: JSON.stringify({ level, expireAt: expireAt || null })
+                body: JSON.stringify({ level, expireAt })
             });
-            showMessage('forum-users-message', 'VIP已授予', 'success');
+            const expireText = expireAt ? `，有效期至 ${expireAt}` : '（永久）';
+            showMessage('forum-users-message', `VIP已授予${expireText}`, 'success');
             loadForumUsers();
         } catch (error) {
             showMessage('forum-users-message', error.message || '操作失败', 'error');
