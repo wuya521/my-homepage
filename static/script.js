@@ -48,6 +48,14 @@ async function apiRequest(endpoint, options = {}) {
         const data = await response.json();
 
         if (!response.ok) {
+            // 检查是否是封禁
+            if (response.status === 401 || response.status === 403) {
+                if (data.message && (data.message.includes('禁用') || data.message.includes('banned'))) {
+                    handleUserBanned();
+                    throw new Error('账号已被禁用');
+                }
+            }
+            
             // 提供更详细的错误信息
             let errorMessage = data.message || data.error || '请求失败';
             if (response.status === 401) {
@@ -3312,6 +3320,33 @@ document.addEventListener('DOMContentLoaded', () => {
 let currentUser = null;
 let userToken = localStorage.getItem('userToken');
 
+// 处理用户被封禁
+function handleUserBanned() {
+    localStorage.removeItem('userToken');
+    userToken = null;
+    currentUser = null;
+    updateUserUI();
+    showToast('账号已被禁用，已自动退出登录', 'error');
+    // 关闭所有弹窗
+    closeHeatModal();
+    closeArticleDetail();
+    const modals = document.querySelectorAll('.modal-overlay, .auth-modal, .editor-modal, .detail-modal');
+    modals.forEach(modal => {
+        if (modal) modal.style.display = 'none';
+    });
+}
+
+// 检查响应是否表示用户被封禁
+function checkBannedStatus(response, data) {
+    if (!response.ok && (response.status === 401 || response.status === 403)) {
+        if (data && data.message && (data.message.includes('禁用') || data.message.includes('banned'))) {
+            handleUserBanned();
+            return true;
+        }
+    }
+    return false;
+}
+
 // 初始化用户状态
 async function initUserAuth() {
     if (userToken) {
@@ -3322,6 +3357,11 @@ async function initUserAuth() {
                 }
             });
             const data = await response.json();
+            
+            // 检查是否被封禁
+            if (checkBannedStatus(response, data)) {
+                return;
+            }
             
             if (data.success && data.isLoggedIn) {
                 currentUser = data.user;
@@ -3395,6 +3435,11 @@ async function loadUserStats() {
         });
         const data = await response.json();
         
+        // 检查是否被封禁
+        if (checkBannedStatus(response, data)) {
+            return;
+        }
+        
         if (data.success) {
             const stats = data.stats;
             
@@ -3436,7 +3481,38 @@ async function loadUserStats() {
                     const vipLevelEl = vipCard.querySelector('.vip-level');
                     const vipExpireEl = vipCard.querySelector('.vip-expire');
                     if (vipLevelEl) vipLevelEl.textContent = stats.vip.level;
-                    if (vipExpireEl) vipExpireEl.textContent = `有效期至: ${stats.vip.expireAt || '永久'}`;
+                    
+                    if (vipExpireEl) {
+                        if (stats.vip.expireAt) {
+                            // 计算剩余天数
+                            // expireAt可能是 YYYY-MM-DD 格式或 ISO 字符串
+                            let expireDate;
+                            if (stats.vip.expireAt.includes('T')) {
+                                // ISO 格式
+                                expireDate = new Date(stats.vip.expireAt);
+                            } else {
+                                // YYYY-MM-DD 格式，需要设置为当天的23:59:59
+                                const dateStr = stats.vip.expireAt;
+                                expireDate = new Date(dateStr + 'T23:59:59');
+                            }
+                            
+                            const now = new Date();
+                            const diffMs = expireDate - now;
+                            const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                            
+                            if (daysLeft > 0) {
+                                // 格式化日期显示
+                                const displayDate = stats.vip.expireAt.split('T')[0].replace(/-/g, '/');
+                                vipExpireEl.textContent = `${stats.vip.level} · 剩余 ${daysLeft} 天 (至 ${displayDate})`;
+                            } else {
+                                vipExpireEl.textContent = `${stats.vip.level} · 已过期`;
+                            }
+                        } else {
+                            vipExpireEl.textContent = `${stats.vip.level} · 永久有效`;
+                        }
+                    }
+                } else {
+                    vipCard.style.display = 'none';
                 }
             }
             
@@ -4604,16 +4680,31 @@ async function confirmCustomHeat(articleId, costPerHour) {
 // 执行加热
 async function executeHeat(articleId, hours) {
     try {
+        // 确保hours是数字类型
+        const hoursNum = parseInt(hours);
+        if (isNaN(hoursNum) || hoursNum < 1) {
+            showToast('请输入有效的小时数', 'error');
+            return;
+        }
+        
         const response = await fetch(`${API_BASE}/api/articles/heat`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${userToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ articleId, hours })
+            body: JSON.stringify({ articleId, hours: hoursNum })
         });
         
         const data = await response.json();
+        
+        if (!response.ok) {
+            // 检查是否是封禁或未授权
+            if (response.status === 401 || response.status === 403) {
+                handleUserBanned();
+                return;
+            }
+        }
         
         if (data.success) {
             closeHeatModal();
