@@ -1075,10 +1075,10 @@ async function handleRedeemSubmitSidebar(e) {
 
 // ==================== 管理后台功能 ====================
 
-// 登录处理
-async function handleLogin(e) {
+// 后台管理员登录处理
+async function handleAdminLogin(e) {
     e.preventDefault();
-    console.log('🔐 登录函数被调用');
+    console.log('🔐 管理员登录函数被调用');
     
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
@@ -1110,8 +1110,8 @@ async function handleLogin(e) {
     }
 }
 
-// 退出登录
-function handleLogout() {
+// 后台管理员退出登录
+function handleAdminLogout() {
     authToken = null;
     sessionStorage.removeItem('authToken');
     
@@ -3019,20 +3019,33 @@ document.addEventListener('DOMContentLoaded', () => {
             loadAdminData();
         }
 
-        // 登录表单
+        // 登录表单（后台管理）
         const loginForm = document.getElementById('login-form');
         console.log('🔍 查找登录表单:', loginForm);
         if (loginForm) {
-            loginForm.addEventListener('submit', handleLogin);
-            console.log('✅ 登录表单事件已绑定');
+            // 检查是否在管理后台页面（有 username 字段）
+            const usernameField = document.getElementById('username');
+            if (usernameField) {
+                // 后台管理登录
+                loginForm.addEventListener('submit', handleAdminLogin);
+                console.log('✅ 管理后台登录表单事件已绑定');
+            } else {
+                // 前台用户登录（由 index.html 的 onsubmit 处理）
+                console.log('ℹ️ 前台用户登录表单由 HTML onsubmit 处理');
+            }
         } else {
-            console.error('❌ 未找到登录表单');
+            console.log('ℹ️ 未找到登录表单（可能是主页）');
         }
 
-        // 退出登录
+        // 后台管理退出登录
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) {
-            logoutBtn.addEventListener('click', handleLogout);
+            // 检查是否在管理后台页面
+            const adminPage = document.getElementById('admin-page');
+            if (adminPage) {
+                logoutBtn.addEventListener('click', handleAdminLogout);
+                console.log('✅ 管理后台退出按钮事件已绑定');
+            }
         }
 
         // 侧边栏导航
