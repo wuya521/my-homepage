@@ -44,7 +44,14 @@ const STORAGE_KEYS = {
   GAME_FARMS: 'game_farms',
   GAME_LEDGER: 'game_ledger',
   GAME_RANKINGS: 'game_rankings',
-  GAME_CONFIG: 'game_config'
+  GAME_CONFIG: 'game_config',
+  // 用户系统
+  USERS: 'forum_users',
+  USER_SESSIONS: 'user_sessions',
+  // 文章系统
+  ARTICLES: 'articles',
+  ARTICLE_CATEGORIES: 'article_categories',
+  ARTICLE_TAGS: 'article_tags'
 };
 
 // 初始化默认数据
@@ -316,6 +323,51 @@ async function initializeDefaultData(KV) {
     // 初始化推荐关注用户（空）
     await KV.put(STORAGE_KEYS.FEATURED_USERS, JSON.stringify([]));
 
+    // 初始化用户系统
+    const existingUsers = await KV.get(STORAGE_KEYS.USERS);
+    if (!existingUsers) {
+      await KV.put(STORAGE_KEYS.USERS, JSON.stringify([]));
+    }
+    
+    // 初始化用户会话
+    const existingSessions = await KV.get(STORAGE_KEYS.USER_SESSIONS);
+    if (!existingSessions) {
+      await KV.put(STORAGE_KEYS.USER_SESSIONS, JSON.stringify([]));
+    }
+
+    // 初始化文章列表
+    const existingArticles = await KV.get(STORAGE_KEYS.ARTICLES);
+    if (!existingArticles) {
+      await KV.put(STORAGE_KEYS.ARTICLES, JSON.stringify([]));
+    }
+
+    // 初始化文章分类
+    const existingCategories = await KV.get(STORAGE_KEYS.ARTICLE_CATEGORIES);
+    if (!existingCategories) {
+      const defaultCategories = [
+        { id: 'tech', name: '技术分享', icon: '💻', description: '技术文章、教程和分享', order: 1 },
+        { id: 'life', name: '生活随笔', icon: '🌱', description: '日常生活、心情记录', order: 2 },
+        { id: 'share', name: '资源分享', icon: '📦', description: '工具、资源推荐', order: 3 },
+        { id: 'discuss', name: '话题讨论', icon: '💬', description: '热门话题、观点交流', order: 4 },
+        { id: 'other', name: '其他', icon: '📝', description: '其他内容', order: 5 }
+      ];
+      await KV.put(STORAGE_KEYS.ARTICLE_CATEGORIES, JSON.stringify(defaultCategories));
+    }
+
+    // 初始化文章标签
+    const existingTags = await KV.get(STORAGE_KEYS.ARTICLE_TAGS);
+    if (!existingTags) {
+      const defaultTags = [
+        { id: 'javascript', name: 'JavaScript', color: '#F7DF1E' },
+        { id: 'python', name: 'Python', color: '#3776AB' },
+        { id: 'css', name: 'CSS', color: '#1572B6' },
+        { id: 'tutorial', name: '教程', color: '#10B981' },
+        { id: 'tips', name: '技巧', color: '#8B5CF6' },
+        { id: 'news', name: '资讯', color: '#EF4444' }
+      ];
+      await KV.put(STORAGE_KEYS.ARTICLE_TAGS, JSON.stringify(defaultTags));
+    }
+
     console.log('默认数据初始化完成');
   } catch (error) {
     console.error('初始化数据失败:', error);
@@ -358,6 +410,69 @@ function generateRedeemCode(length = 16) {
     }
   }
   return code;
+}
+
+// 生成用户会话令牌
+function generateSessionToken() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 64; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
+// 简单的密码哈希（生产环境应使用更安全的方法）
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + 'homepage_salt_2024');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 验证用户会话
+async function verifyUserSession(request, KV) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  try {
+    const token = authHeader.split(' ')[1];
+    const sessionsData = await KV.get(STORAGE_KEYS.USER_SESSIONS);
+    const sessions = sessionsData ? JSON.parse(sessionsData) : [];
+    
+    const session = sessions.find(s => s.token === token);
+    if (!session) {
+      return null;
+    }
+
+    // 检查会话是否过期（7天）
+    const now = Date.now();
+    const sessionAge = now - new Date(session.createdAt).getTime();
+    if (sessionAge > 7 * 24 * 60 * 60 * 1000) {
+      // 删除过期会话
+      const filteredSessions = sessions.filter(s => s.token !== token);
+      await KV.put(STORAGE_KEYS.USER_SESSIONS, JSON.stringify(filteredSessions));
+      return null;
+    }
+
+    // 获取用户信息
+    const usersData = await KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const user = users.find(u => u.email === session.email);
+    
+    return user || null;
+  } catch (error) {
+    console.error('验证会话失败:', error);
+    return null;
+  }
+}
+
+// 生成文章ID
+function generateArticleId() {
+  return 'article_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
 }
 
 // 响应构造函数
@@ -1001,6 +1116,639 @@ async function handleRequest(request, env) {
       displayDuration: 5000
     };
     return jsonResponse(config);
+  }
+
+  // ==================== 用户认证系统 API ====================
+
+  // 用户注册
+  if (path === '/api/user/register' && method === 'POST') {
+    const { email, password, nickname } = await request.json();
+    
+    if (!email || !password || !nickname) {
+      return jsonResponse({ success: false, message: '请填写完整信息' }, 400);
+    }
+
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return jsonResponse({ success: false, message: '邮箱格式不正确' }, 400);
+    }
+
+    // 验证密码长度
+    if (password.length < 6) {
+      return jsonResponse({ success: false, message: '密码至少6位' }, 400);
+    }
+
+    // 验证昵称长度
+    if (nickname.length < 2 || nickname.length > 20) {
+      return jsonResponse({ success: false, message: '昵称需要2-20个字符' }, 400);
+    }
+
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+
+    // 检查邮箱是否已注册
+    if (users.some(u => u.email === email)) {
+      return jsonResponse({ success: false, message: '该邮箱已注册' }, 400);
+    }
+
+    // 检查昵称是否已使用
+    if (users.some(u => u.nickname === nickname)) {
+      return jsonResponse({ success: false, message: '该昵称已被使用' }, 400);
+    }
+
+    // 创建用户
+    const hashedPassword = await hashPassword(password);
+    const newUser = {
+      id: 'user_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9),
+      email,
+      password: hashedPassword,
+      nickname,
+      avatar: '',
+      bio: '',
+      role: 'user', // user / admin
+      status: 'active', // active / banned
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      articleCount: 0,
+      lastLoginAt: null
+    };
+
+    users.push(newUser);
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+    // 创建会话
+    const token = generateSessionToken();
+    const sessionsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_SESSIONS);
+    const sessions = sessionsData ? JSON.parse(sessionsData) : [];
+    
+    sessions.push({
+      token,
+      email,
+      userId: newUser.id,
+      createdAt: new Date().toISOString()
+    });
+    
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USER_SESSIONS, JSON.stringify(sessions));
+
+    return jsonResponse({
+      success: true,
+      message: '注册成功',
+      token,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        nickname: newUser.nickname,
+        avatar: newUser.avatar,
+        bio: newUser.bio,
+        role: newUser.role
+      }
+    });
+  }
+
+  // 用户登录
+  if (path === '/api/user/login' && method === 'POST') {
+    const { email, password } = await request.json();
+    
+    if (!email || !password) {
+      return jsonResponse({ success: false, message: '请填写邮箱和密码' }, 400);
+    }
+
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+
+    const hashedPassword = await hashPassword(password);
+    const user = users.find(u => u.email === email && u.password === hashedPassword);
+
+    if (!user) {
+      return jsonResponse({ success: false, message: '邮箱或密码错误' }, 400);
+    }
+
+    if (user.status === 'banned') {
+      return jsonResponse({ success: false, message: '账号已被禁用' }, 400);
+    }
+
+    // 更新最后登录时间
+    const userIndex = users.findIndex(u => u.email === email);
+    users[userIndex].lastLoginAt = new Date().toISOString();
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+    // 创建会话
+    const token = generateSessionToken();
+    const sessionsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_SESSIONS);
+    const sessions = sessionsData ? JSON.parse(sessionsData) : [];
+    
+    // 清除该用户的旧会话（可选：保留多设备登录）
+    const filteredSessions = sessions.filter(s => s.email !== email);
+    filteredSessions.push({
+      token,
+      email,
+      userId: user.id,
+      createdAt: new Date().toISOString()
+    });
+    
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USER_SESSIONS, JSON.stringify(filteredSessions));
+
+    return jsonResponse({
+      success: true,
+      message: '登录成功',
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        bio: user.bio,
+        role: user.role
+      }
+    });
+  }
+
+  // 用户登出
+  if (path === '/api/user/logout' && method === 'POST') {
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const sessionsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_SESSIONS);
+      const sessions = sessionsData ? JSON.parse(sessionsData) : [];
+      
+      const filteredSessions = sessions.filter(s => s.token !== token);
+      await env.MY_HOME_KV.put(STORAGE_KEYS.USER_SESSIONS, JSON.stringify(filteredSessions));
+    }
+    
+    return jsonResponse({ success: true, message: '已登出' });
+  }
+
+  // 获取当前用户信息
+  if (path === '/api/user/me' && method === 'GET') {
+    const user = await verifyUserSession(request, env.MY_HOME_KV);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '未登录', isLoggedIn: false }, 401);
+    }
+
+    return jsonResponse({
+      success: true,
+      isLoggedIn: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        bio: user.bio,
+        role: user.role,
+        articleCount: user.articleCount || 0,
+        createdAt: user.createdAt
+      }
+    });
+  }
+
+  // 更新用户资料
+  if (path === '/api/user/profile' && method === 'PUT') {
+    const user = await verifyUserSession(request, env.MY_HOME_KV);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '未登录' }, 401);
+    }
+
+    const { nickname, avatar, bio } = await request.json();
+    
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userIndex = users.findIndex(u => u.email === user.email);
+
+    if (userIndex === -1) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+
+    // 检查昵称是否被其他人使用
+    if (nickname && nickname !== users[userIndex].nickname) {
+      if (users.some(u => u.nickname === nickname && u.email !== user.email)) {
+        return jsonResponse({ success: false, message: '该昵称已被使用' }, 400);
+      }
+      users[userIndex].nickname = nickname;
+    }
+
+    if (avatar !== undefined) users[userIndex].avatar = avatar;
+    if (bio !== undefined) users[userIndex].bio = bio;
+    users[userIndex].updatedAt = new Date().toISOString();
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+    return jsonResponse({
+      success: true,
+      message: '资料更新成功',
+      user: {
+        id: users[userIndex].id,
+        email: users[userIndex].email,
+        nickname: users[userIndex].nickname,
+        avatar: users[userIndex].avatar,
+        bio: users[userIndex].bio,
+        role: users[userIndex].role
+      }
+    });
+  }
+
+  // ==================== 文章系统 API（公开接口）====================
+
+  // 获取文章分类
+  if (path === '/api/articles/categories' && method === 'GET') {
+    const categoriesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLE_CATEGORIES);
+    const categories = categoriesData ? JSON.parse(categoriesData) : [];
+    return jsonResponse({ success: true, categories });
+  }
+
+  // 获取文章标签
+  if (path === '/api/articles/tags' && method === 'GET') {
+    const tagsData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLE_TAGS);
+    const tags = tagsData ? JSON.parse(tagsData) : [];
+    return jsonResponse({ success: true, tags });
+  }
+
+  // 获取文章列表（公开，只返回已发布的文章）
+  if (path === '/api/articles' && method === 'GET') {
+    const page = parseInt(url.searchParams.get('page')) || 1;
+    const limit = Math.min(parseInt(url.searchParams.get('limit')) || 10, 50);
+    const category = url.searchParams.get('category');
+    const tag = url.searchParams.get('tag');
+    const search = url.searchParams.get('search');
+    const authorId = url.searchParams.get('authorId');
+
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    let articles = articlesData ? JSON.parse(articlesData) : [];
+
+    // 只返回已发布且未删除的文章
+    articles = articles.filter(a => a.status === 'published' && !a.deleted);
+
+    // 分类筛选
+    if (category) {
+      articles = articles.filter(a => a.category === category);
+    }
+
+    // 标签筛选
+    if (tag) {
+      articles = articles.filter(a => a.tags && a.tags.includes(tag));
+    }
+
+    // 作者筛选
+    if (authorId) {
+      articles = articles.filter(a => a.authorId === authorId);
+    }
+
+    // 搜索
+    if (search) {
+      const searchLower = search.toLowerCase();
+      articles = articles.filter(a => 
+        a.title.toLowerCase().includes(searchLower) || 
+        (a.content && a.content.toLowerCase().includes(searchLower)) ||
+        (a.summary && a.summary.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // 按时间倒序
+    articles.sort((a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt));
+
+    // 分页
+    const total = articles.length;
+    const totalPages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+    const paginatedArticles = articles.slice(offset, offset + limit);
+
+    // 获取作者信息
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+
+    // 返回文章列表（不包含完整内容）
+    const articleList = paginatedArticles.map(a => ({
+      id: a.id,
+      title: a.title,
+      summary: a.summary || (a.content ? a.content.substring(0, 200) + '...' : ''),
+      cover: a.cover,
+      category: a.category,
+      tags: a.tags,
+      authorId: a.authorId,
+      authorName: users.find(u => u.id === a.authorId)?.nickname || '匿名',
+      authorAvatar: users.find(u => u.id === a.authorId)?.avatar || '',
+      views: a.views || 0,
+      publishedAt: a.publishedAt,
+      createdAt: a.createdAt
+    }));
+
+    return jsonResponse({
+      success: true,
+      articles: articleList,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages
+      }
+    });
+  }
+
+  // 获取文章详情（公开）
+  if (path.match(/^\/api\/articles\/[^\/]+$/) && method === 'GET' && !path.includes('/my')) {
+    const articleId = path.split('/').pop();
+    
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    const articleIndex = articles.findIndex(a => a.id === articleId);
+    
+    if (articleIndex === -1) {
+      return jsonResponse({ success: false, message: '文章不存在' }, 404);
+    }
+
+    const article = articles[articleIndex];
+
+    // 检查文章状态
+    if (article.deleted) {
+      return jsonResponse({ success: false, message: '文章已删除' }, 404);
+    }
+
+    // 如果是草稿，只有作者本人可以查看
+    if (article.status === 'draft') {
+      const currentUser = await verifyUserSession(request, env.MY_HOME_KV);
+      if (!currentUser || currentUser.id !== article.authorId) {
+        return jsonResponse({ success: false, message: '无权访问' }, 403);
+      }
+    }
+
+    // 增加浏览量
+    articles[articleIndex].views = (articles[articleIndex].views || 0) + 1;
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLES, JSON.stringify(articles));
+
+    // 获取作者信息
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const author = users.find(u => u.id === article.authorId);
+
+    return jsonResponse({
+      success: true,
+      article: {
+        ...article,
+        authorName: author?.nickname || '匿名',
+        authorAvatar: author?.avatar || '',
+        authorBio: author?.bio || ''
+      }
+    });
+  }
+
+  // 创建文章（需要登录）
+  if (path === '/api/articles' && method === 'POST') {
+    const user = await verifyUserSession(request, env.MY_HOME_KV);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '请先登录' }, 401);
+    }
+
+    const { title, content, summary, cover, category, tags, status } = await request.json();
+
+    if (!title || title.trim().length === 0) {
+      return jsonResponse({ success: false, message: '请填写标题' }, 400);
+    }
+
+    if (!content || content.trim().length === 0) {
+      return jsonResponse({ success: false, message: '请填写内容' }, 400);
+    }
+
+    const articleStatus = status === 'draft' ? 'draft' : 'published';
+
+    const newArticle = {
+      id: generateArticleId(),
+      title: title.trim(),
+      content,
+      summary: summary || '',
+      cover: cover || '',
+      category: category || 'other',
+      tags: tags || [],
+      authorId: user.id,
+      status: articleStatus,
+      views: 0,
+      deleted: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      publishedAt: articleStatus === 'published' ? new Date().toISOString() : null
+    };
+
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    articles.push(newArticle);
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLES, JSON.stringify(articles));
+
+    // 更新用户文章计数
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userIndex = users.findIndex(u => u.id === user.id);
+    if (userIndex !== -1) {
+      users[userIndex].articleCount = (users[userIndex].articleCount || 0) + 1;
+      await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+    }
+
+    return jsonResponse({
+      success: true,
+      message: articleStatus === 'draft' ? '草稿保存成功' : '文章发布成功',
+      article: newArticle
+    });
+  }
+
+  // 更新文章（需要登录且为作者或管理员）
+  if (path.match(/^\/api\/articles\/[^\/]+$/) && method === 'PUT') {
+    const user = await verifyUserSession(request, env.MY_HOME_KV);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '请先登录' }, 401);
+    }
+
+    const articleId = path.split('/').pop();
+    const { title, content, summary, cover, category, tags, status } = await request.json();
+
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    const articleIndex = articles.findIndex(a => a.id === articleId);
+
+    if (articleIndex === -1) {
+      return jsonResponse({ success: false, message: '文章不存在' }, 404);
+    }
+
+    const article = articles[articleIndex];
+
+    // 检查权限：只有作者或管理员可以编辑
+    if (article.authorId !== user.id && user.role !== 'admin') {
+      return jsonResponse({ success: false, message: '无权编辑此文章' }, 403);
+    }
+
+    // 更新文章
+    if (title !== undefined) articles[articleIndex].title = title.trim();
+    if (content !== undefined) articles[articleIndex].content = content;
+    if (summary !== undefined) articles[articleIndex].summary = summary;
+    if (cover !== undefined) articles[articleIndex].cover = cover;
+    if (category !== undefined) articles[articleIndex].category = category;
+    if (tags !== undefined) articles[articleIndex].tags = tags;
+    
+    // 处理状态变更
+    if (status !== undefined) {
+      const oldStatus = articles[articleIndex].status;
+      articles[articleIndex].status = status;
+      
+      // 如果从草稿变为发布，更新发布时间
+      if (oldStatus === 'draft' && status === 'published') {
+        articles[articleIndex].publishedAt = new Date().toISOString();
+      }
+    }
+
+    articles[articleIndex].updatedAt = new Date().toISOString();
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLES, JSON.stringify(articles));
+
+    return jsonResponse({
+      success: true,
+      message: '文章更新成功',
+      article: articles[articleIndex]
+    });
+  }
+
+  // 删除文章（软删除，需要登录且为作者或管理员）
+  if (path.match(/^\/api\/articles\/[^\/]+$/) && method === 'DELETE') {
+    const user = await verifyUserSession(request, env.MY_HOME_KV);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '请先登录' }, 401);
+    }
+
+    const articleId = path.split('/').pop();
+
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    const articleIndex = articles.findIndex(a => a.id === articleId);
+
+    if (articleIndex === -1) {
+      return jsonResponse({ success: false, message: '文章不存在' }, 404);
+    }
+
+    const article = articles[articleIndex];
+
+    // 检查权限：只有作者或管理员可以删除
+    if (article.authorId !== user.id && user.role !== 'admin') {
+      return jsonResponse({ success: false, message: '无权删除此文章' }, 403);
+    }
+
+    // 软删除
+    articles[articleIndex].deleted = true;
+    articles[articleIndex].deletedAt = new Date().toISOString();
+    articles[articleIndex].deletedBy = user.id;
+
+    await env.MY_HOME_KV.put(STORAGE_KEYS.ARTICLES, JSON.stringify(articles));
+
+    return jsonResponse({
+      success: true,
+      message: '文章已删除'
+    });
+  }
+
+  // 获取我的文章列表（需要登录）
+  if (path === '/api/articles/my/list' && method === 'GET') {
+    const user = await verifyUserSession(request, env.MY_HOME_KV);
+    
+    if (!user) {
+      return jsonResponse({ success: false, message: '请先登录' }, 401);
+    }
+
+    const page = parseInt(url.searchParams.get('page')) || 1;
+    const limit = Math.min(parseInt(url.searchParams.get('limit')) || 10, 50);
+    const status = url.searchParams.get('status'); // draft / published / all
+
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    let articles = articlesData ? JSON.parse(articlesData) : [];
+
+    // 只返回当前用户的文章（未删除的）
+    articles = articles.filter(a => a.authorId === user.id && !a.deleted);
+
+    // 状态筛选
+    if (status && status !== 'all') {
+      articles = articles.filter(a => a.status === status);
+    }
+
+    // 按更新时间倒序
+    articles.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    // 分页
+    const total = articles.length;
+    const totalPages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+    const paginatedArticles = articles.slice(offset, offset + limit);
+
+    return jsonResponse({
+      success: true,
+      articles: paginatedArticles.map(a => ({
+        id: a.id,
+        title: a.title,
+        summary: a.summary || (a.content ? a.content.substring(0, 200) + '...' : ''),
+        cover: a.cover,
+        category: a.category,
+        tags: a.tags,
+        status: a.status,
+        views: a.views || 0,
+        createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
+        publishedAt: a.publishedAt
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages
+      }
+    });
+  }
+
+  // 获取用户公开信息
+  if (path.match(/^\/api\/user\/public\/[^\/]+$/) && method === 'GET') {
+    const userId = path.split('/').pop();
+    
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const user = users.find(u => u.id === userId);
+
+    if (!user) {
+      return jsonResponse({ success: false, message: '用户不存在' }, 404);
+    }
+
+    // 获取用户文章数量
+    const articlesData = await env.MY_HOME_KV.get(STORAGE_KEYS.ARTICLES);
+    const articles = articlesData ? JSON.parse(articlesData) : [];
+    const publishedCount = articles.filter(a => a.authorId === userId && a.status === 'published' && !a.deleted).length;
+
+    // 获取用户勋章
+    const userBadgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_BADGES);
+    const userBadges = userBadgesData ? JSON.parse(userBadgesData) : [];
+    const badgesData = await env.MY_HOME_KV.get(STORAGE_KEYS.BADGES);
+    const badges = badgesData ? JSON.parse(badgesData) : {};
+    
+    const userBadgeList = userBadges
+      .filter(ub => ub.email === user.email)
+      .map(ub => ({
+        id: ub.badgeId,
+        ...badges[ub.badgeId]
+      }));
+
+    // 获取用户等级
+    const userLevelsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_LEVELS);
+    const userLevels = userLevelsData ? JSON.parse(userLevelsData) : [];
+    const userLevel = userLevels.find(ul => ul.email === user.email) || { level: 1, exp: 0 };
+
+    return jsonResponse({
+      success: true,
+      user: {
+        id: user.id,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        bio: user.bio,
+        articleCount: publishedCount,
+        badges: userBadgeList,
+        level: userLevel.level,
+        createdAt: user.createdAt
+      }
+    });
   }
 
   // ==================== 游戏系统 API（公开接口）====================

@@ -15,6 +15,40 @@
 
     <!-- 主容器 -->
     <div class="container">
+        <!-- 顶部用户栏 -->
+        <header class="user-header">
+            <div class="user-header-left">
+                <h2 class="site-title">📚 个人论坛</h2>
+            </div>
+            <div class="user-header-right">
+                <!-- 未登录状态 -->
+                <div id="guest-actions" class="header-actions">
+                    <button class="btn-login" onclick="showLoginModal()">登录</button>
+                    <button class="btn-register" onclick="showRegisterModal()">注册</button>
+                </div>
+                <!-- 已登录状态 -->
+                <div id="user-actions" class="header-actions" style="display: none;">
+                    <button class="btn-create-article" onclick="showArticleEditor()">
+                        <span>✍️</span> 发帖
+                    </button>
+                    <div class="user-menu-wrapper">
+                        <div class="user-menu-trigger" onclick="toggleUserMenu()">
+                            <img id="header-avatar" src="https://via.placeholder.com/36" alt="头像" class="header-avatar">
+                            <span id="header-nickname" class="header-nickname">用户</span>
+                            <span class="menu-arrow">▼</span>
+                        </div>
+                        <div id="user-dropdown" class="user-dropdown" style="display: none;">
+                            <a href="javascript:void(0)" onclick="showMyArticles('published')">📝 我的文章</a>
+                            <a href="javascript:void(0)" onclick="showMyArticles('draft')">📋 我的草稿</a>
+                            <a href="javascript:void(0)" onclick="showUserProfile()">👤 个人设置</a>
+                            <div class="dropdown-divider"></div>
+                            <a href="javascript:void(0)" onclick="handleLogout()" class="logout-link">🚪 退出登录</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
         <div class="main-layout">
             <!-- 左侧：个人信息区域 -->
             <aside class="profile-sidebar">
@@ -41,97 +75,110 @@
                     </div>
                 </section>
 
-                <!-- VIP 卡片 -->
-                <section class="vip-card-section">
-                    <div class="vip-card">
-                        <div class="vip-card-header">
-                            <span class="vip-icon">👑</span>
-                            <h3>VIP 会员</h3>
-                        </div>
-                        <div id="vip-status-info" class="vip-status-info">
-                            <p class="vip-status-text">未开通</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 等级签到系统 -->
-                <section class="level-checkin-section">
-                    <div class="level-checkin-card">
-                        <div class="level-checkin-header">
-                            <span class="level-icon">⭐</span>
-                            <h3>等级系统</h3>
-                        </div>
-                        <div class="level-info">
-                            <div class="level-display">
-                                <span class="level-label">等级</span>
-                                <span id="user-level" class="level-value">Lv.1</span>
+                <!-- 用户专属区域（登录后显示） -->
+                <div id="user-info-sections" class="user-info-sections" style="display: none;">
+                    <!-- VIP 卡片 -->
+                    <section class="vip-card-section">
+                        <div class="vip-card">
+                            <div class="vip-card-header">
+                                <span class="vip-icon">👑</span>
+                                <h3>VIP 会员</h3>
                             </div>
-                            <div class="exp-display">
-                                <div class="exp-bar-wrapper">
-                                    <div class="exp-bar">
-                                        <div id="exp-progress" class="exp-progress" style="width: 0%"></div>
-                                    </div>
-                                    <div class="exp-text">
-                                        <span id="current-exp">0</span> / <span id="next-level-exp">100</span>
+                            <div id="vip-status-info" class="vip-status-info">
+                                <p class="vip-status-text">未开通</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 等级签到系统 -->
+                    <section class="level-checkin-section">
+                        <div class="level-checkin-card">
+                            <div class="level-checkin-header">
+                                <span class="level-icon">⭐</span>
+                                <h3>等级系统</h3>
+                            </div>
+                            <div class="level-info">
+                                <div class="level-display">
+                                    <span class="level-label">等级</span>
+                                    <span id="user-level" class="level-value">Lv.1</span>
+                                </div>
+                                <div class="exp-display">
+                                    <div class="exp-bar-wrapper">
+                                        <div class="exp-bar">
+                                            <div id="exp-progress" class="exp-progress" style="width: 0%"></div>
+                                        </div>
+                                        <div class="exp-text">
+                                            <span id="current-exp">0</span> / <span id="next-level-exp">100</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <button id="checkin-btn" class="btn-checkin" disabled>
-                            <span class="btn-text">今日已签到</span>
-                        </button>
-                        <div id="checkin-message" class="checkin-message" style="display: none;"></div>
-                    </div>
-                </section>
-
-                <!-- 勋章展示 -->
-                <section class="badges-section">
-                    <div class="badges-card">
-                        <div class="badges-header">
-                            <span class="badges-icon">🏆</span>
-                            <h3>我的勋章</h3>
-                        </div>
-                        <div id="badges-container" class="badges-container">
-                            <p class="empty-badges">暂无勋章</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 兑换码激活区域 -->
-                <section class="redeem-section-sidebar">
-                    <div class="redeem-card-sidebar">
-                        <div class="card-header">
-                            <span class="card-icon">🎟️</span>
-                            <h3>兑换码激活</h3>
-                        </div>
-                        <form id="redeem-form-sidebar" class="redeem-form-sidebar">
-                            <input 
-                                type="text" 
-                                id="redeem-code-sidebar" 
-                                placeholder="请输入兑换码" 
-                                class="input-field"
-                                maxlength="19"
-                                required
-                            >
-                            <input 
-                                type="email" 
-                                id="redeem-email-sidebar" 
-                                placeholder="请输入您的邮箱" 
-                                class="input-field"
-                                required
-                            >
-                            <div id="redeem-content-selector-sidebar" style="display: none;">
-                                <select id="redeem-content-select-sidebar" class="input-field">
-                                    <!-- 选项将通过JS动态加载 -->
-                                </select>
-                            </div>
-                            <button type="submit" class="btn-primary">
-                                <span class="btn-text">立即兑换</span>
+                            <button id="checkin-btn" class="btn-checkin" disabled>
+                                <span class="btn-text">今日已签到</span>
                             </button>
-                        </form>
-                        <div id="redeem-message-sidebar" class="message" style="display: none;"></div>
+                            <div id="checkin-message" class="checkin-message" style="display: none;"></div>
+                        </div>
+                    </section>
+
+                    <!-- 勋章展示 -->
+                    <section class="badges-section">
+                        <div class="badges-card">
+                            <div class="badges-header">
+                                <span class="badges-icon">🏆</span>
+                                <h3>我的勋章</h3>
+                            </div>
+                            <div id="badges-container" class="badges-container">
+                                <p class="empty-badges">暂无勋章</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 兑换码激活区域 -->
+                    <section class="redeem-section-sidebar">
+                        <div class="redeem-card-sidebar">
+                            <div class="card-header">
+                                <span class="card-icon">🎟️</span>
+                                <h3>兑换码激活</h3>
+                            </div>
+                            <form id="redeem-form-sidebar" class="redeem-form-sidebar">
+                                <input 
+                                    type="text" 
+                                    id="redeem-code-sidebar" 
+                                    placeholder="请输入兑换码" 
+                                    class="input-field"
+                                    maxlength="19"
+                                    required
+                                >
+                                <input 
+                                    type="email" 
+                                    id="redeem-email-sidebar" 
+                                    placeholder="请输入您的邮箱" 
+                                    class="input-field"
+                                    required
+                                >
+                                <div id="redeem-content-selector-sidebar" style="display: none;">
+                                    <select id="redeem-content-select-sidebar" class="input-field">
+                                        <!-- 选项将通过JS动态加载 -->
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn-primary">
+                                    <span class="btn-text">立即兑换</span>
+                                </button>
+                            </form>
+                            <div id="redeem-message-sidebar" class="message" style="display: none;"></div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- 未登录提示 -->
+                <div id="login-prompt-section" class="login-prompt-section">
+                    <div class="login-prompt-card">
+                        <div class="login-prompt-icon">🔐</div>
+                        <h3>登录解锁更多功能</h3>
+                        <p>登录后即可查看等级、勋章、VIP状态等信息</p>
+                        <button class="btn-login-prompt" onclick="showLoginModal()">立即登录</button>
                     </div>
-                </section>
+                </div>
 
                 <!-- 重要事件时间线 -->
                 <section class="timeline-section">
@@ -188,6 +235,33 @@
                     </a>
                 </section>
 
+                <!-- 文章列表区域 -->
+                <section class="articles-section">
+                    <div class="articles-header">
+                        <h2 class="section-title">📝 最新文章</h2>
+                        <div class="articles-filter">
+                            <select id="category-filter" class="filter-select" onchange="filterArticles()">
+                                <option value="">全部分类</option>
+                                <!-- 分类选项将通过 JS 动态加载 -->
+                            </select>
+                            <div class="search-box">
+                                <input type="text" id="article-search" placeholder="搜索文章..." onkeyup="handleSearchKeyup(event)">
+                                <button class="btn-search" onclick="searchArticles()">🔍</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="articles-container" class="articles-list">
+                        <!-- 文章列表将通过 JS 动态加载 -->
+                        <div class="article-loading">
+                            <span class="loading-spinner"></span>
+                            <p>正在加载文章...</p>
+                        </div>
+                    </div>
+                    <div id="articles-pagination" class="pagination" style="display: none;">
+                        <!-- 分页将通过 JS 动态加载 -->
+                    </div>
+                </section>
+
                 <!-- 门户链接区域 -->
                 <section class="portals-section">
                     <h2 class="section-title">🚪 快速访问</h2>
@@ -230,6 +304,182 @@
             <div id="popup-ad-content" class="popup-ad-content">
                 <!-- 弹窗内容将通过 JS 动态加载 -->
             </div>
+        </div>
+    </div>
+
+    <!-- 登录弹窗 -->
+    <div id="login-modal" class="auth-modal" style="display: none;">
+        <div class="auth-modal-content">
+            <button class="auth-modal-close" onclick="closeLoginModal()">&times;</button>
+            <div class="auth-modal-header">
+                <h2>👋 欢迎回来</h2>
+                <p>登录后即可发布文章</p>
+            </div>
+            <form id="login-form" class="auth-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-email">邮箱</label>
+                    <input type="email" id="login-email" placeholder="请输入邮箱" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">密码</label>
+                    <input type="password" id="login-password" placeholder="请输入密码" required>
+                </div>
+                <div id="login-error" class="form-error" style="display: none;"></div>
+                <button type="submit" class="btn-auth-submit">登录</button>
+            </form>
+            <div class="auth-modal-footer">
+                <p>还没有账号？<a href="javascript:void(0)" onclick="switchToRegister()">立即注册</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 注册弹窗 -->
+    <div id="register-modal" class="auth-modal" style="display: none;">
+        <div class="auth-modal-content">
+            <button class="auth-modal-close" onclick="closeRegisterModal()">&times;</button>
+            <div class="auth-modal-header">
+                <h2>🎉 加入我们</h2>
+                <p>注册账号，开始发布文章</p>
+            </div>
+            <form id="register-form" class="auth-form" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="register-nickname">昵称</label>
+                    <input type="text" id="register-nickname" placeholder="2-20个字符" required minlength="2" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="register-email">邮箱</label>
+                    <input type="email" id="register-email" placeholder="请输入邮箱" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-password">密码</label>
+                    <input type="password" id="register-password" placeholder="至少6位" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="register-confirm">确认密码</label>
+                    <input type="password" id="register-confirm" placeholder="再次输入密码" required>
+                </div>
+                <div id="register-error" class="form-error" style="display: none;"></div>
+                <button type="submit" class="btn-auth-submit">注册</button>
+            </form>
+            <div class="auth-modal-footer">
+                <p>已有账号？<a href="javascript:void(0)" onclick="switchToLogin()">立即登录</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文章编辑器弹窗 -->
+    <div id="article-editor-modal" class="editor-modal" style="display: none;">
+        <div class="editor-modal-content">
+            <div class="editor-header">
+                <h2 id="editor-title">✍️ 发布文章</h2>
+                <div class="editor-actions">
+                    <button class="btn-editor-save" onclick="saveArticle('draft')">💾 存草稿</button>
+                    <button class="btn-editor-publish" onclick="saveArticle('published')">🚀 发布</button>
+                    <button class="btn-editor-close" onclick="closeArticleEditor()">&times;</button>
+                </div>
+            </div>
+            <form id="article-form" class="editor-form">
+                <input type="hidden" id="article-id">
+                <div class="form-group">
+                    <input type="text" id="article-title-input" placeholder="请输入文章标题..." class="editor-title-input" required maxlength="100">
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label>分类</label>
+                        <select id="article-category-input" class="editor-select">
+                            <!-- 分类选项将通过 JS 动态加载 -->
+                        </select>
+                    </div>
+                    <div class="form-group half">
+                        <label>标签</label>
+                        <div id="article-tags-input" class="tags-input-wrapper">
+                            <div id="selected-tags" class="selected-tags"></div>
+                            <select id="tag-selector" class="editor-select" onchange="addTag(this.value)">
+                                <option value="">选择标签...</option>
+                                <!-- 标签选项将通过 JS 动态加载 -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>封面图片 URL（可选）</label>
+                    <input type="url" id="article-cover-input" placeholder="https://example.com/image.jpg" class="editor-input">
+                </div>
+                <div class="form-group">
+                    <label>摘要（可选）</label>
+                    <textarea id="article-summary-input" placeholder="简短描述文章内容..." class="editor-textarea" rows="2" maxlength="300"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>正文（支持 Markdown）</label>
+                    <div class="editor-toolbar">
+                        <button type="button" onclick="insertMarkdown('bold')" title="粗体">B</button>
+                        <button type="button" onclick="insertMarkdown('italic')" title="斜体">I</button>
+                        <button type="button" onclick="insertMarkdown('heading')" title="标题">H</button>
+                        <button type="button" onclick="insertMarkdown('link')" title="链接">🔗</button>
+                        <button type="button" onclick="insertMarkdown('image')" title="图片">🖼️</button>
+                        <button type="button" onclick="insertMarkdown('code')" title="代码">📝</button>
+                        <button type="button" onclick="insertMarkdown('quote')" title="引用">"</button>
+                        <button type="button" onclick="insertMarkdown('list')" title="列表">•</button>
+                    </div>
+                    <textarea id="article-content-input" placeholder="在这里写下你的想法..." class="editor-content" rows="15" required></textarea>
+                </div>
+                <div id="editor-error" class="form-error" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 文章详情弹窗 -->
+    <div id="article-detail-modal" class="detail-modal" style="display: none;">
+        <div class="detail-modal-content">
+            <button class="detail-modal-close" onclick="closeArticleDetail()">&times;</button>
+            <div id="article-detail-container">
+                <!-- 文章详情将通过 JS 动态加载 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 我的文章弹窗 -->
+    <div id="my-articles-modal" class="my-articles-modal" style="display: none;">
+        <div class="my-articles-content">
+            <div class="my-articles-header">
+                <h2 id="my-articles-title">📝 我的文章</h2>
+                <button class="my-articles-close" onclick="closeMyArticles()">&times;</button>
+            </div>
+            <div class="my-articles-tabs">
+                <button class="tab-btn active" onclick="switchMyArticlesTab('published')">已发布</button>
+                <button class="tab-btn" onclick="switchMyArticlesTab('draft')">草稿箱</button>
+            </div>
+            <div id="my-articles-container" class="my-articles-list">
+                <!-- 我的文章列表将通过 JS 动态加载 -->
+            </div>
+            <div id="my-articles-pagination" class="pagination" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- 用户设置弹窗 -->
+    <div id="user-profile-modal" class="auth-modal" style="display: none;">
+        <div class="auth-modal-content">
+            <button class="auth-modal-close" onclick="closeUserProfile()">&times;</button>
+            <div class="auth-modal-header">
+                <h2>👤 个人设置</h2>
+                <p>修改您的个人信息</p>
+            </div>
+            <form id="profile-form" class="auth-form" onsubmit="handleUpdateProfile(event)">
+                <div class="form-group">
+                    <label for="profile-nickname">昵称</label>
+                    <input type="text" id="profile-nickname" placeholder="2-20个字符" required minlength="2" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="profile-avatar">头像URL</label>
+                    <input type="url" id="profile-avatar" placeholder="https://example.com/avatar.jpg">
+                </div>
+                <div class="form-group">
+                    <label for="profile-bio">个人简介</label>
+                    <textarea id="profile-bio" placeholder="介绍一下你自己..." rows="3" maxlength="200"></textarea>
+                </div>
+                <div id="profile-error" class="form-error" style="display: none;"></div>
+                <button type="submit" class="btn-auth-submit">保存修改</button>
+            </form>
         </div>
     </div>
 

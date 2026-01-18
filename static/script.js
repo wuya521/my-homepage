@@ -3290,3 +3290,1116 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ==================== 用户认证系统 ====================
+
+// 用户状态
+let currentUser = null;
+let userToken = localStorage.getItem('userToken');
+
+// 初始化用户状态
+async function initUserAuth() {
+    if (userToken) {
+        try {
+            const response = await fetch(`${API_BASE}/api/user/me`, {
+                headers: {
+                    'Authorization': `Bearer ${userToken}`
+                }
+            });
+            const data = await response.json();
+            
+            if (data.success && data.isLoggedIn) {
+                currentUser = data.user;
+                updateUserUI();
+            } else {
+                // Token 无效，清除
+                localStorage.removeItem('userToken');
+                userToken = null;
+                currentUser = null;
+                updateUserUI();
+            }
+        } catch (error) {
+            console.error('验证用户状态失败:', error);
+            updateUserUI();
+        }
+    } else {
+        updateUserUI();
+    }
+}
+
+// 更新用户界面
+function updateUserUI() {
+    const guestActions = document.getElementById('guest-actions');
+    const userActions = document.getElementById('user-actions');
+    const headerAvatar = document.getElementById('header-avatar');
+    const headerNickname = document.getElementById('header-nickname');
+    const userInfoSections = document.getElementById('user-info-sections');
+    const loginPromptSection = document.getElementById('login-prompt-section');
+    
+    if (currentUser) {
+        // 已登录
+        if (guestActions) guestActions.style.display = 'none';
+        if (userActions) userActions.style.display = 'flex';
+        if (userInfoSections) userInfoSections.style.display = 'block';
+        if (loginPromptSection) loginPromptSection.style.display = 'none';
+        
+        if (headerNickname) headerNickname.textContent = currentUser.nickname;
+        if (headerAvatar) {
+            headerAvatar.src = currentUser.avatar || generateRandomAvatar(currentUser.email);
+        }
+    } else {
+        // 未登录
+        if (guestActions) guestActions.style.display = 'flex';
+        if (userActions) userActions.style.display = 'none';
+        if (userInfoSections) userInfoSections.style.display = 'none';
+        if (loginPromptSection) loginPromptSection.style.display = 'block';
+    }
+}
+
+// 显示登录弹窗
+function showLoginModal() {
+    const modal = document.getElementById('login-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.getElementById('login-error').style.display = 'none';
+        document.getElementById('login-form').reset();
+    }
+}
+
+// 关闭登录弹窗
+function closeLoginModal() {
+    const modal = document.getElementById('login-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// 显示注册弹窗
+function showRegisterModal() {
+    const modal = document.getElementById('register-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.getElementById('register-error').style.display = 'none';
+        document.getElementById('register-form').reset();
+    }
+}
+
+// 关闭注册弹窗
+function closeRegisterModal() {
+    const modal = document.getElementById('register-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// 切换到注册
+function switchToRegister() {
+    closeLoginModal();
+    showRegisterModal();
+}
+
+// 切换到登录
+function switchToLogin() {
+    closeRegisterModal();
+    showLoginModal();
+}
+
+// 处理登录
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const errorEl = document.getElementById('login-error');
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = true;
+    submitBtn.textContent = '登录中...';
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/user/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            localStorage.setItem('userToken', data.token);
+            userToken = data.token;
+            currentUser = data.user;
+            closeLoginModal();
+            updateUserUI();
+            showToast('登录成功！欢迎回来，' + data.user.nickname);
+        } else {
+            errorEl.textContent = data.message || '登录失败';
+            errorEl.style.display = 'block';
+        }
+    } catch (error) {
+        errorEl.textContent = '网络错误，请稍后重试';
+        errorEl.style.display = 'block';
+    }
+    
+    submitBtn.disabled = false;
+    submitBtn.textContent = '登录';
+}
+
+// 处理注册
+async function handleRegister(event) {
+    event.preventDefault();
+    
+    const nickname = document.getElementById('register-nickname').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+    const confirm = document.getElementById('register-confirm').value;
+    const errorEl = document.getElementById('register-error');
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    
+    if (password !== confirm) {
+        errorEl.textContent = '两次输入的密码不一致';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    submitBtn.disabled = true;
+    submitBtn.textContent = '注册中...';
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/user/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nickname, email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            localStorage.setItem('userToken', data.token);
+            userToken = data.token;
+            currentUser = data.user;
+            closeRegisterModal();
+            updateUserUI();
+            showToast('注册成功！欢迎，' + data.user.nickname);
+        } else {
+            errorEl.textContent = data.message || '注册失败';
+            errorEl.style.display = 'block';
+        }
+    } catch (error) {
+        errorEl.textContent = '网络错误，请稍后重试';
+        errorEl.style.display = 'block';
+    }
+    
+    submitBtn.disabled = false;
+    submitBtn.textContent = '注册';
+}
+
+// 处理登出
+async function handleLogout() {
+    try {
+        await fetch(`${API_BASE}/api/user/logout`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${userToken}`
+            }
+        });
+    } catch (error) {
+        console.error('登出请求失败:', error);
+    }
+    
+    localStorage.removeItem('userToken');
+    userToken = null;
+    currentUser = null;
+    updateUserUI();
+    closeUserMenu();
+    showToast('已成功退出登录');
+}
+
+// 切换用户菜单
+function toggleUserMenu() {
+    const dropdown = document.getElementById('user-dropdown');
+    if (dropdown) {
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+// 关闭用户菜单
+function closeUserMenu() {
+    const dropdown = document.getElementById('user-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+// 点击其他地方关闭菜单
+document.addEventListener('click', (e) => {
+    const userMenuWrapper = document.querySelector('.user-menu-wrapper');
+    if (userMenuWrapper && !userMenuWrapper.contains(e.target)) {
+        closeUserMenu();
+    }
+});
+
+// 显示提示消息
+function showToast(message, type = 'success') {
+    // 创建提示元素
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: #FFFFFF;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 99999;
+        animation: fadeInUp 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// 显示用户设置
+function showUserProfile() {
+    closeUserMenu();
+    const modal = document.getElementById('user-profile-modal');
+    if (modal && currentUser) {
+        modal.style.display = 'flex';
+        document.getElementById('profile-nickname').value = currentUser.nickname || '';
+        document.getElementById('profile-avatar').value = currentUser.avatar || '';
+        document.getElementById('profile-bio').value = currentUser.bio || '';
+        document.getElementById('profile-error').style.display = 'none';
+    }
+}
+
+// 关闭用户设置
+function closeUserProfile() {
+    const modal = document.getElementById('user-profile-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// 处理更新资料
+async function handleUpdateProfile(event) {
+    event.preventDefault();
+    
+    const nickname = document.getElementById('profile-nickname').value;
+    const avatar = document.getElementById('profile-avatar').value;
+    const bio = document.getElementById('profile-bio').value;
+    const errorEl = document.getElementById('profile-error');
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = true;
+    submitBtn.textContent = '保存中...';
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/user/profile`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${userToken}`
+            },
+            body: JSON.stringify({ nickname, avatar, bio })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentUser = data.user;
+            updateUserUI();
+            closeUserProfile();
+            showToast('资料更新成功');
+        } else {
+            errorEl.textContent = data.message || '更新失败';
+            errorEl.style.display = 'block';
+        }
+    } catch (error) {
+        errorEl.textContent = '网络错误，请稍后重试';
+        errorEl.style.display = 'block';
+    }
+    
+    submitBtn.disabled = false;
+    submitBtn.textContent = '保存修改';
+}
+
+// ==================== 文章系统 ====================
+
+// 文章列表状态
+let articlesData = {
+    articles: [],
+    pagination: { page: 1, limit: 10, total: 0, totalPages: 0 }
+};
+let currentCategory = '';
+let currentSearch = '';
+let articleCategories = [];
+let articleTags = [];
+let selectedArticleTags = [];
+let editingArticleId = null;
+
+// 加载文章分类
+async function loadArticleCategories() {
+    try {
+        const response = await fetch(`${API_BASE}/api/articles/categories`);
+        const data = await response.json();
+        
+        if (data.success) {
+            articleCategories = data.categories;
+            
+            // 更新筛选下拉框
+            const filterSelect = document.getElementById('category-filter');
+            if (filterSelect) {
+                filterSelect.innerHTML = '<option value="">全部分类</option>';
+                articleCategories.forEach(cat => {
+                    filterSelect.innerHTML += `<option value="${cat.id}">${cat.icon} ${cat.name}</option>`;
+                });
+            }
+            
+            // 更新编辑器下拉框
+            const editorSelect = document.getElementById('article-category-input');
+            if (editorSelect) {
+                editorSelect.innerHTML = '';
+                articleCategories.forEach(cat => {
+                    editorSelect.innerHTML += `<option value="${cat.id}">${cat.icon} ${cat.name}</option>`;
+                });
+            }
+        }
+    } catch (error) {
+        console.error('加载文章分类失败:', error);
+    }
+}
+
+// 加载文章标签
+async function loadArticleTags() {
+    try {
+        const response = await fetch(`${API_BASE}/api/articles/tags`);
+        const data = await response.json();
+        
+        if (data.success) {
+            articleTags = data.tags;
+            
+            // 更新编辑器标签选择器
+            const tagSelector = document.getElementById('tag-selector');
+            if (tagSelector) {
+                tagSelector.innerHTML = '<option value="">选择标签...</option>';
+                articleTags.forEach(tag => {
+                    tagSelector.innerHTML += `<option value="${tag.id}">${tag.name}</option>`;
+                });
+            }
+        }
+    } catch (error) {
+        console.error('加载文章标签失败:', error);
+    }
+}
+
+// 加载文章列表
+async function loadArticles(page = 1) {
+    const container = document.getElementById('articles-container');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="article-loading">
+            <span class="loading-spinner"></span>
+            <p>正在加载文章...</p>
+        </div>
+    `;
+    
+    try {
+        let url = `${API_BASE}/api/articles?page=${page}&limit=10`;
+        if (currentCategory) url += `&category=${currentCategory}`;
+        if (currentSearch) url += `&search=${encodeURIComponent(currentSearch)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success) {
+            articlesData = data;
+            renderArticles();
+            renderPagination();
+        } else {
+            container.innerHTML = `
+                <div class="article-empty">
+                    <div class="article-empty-icon">📭</div>
+                    <p>加载文章失败</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('加载文章列表失败:', error);
+        container.innerHTML = `
+            <div class="article-empty">
+                <div class="article-empty-icon">❌</div>
+                <p>网络错误，请稍后重试</p>
+            </div>
+        `;
+    }
+}
+
+// 渲染文章列表
+function renderArticles() {
+    const container = document.getElementById('articles-container');
+    if (!container) return;
+    
+    if (articlesData.articles.length === 0) {
+        container.innerHTML = `
+            <div class="article-empty">
+                <div class="article-empty-icon">📝</div>
+                <p>暂无文章</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = articlesData.articles.map(article => {
+        const categoryObj = articleCategories.find(c => c.id === article.category);
+        const categoryName = categoryObj ? `${categoryObj.icon} ${categoryObj.name}` : article.category;
+        
+        return `
+            <div class="article-card" onclick="showArticleDetail('${article.id}')">
+                ${article.cover ? `<img src="${article.cover}" alt="" class="article-cover">` : ''}
+                <div class="article-info">
+                    <h3 class="article-title">${escapeHtml(article.title)}</h3>
+                    <p class="article-summary">${escapeHtml(article.summary)}</p>
+                    <div class="article-meta">
+                        <div class="article-author">
+                            <img src="${article.authorAvatar || generateRandomAvatar(article.authorName)}" alt="" class="article-author-avatar">
+                            <span class="article-author-name">${escapeHtml(article.authorName)}</span>
+                        </div>
+                        <span class="article-category">${categoryName}</span>
+                        <div class="article-tags">
+                            ${(article.tags || []).slice(0, 2).map(tagId => {
+                                const tag = articleTags.find(t => t.id === tagId);
+                                return tag ? `<span class="article-tag" style="background: ${tag.color}20; color: ${tag.color}">${tag.name}</span>` : '';
+                            }).join('')}
+                        </div>
+                        <div class="article-stats">
+                            <span>👁️ ${article.views || 0}</span>
+                            <span>📅 ${formatDate(article.publishedAt || article.createdAt).split(' ')[0]}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 渲染分页
+function renderPagination() {
+    const container = document.getElementById('articles-pagination');
+    if (!container) return;
+    
+    const { page, totalPages } = articlesData.pagination;
+    
+    if (totalPages <= 1) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'flex';
+    
+    let html = `
+        <button onclick="loadArticles(${page - 1})" ${page === 1 ? 'disabled' : ''}>上一页</button>
+    `;
+    
+    // 显示页码
+    const startPage = Math.max(1, page - 2);
+    const endPage = Math.min(totalPages, page + 2);
+    
+    if (startPage > 1) {
+        html += `<button onclick="loadArticles(1)">1</button>`;
+        if (startPage > 2) html += `<span style="padding: 8px;">...</span>`;
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button onclick="loadArticles(${i})" class="${i === page ? 'active' : ''}">${i}</button>`;
+    }
+    
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += `<span style="padding: 8px;">...</span>`;
+        html += `<button onclick="loadArticles(${totalPages})">${totalPages}</button>`;
+    }
+    
+    html += `
+        <button onclick="loadArticles(${page + 1})" ${page === totalPages ? 'disabled' : ''}>下一页</button>
+    `;
+    
+    container.innerHTML = html;
+}
+
+// 筛选文章
+function filterArticles() {
+    const select = document.getElementById('category-filter');
+    if (select) {
+        currentCategory = select.value;
+        loadArticles(1);
+    }
+}
+
+// 搜索文章
+function searchArticles() {
+    const input = document.getElementById('article-search');
+    if (input) {
+        currentSearch = input.value.trim();
+        loadArticles(1);
+    }
+}
+
+// 搜索框回车
+function handleSearchKeyup(event) {
+    if (event.key === 'Enter') {
+        searchArticles();
+    }
+}
+
+// 显示文章详情
+async function showArticleDetail(articleId) {
+    const modal = document.getElementById('article-detail-modal');
+    const container = document.getElementById('article-detail-container');
+    
+    if (!modal || !container) return;
+    
+    modal.style.display = 'block';
+    container.innerHTML = `
+        <div class="article-loading">
+            <span class="loading-spinner"></span>
+            <p>正在加载文章...</p>
+        </div>
+    `;
+    
+    try {
+        const headers = {};
+        if (userToken) {
+            headers['Authorization'] = `Bearer ${userToken}`;
+        }
+        
+        const response = await fetch(`${API_BASE}/api/articles/${articleId}`, { headers });
+        const data = await response.json();
+        
+        if (data.success) {
+            const article = data.article;
+            const categoryObj = articleCategories.find(c => c.id === article.category);
+            const categoryName = categoryObj ? `${categoryObj.icon} ${categoryObj.name}` : article.category;
+            
+            // 使用 marked 渲染 Markdown
+            let contentHtml = article.content;
+            if (typeof marked !== 'undefined') {
+                contentHtml = marked.parse(article.content);
+            }
+            
+            // 判断是否可以编辑/删除
+            const canEdit = currentUser && (currentUser.id === article.authorId || currentUser.role === 'admin');
+            
+            container.innerHTML = `
+                <div class="article-detail">
+                    <div class="article-detail-header">
+                        <h1 class="article-detail-title">${escapeHtml(article.title)}</h1>
+                        <div class="article-detail-meta">
+                            <div class="article-detail-author">
+                                <img src="${article.authorAvatar || generateRandomAvatar(article.authorName)}" alt="" class="article-detail-author-avatar">
+                                <div class="article-detail-author-info">
+                                    <span class="article-detail-author-name">${escapeHtml(article.authorName)}</span>
+                                    <span class="article-detail-date">${formatDate(article.publishedAt || article.createdAt)}</span>
+                                </div>
+                            </div>
+                            <span class="article-category">${categoryName}</span>
+                            <div class="article-detail-stats">
+                                <span>👁️ ${article.views || 0} 次浏览</span>
+                            </div>
+                        </div>
+                    </div>
+                    ${article.cover ? `<img src="${article.cover}" alt="" class="article-detail-cover">` : ''}
+                    <div class="article-detail-content">${contentHtml}</div>
+                    ${article.tags && article.tags.length > 0 ? `
+                        <div class="article-detail-tags">
+                            ${article.tags.map(tagId => {
+                                const tag = articleTags.find(t => t.id === tagId);
+                                return tag ? `<span class="article-tag" style="background: ${tag.color}20; color: ${tag.color}">${tag.name}</span>` : '';
+                            }).join('')}
+                        </div>
+                    ` : ''}
+                    ${canEdit ? `
+                        <div class="article-detail-actions">
+                            <button class="btn-edit-article" onclick="editArticle('${article.id}')">✏️ 编辑</button>
+                            <button class="btn-delete-article" onclick="deleteArticle('${article.id}')">🗑️ 删除</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="article-empty">
+                    <div class="article-empty-icon">❌</div>
+                    <p>${data.message || '文章不存在'}</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('加载文章详情失败:', error);
+        container.innerHTML = `
+            <div class="article-empty">
+                <div class="article-empty-icon">❌</div>
+                <p>网络错误，请稍后重试</p>
+            </div>
+        `;
+    }
+}
+
+// 关闭文章详情
+function closeArticleDetail() {
+    const modal = document.getElementById('article-detail-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// 显示文章编辑器
+function showArticleEditor(article = null) {
+    if (!currentUser) {
+        showLoginModal();
+        return;
+    }
+    
+    const modal = document.getElementById('article-editor-modal');
+    const title = document.getElementById('editor-title');
+    
+    if (!modal) return;
+    
+    // 重置表单
+    document.getElementById('article-form').reset();
+    document.getElementById('article-id').value = '';
+    document.getElementById('selected-tags').innerHTML = '';
+    selectedArticleTags = [];
+    editingArticleId = null;
+    
+    if (article) {
+        // 编辑模式
+        title.textContent = '✏️ 编辑文章';
+        editingArticleId = article.id;
+        document.getElementById('article-id').value = article.id;
+        document.getElementById('article-title-input').value = article.title || '';
+        document.getElementById('article-category-input').value = article.category || 'other';
+        document.getElementById('article-cover-input').value = article.cover || '';
+        document.getElementById('article-summary-input').value = article.summary || '';
+        document.getElementById('article-content-input').value = article.content || '';
+        
+        // 恢复标签
+        if (article.tags && article.tags.length > 0) {
+            selectedArticleTags = [...article.tags];
+            renderSelectedTags();
+        }
+    } else {
+        // 新建模式
+        title.textContent = '✍️ 发布文章';
+    }
+    
+    modal.style.display = 'flex';
+    document.getElementById('editor-error').style.display = 'none';
+}
+
+// 关闭文章编辑器
+function closeArticleEditor() {
+    const modal = document.getElementById('article-editor-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// 添加标签
+function addTag(tagId) {
+    if (!tagId || selectedArticleTags.includes(tagId)) {
+        document.getElementById('tag-selector').value = '';
+        return;
+    }
+    
+    if (selectedArticleTags.length >= 5) {
+        showToast('最多选择5个标签', 'error');
+        document.getElementById('tag-selector').value = '';
+        return;
+    }
+    
+    selectedArticleTags.push(tagId);
+    renderSelectedTags();
+    document.getElementById('tag-selector').value = '';
+}
+
+// 移除标签
+function removeTag(tagId) {
+    selectedArticleTags = selectedArticleTags.filter(t => t !== tagId);
+    renderSelectedTags();
+}
+
+// 渲染已选标签
+function renderSelectedTags() {
+    const container = document.getElementById('selected-tags');
+    if (!container) return;
+    
+    container.innerHTML = selectedArticleTags.map(tagId => {
+        const tag = articleTags.find(t => t.id === tagId);
+        if (!tag) return '';
+        return `
+            <span class="selected-tag" style="background: ${tag.color}">
+                ${tag.name}
+                <button type="button" onclick="removeTag('${tagId}')">&times;</button>
+            </span>
+        `;
+    }).join('');
+}
+
+// 保存文章
+async function saveArticle(status) {
+    if (!currentUser) {
+        showLoginModal();
+        return;
+    }
+    
+    const title = document.getElementById('article-title-input').value.trim();
+    const content = document.getElementById('article-content-input').value.trim();
+    const category = document.getElementById('article-category-input').value;
+    const cover = document.getElementById('article-cover-input').value.trim();
+    const summary = document.getElementById('article-summary-input').value.trim();
+    const errorEl = document.getElementById('editor-error');
+    
+    if (!title) {
+        errorEl.textContent = '请输入文章标题';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    if (!content) {
+        errorEl.textContent = '请输入文章内容';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    const articleData = {
+        title,
+        content,
+        category,
+        cover,
+        summary,
+        tags: selectedArticleTags,
+        status
+    };
+    
+    try {
+        let url = `${API_BASE}/api/articles`;
+        let method = 'POST';
+        
+        if (editingArticleId) {
+            url = `${API_BASE}/api/articles/${editingArticleId}`;
+            method = 'PUT';
+        }
+        
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${userToken}`
+            },
+            body: JSON.stringify(articleData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            closeArticleEditor();
+            loadArticles(1);
+            showToast(data.message || '操作成功');
+            
+            // 如果是从详情页编辑的，关闭详情页
+            closeArticleDetail();
+        } else {
+            errorEl.textContent = data.message || '保存失败';
+            errorEl.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('保存文章失败:', error);
+        errorEl.textContent = '网络错误，请稍后重试';
+        errorEl.style.display = 'block';
+    }
+}
+
+// 编辑文章
+async function editArticle(articleId) {
+    try {
+        const response = await fetch(`${API_BASE}/api/articles/${articleId}`, {
+            headers: {
+                'Authorization': `Bearer ${userToken}`
+            }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            closeArticleDetail();
+            showArticleEditor(data.article);
+        } else {
+            showToast(data.message || '获取文章失败', 'error');
+        }
+    } catch (error) {
+        console.error('获取文章失败:', error);
+        showToast('网络错误，请稍后重试', 'error');
+    }
+}
+
+// 删除文章
+async function deleteArticle(articleId) {
+    if (!confirm('确定要删除这篇文章吗？此操作不可撤销。')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/articles/${articleId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${userToken}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            closeArticleDetail();
+            loadArticles(articlesData.pagination.page);
+            showToast('文章已删除');
+        } else {
+            showToast(data.message || '删除失败', 'error');
+        }
+    } catch (error) {
+        console.error('删除文章失败:', error);
+        showToast('网络错误，请稍后重试', 'error');
+    }
+}
+
+// 显示我的文章
+async function showMyArticles(status = 'published') {
+    closeUserMenu();
+    
+    if (!currentUser) {
+        showLoginModal();
+        return;
+    }
+    
+    const modal = document.getElementById('my-articles-modal');
+    const title = document.getElementById('my-articles-title');
+    const container = document.getElementById('my-articles-container');
+    
+    if (!modal || !container) return;
+    
+    modal.style.display = 'block';
+    title.textContent = status === 'draft' ? '📋 我的草稿' : '📝 我的文章';
+    
+    // 更新标签页状态
+    document.querySelectorAll('.my-articles-tabs .tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`.my-articles-tabs .tab-btn:${status === 'draft' ? 'last-child' : 'first-child'}`)?.classList.add('active');
+    
+    container.innerHTML = `
+        <div class="article-loading">
+            <span class="loading-spinner"></span>
+            <p>正在加载...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/articles/my/list?status=${status}`, {
+            headers: {
+                'Authorization': `Bearer ${userToken}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.articles.length === 0) {
+                container.innerHTML = `
+                    <div class="article-empty">
+                        <div class="article-empty-icon">${status === 'draft' ? '📋' : '📝'}</div>
+                        <p>暂无${status === 'draft' ? '草稿' : '文章'}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = data.articles.map(article => `
+                <div class="my-article-item">
+                    <div class="my-article-info">
+                        <div class="my-article-title">${escapeHtml(article.title)}</div>
+                        <div class="my-article-meta">
+                            <span class="my-article-status ${article.status}">${article.status === 'published' ? '已发布' : '草稿'}</span>
+                            <span>👁️ ${article.views || 0}</span>
+                            <span>📅 ${formatDate(article.updatedAt).split(' ')[0]}</span>
+                        </div>
+                    </div>
+                    <div class="my-article-actions">
+                        <button onclick="viewMyArticle('${article.id}')" title="查看">👁️</button>
+                        <button onclick="editMyArticle('${article.id}')" title="编辑">✏️</button>
+                        <button class="delete-btn" onclick="deleteMyArticle('${article.id}')" title="删除">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = `
+                <div class="article-empty">
+                    <div class="article-empty-icon">❌</div>
+                    <p>${data.message || '加载失败'}</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('加载我的文章失败:', error);
+        container.innerHTML = `
+            <div class="article-empty">
+                <div class="article-empty-icon">❌</div>
+                <p>网络错误，请稍后重试</p>
+            </div>
+        `;
+    }
+}
+
+// 切换我的文章标签页
+function switchMyArticlesTab(status) {
+    showMyArticles(status);
+}
+
+// 关闭我的文章
+function closeMyArticles() {
+    const modal = document.getElementById('my-articles-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// 查看我的文章
+function viewMyArticle(articleId) {
+    closeMyArticles();
+    showArticleDetail(articleId);
+}
+
+// 编辑我的文章
+async function editMyArticle(articleId) {
+    closeMyArticles();
+    await editArticle(articleId);
+}
+
+// 删除我的文章
+async function deleteMyArticle(articleId) {
+    if (!confirm('确定要删除这篇文章吗？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/articles/${articleId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${userToken}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('文章已删除');
+            // 刷新当前标签页
+            const activeTab = document.querySelector('.my-articles-tabs .tab-btn.active');
+            const status = activeTab?.textContent.includes('草稿') ? 'draft' : 'published';
+            showMyArticles(status);
+        } else {
+            showToast(data.message || '删除失败', 'error');
+        }
+    } catch (error) {
+        console.error('删除文章失败:', error);
+        showToast('网络错误，请稍后重试', 'error');
+    }
+}
+
+// Markdown 工具栏操作
+function insertMarkdown(type) {
+    const textarea = document.getElementById('article-content-input');
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selected = text.substring(start, end);
+    
+    let insert = '';
+    let cursorOffset = 0;
+    
+    switch (type) {
+        case 'bold':
+            insert = `**${selected || '粗体文字'}**`;
+            cursorOffset = selected ? insert.length : 2;
+            break;
+        case 'italic':
+            insert = `*${selected || '斜体文字'}*`;
+            cursorOffset = selected ? insert.length : 1;
+            break;
+        case 'heading':
+            insert = `\n## ${selected || '标题'}\n`;
+            cursorOffset = selected ? insert.length : 4;
+            break;
+        case 'link':
+            insert = `[${selected || '链接文字'}](url)`;
+            cursorOffset = selected ? insert.length - 5 : 1;
+            break;
+        case 'image':
+            insert = `![${selected || '图片描述'}](图片URL)`;
+            cursorOffset = selected ? insert.length - 6 : 2;
+            break;
+        case 'code':
+            insert = selected.includes('\n') ? `\n\`\`\`\n${selected || '代码'}\n\`\`\`\n` : `\`${selected || '代码'}\``;
+            cursorOffset = selected ? insert.length : 1;
+            break;
+        case 'quote':
+            insert = `\n> ${selected || '引用内容'}\n`;
+            cursorOffset = selected ? insert.length : 2;
+            break;
+        case 'list':
+            insert = `\n- ${selected || '列表项'}\n`;
+            cursorOffset = selected ? insert.length : 2;
+            break;
+    }
+    
+    textarea.value = text.substring(0, start) + insert + text.substring(end);
+    textarea.focus();
+    textarea.selectionStart = textarea.selectionEnd = start + cursorOffset;
+}
+
+// HTML 转义
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 页面加载完成后初始化文章系统
+document.addEventListener('DOMContentLoaded', () => {
+    // 初始化用户认证
+    initUserAuth();
+    
+    // 加载文章分类和标签
+    loadArticleCategories();
+    loadArticleTags();
+    
+    // 加载文章列表
+    setTimeout(() => {
+        loadArticles(1);
+    }, 100);
+    
+    // 点击弹窗外部关闭
+    document.getElementById('login-modal')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('auth-modal')) closeLoginModal();
+    });
+    
+    document.getElementById('register-modal')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('auth-modal')) closeRegisterModal();
+    });
+    
+    document.getElementById('user-profile-modal')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('auth-modal')) closeUserProfile();
+    });
+    
+    document.getElementById('article-detail-modal')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('detail-modal')) closeArticleDetail();
+    });
+    
+    document.getElementById('my-articles-modal')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('my-articles-modal')) closeMyArticles();
+    });
+});
+
