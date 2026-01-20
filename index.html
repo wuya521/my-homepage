@@ -393,17 +393,18 @@
             <form id="article-form" class="editor-form">
                 <input type="hidden" id="article-id">
                 <div class="form-group">
+                    <label for="article-title-input">文章标题</label>
                     <input type="text" id="article-title-input" placeholder="请输入文章标题..." class="editor-title-input" required maxlength="100">
                 </div>
                 <div class="form-row">
                     <div class="form-group half">
-                        <label>分类</label>
+                        <label for="article-category-input">分类</label>
                         <select id="article-category-input" class="editor-select">
                             <!-- 分类选项将通过 JS 动态加载 -->
                         </select>
                     </div>
                     <div class="form-group half">
-                        <label>标签</label>
+                        <label for="tag-selector">标签</label>
                         <div id="article-tags-input" class="tags-input-wrapper">
                             <div id="selected-tags" class="selected-tags"></div>
                             <select id="tag-selector" class="editor-select" onchange="addTag(this.value)">
@@ -414,15 +415,15 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>封面图片 URL（可选）</label>
+                    <label for="article-cover-input">封面图片 URL（可选）</label>
                     <input type="url" id="article-cover-input" placeholder="https://example.com/image.jpg" class="editor-input">
                 </div>
                 <div class="form-group">
-                    <label>摘要（可选）</label>
+                    <label for="article-summary-input">摘要（可选）</label>
                     <textarea id="article-summary-input" placeholder="简短描述文章内容..." class="editor-textarea" rows="2" maxlength="300"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>正文（支持 Markdown）</label>
+                    <label for="article-content-input">正文（支持 Markdown）</label>
                     <div class="editor-toolbar">
                         <button type="button" onclick="insertMarkdown('bold')" title="粗体">B</button>
                         <button type="button" onclick="insertMarkdown('italic')" title="斜体">I</button>

@@ -118,6 +118,37 @@ function generateRandomAvatar(name = '') {
     return `https://api.dicebear.com/7.x/${style}/svg?${params.toString()}`;
 }
 
+// 安全的图片URL生成函数，添加错误处理
+function safeImageSrc(url, fallback = null, seed = null) {
+    if (!url || !url.trim()) {
+        return fallback || generateRandomAvatar(seed || 'default');
+    }
+    // 如果URL包含占位符或无效，使用默认头像
+    if (url.includes('placeholder') || url.includes('undefined') || url.includes('null')) {
+        return fallback || generateRandomAvatar(seed || 'default');
+    }
+    return url;
+}
+
+// 为图片元素添加错误处理
+function setupImageErrorHandler(imgElement, fallbackUrl, seed = null) {
+    if (!imgElement) return;
+    
+    const defaultFallback = fallbackUrl || generateRandomAvatar(seed || 'default');
+    
+    imgElement.onerror = function() {
+        if (this.src !== defaultFallback) {
+            this.src = defaultFallback;
+            this.onerror = null; // 防止无限循环
+        }
+    };
+    
+    // 添加 crossorigin 属性以支持 CORS
+    if (imgElement.src && !imgElement.src.startsWith('data:') && !imgElement.src.startsWith('blob:')) {
+        imgElement.crossOrigin = 'anonymous';
+    }
+}
+
 // 加载个人资料
 async function loadProfile() {
     try {
@@ -129,12 +160,9 @@ async function loadProfile() {
             // 更新头像（如果没有设置头像，使用随机生成）
             const avatarEl = document.getElementById('avatar');
             if (avatarEl) {
-                if (profile.avatar && profile.avatar.trim() && !profile.avatar.includes('placeholder')) {
-                    avatarEl.src = profile.avatar;
-                } else {
-                    // 使用名字生成随机头像
-                    avatarEl.src = generateRandomAvatar(profile.name || profile.email);
-                }
+                const avatarUrl = safeImageSrc(profile.avatar, null, profile.name || profile.email);
+                avatarEl.src = avatarUrl;
+                setupImageErrorHandler(avatarEl, generateRandomAvatar(profile.name || profile.email), profile.name || profile.email);
             }
 
             // 更新名字
@@ -3409,7 +3437,9 @@ function updateUserUI() {
         
         if (headerNickname) headerNickname.textContent = currentUser.nickname;
         if (headerAvatar) {
-            headerAvatar.src = currentUser.avatar || generateRandomAvatar(currentUser.email);
+            const headerAvatarUrl = safeImageSrc(currentUser.avatar, null, currentUser.email);
+            headerAvatar.src = headerAvatarUrl;
+            setupImageErrorHandler(headerAvatar, generateRandomAvatar(currentUser.email), currentUser.email);
         }
         
         // 更新 profile-card 显示当前用户信息
@@ -3418,7 +3448,11 @@ function updateUserUI() {
         const avatarEl = document.getElementById('avatar');
         if (nameEl) nameEl.textContent = currentUser.nickname || currentUser.email;
         if (bioEl) bioEl.textContent = currentUser.bio || '这个人很懒，什么都没写~';
-        if (avatarEl) avatarEl.src = currentUser.avatar || generateRandomAvatar(currentUser.email);
+        if (avatarEl) {
+            const avatarUrl = safeImageSrc(currentUser.avatar, null, currentUser.email);
+            avatarEl.src = avatarUrl;
+            setupImageErrorHandler(avatarEl, generateRandomAvatar(currentUser.email), currentUser.email);
+        }
         
         // 加载用户统计信息
         loadUserStats();
@@ -4116,13 +4150,13 @@ function renderArticles() {
                 ${isHeated && !isPinned ? '<span class="article-badge heated">🔥 加热中</span>' : ''}
                 ${isHot && !isPinned && !isHeated ? '<span class="article-badge hot">🔥 火爆</span>' : ''}
                 ${isRecommend && !isPinned && !isHeated && !isHot ? '<span class="article-badge recommend">📌 推荐</span>' : ''}
-                ${article.cover ? `<img src="${article.cover}" alt="" class="article-cover">` : ''}
+                ${article.cover ? `<img src="${safeImageSrc(article.cover, null, article.id)}" alt="" class="article-cover" crossorigin="anonymous" onerror="this.onerror=null; this.style.display='none';">` : ''}
                 <div class="article-info">
                     <h3 class="article-title ${isHeated ? 'golden-text' : ''}">${escapeHtml(article.title)}</h3>
                     <p class="article-summary">${escapeHtml(article.summary)}</p>
                     <div class="article-meta">
                         <div class="article-author" onclick="event.stopPropagation(); showAuthorPage('${article.authorId}')" style="cursor: pointer;" title="查看作者主页">
-                            <img src="${article.authorAvatar || generateRandomAvatar(article.authorName)}" alt="" class="article-author-avatar">
+                            <img src="${safeImageSrc(article.authorAvatar, generateRandomAvatar(article.authorName), article.authorName)}" alt="" class="article-author-avatar" crossorigin="anonymous" onerror="this.onerror=null; this.src='${generateRandomAvatar(article.authorName)}';">
                             <span class="article-author-name ${article.authorVerified ? 'golden-text' : ''}">${escapeHtml(article.authorName)}</span>
                             ${article.authorVerified ? '<span class="verified-badge" title="金V认证">✓</span>' : ''}
                         </div>
@@ -4288,7 +4322,7 @@ async function showArticleDetail(articleId) {
                         <h1 class="article-detail-title ${isHeated ? 'golden-text' : ''}">${escapeHtml(article.title)}</h1>
                         <div class="article-detail-meta">
                             <div class="article-detail-author" onclick="showAuthorPage('${article.authorId}')" style="cursor: pointer;">
-                                <img src="${article.authorAvatar || generateRandomAvatar(article.authorName)}" alt="" class="article-detail-author-avatar">
+                                <img src="${safeImageSrc(article.authorAvatar, generateRandomAvatar(article.authorName), article.authorName)}" alt="" class="article-detail-author-avatar" crossorigin="anonymous" onerror="this.onerror=null; this.src='${generateRandomAvatar(article.authorName)}';">
                                 <div class="article-detail-author-info">
                                     <span class="article-detail-author-name ${article.authorVerified ? 'golden-text' : ''}">${escapeHtml(article.authorName)}</span>
                                     ${article.authorVerified ? '<span class="verified-badge">✓</span>' : ''}
@@ -4302,7 +4336,7 @@ async function showArticleDetail(articleId) {
                             </div>
                         </div>
                     </div>
-                    ${article.cover ? `<img src="${article.cover}" alt="" class="article-detail-cover">` : ''}
+                    ${article.cover ? `<img src="${safeImageSrc(article.cover, null, article.id)}" alt="" class="article-detail-cover" crossorigin="anonymous" onerror="this.onerror=null; this.style.display='none';">` : ''}
                     <div class="article-detail-content">${contentHtml}</div>
                     ${article.tags && article.tags.length > 0 ? `
                         <div class="article-detail-tags">
@@ -4995,7 +5029,12 @@ async function showAuthorPage(authorId) {
             const user = userData.user;
             document.getElementById('author-page-name').textContent = user.nickname || '匿名用户';
             document.getElementById('author-page-bio').textContent = user.bio || '这个人很懒，什么都没写~';
-            document.getElementById('author-page-avatar').src = user.avatar || generateRandomAvatar(user.email || user.id);
+            const authorAvatarUrl = safeImageSrc(user.avatar, generateRandomAvatar(user.email || user.id), user.email || user.id);
+            const authorAvatarEl = document.getElementById('author-page-avatar');
+            if (authorAvatarEl) {
+                authorAvatarEl.src = authorAvatarUrl;
+                setupImageErrorHandler(authorAvatarEl, generateRandomAvatar(user.email || user.id), user.email || user.id);
+            }
             document.getElementById('author-join-date').textContent = `加入于 ${formatDate(user.createdAt).split(' ')[0]}`;
         }
         
