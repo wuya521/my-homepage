@@ -123,50 +123,54 @@ async function loadProfile() {
     try {
         const profile = await apiRequest('/api/profile');
         
-        // 更新头像（如果没有设置头像，使用随机生成）
-        const avatarEl = document.getElementById('avatar');
-        if (avatarEl) {
-            if (profile.avatar && profile.avatar.trim() && !profile.avatar.includes('placeholder')) {
-                avatarEl.src = profile.avatar;
-            } else {
-                // 使用名字生成随机头像
-                avatarEl.src = generateRandomAvatar(profile.name || profile.email);
+        // 如果用户已登录，不更新 profile-card 中的用户信息（头像、名字、简介）
+        // 这些信息由 updateUserUI 根据 currentUser 更新
+        if (!currentUser) {
+            // 更新头像（如果没有设置头像，使用随机生成）
+            const avatarEl = document.getElementById('avatar');
+            if (avatarEl) {
+                if (profile.avatar && profile.avatar.trim() && !profile.avatar.includes('placeholder')) {
+                    avatarEl.src = profile.avatar;
+                } else {
+                    // 使用名字生成随机头像
+                    avatarEl.src = generateRandomAvatar(profile.name || profile.email);
+                }
             }
-        }
 
-        // 更新名字
-        const nameEl = document.getElementById('name');
-        if (nameEl && profile.name) {
-            nameEl.textContent = profile.name;
-        }
+            // 更新名字
+            const nameEl = document.getElementById('name');
+            if (nameEl && profile.name) {
+                nameEl.textContent = profile.name;
+            }
 
-        // 更新简介
-        const bioEl = document.getElementById('bio');
-        if (bioEl && profile.bio) {
-            bioEl.textContent = profile.bio;
-        }
+            // 更新简介
+            const bioEl = document.getElementById('bio');
+            if (bioEl && profile.bio) {
+                bioEl.textContent = profile.bio;
+            }
 
-        // 更新社交链接
-        updateSocialLink('email-link', profile.email, `mailto:${profile.email}`);
-        updateSocialLink('github-link', profile.github, profile.github);
-        updateSocialLink('twitter-link', profile.twitter, profile.twitter);
-        updateSocialLink('website-link', profile.website, profile.website);
+            // 更新社交链接
+            updateSocialLink('email-link', profile.email, `mailto:${profile.email}`);
+            updateSocialLink('github-link', profile.github, profile.github);
+            updateSocialLink('twitter-link', profile.twitter, profile.twitter);
+            updateSocialLink('website-link', profile.website, profile.website);
 
-        // 检查并显示金V认证标识
-        if (profile.email) {
-            await checkAndShowGoldVerified(profile.email);
-            // 检查并显示VIP状态
-            await checkAndShowVipStatus(profile.email);
-            // 加载用户勋章
-            await loadUserBadges(profile.email);
-            // 加载用户等级
-            await loadUserLevel(profile.email);
-        } else {
-            // 即使没有邮箱，也显示VIP状态为未开通
-            const vipStatusText = document.querySelector('#vip-status-info .vip-status-text');
-            if (vipStatusText) {
-                vipStatusText.textContent = '未开通';
-                vipStatusText.className = 'vip-status-text';
+            // 检查并显示金V认证标识
+            if (profile.email) {
+                await checkAndShowGoldVerified(profile.email);
+                // 检查并显示VIP状态
+                await checkAndShowVipStatus(profile.email);
+                // 加载用户勋章
+                await loadUserBadges(profile.email);
+                // 加载用户等级
+                await loadUserLevel(profile.email);
+            } else {
+                // 即使没有邮箱，也显示VIP状态为未开通
+                const vipStatusText = document.querySelector('#vip-status-info .vip-status-text');
+                if (vipStatusText) {
+                    vipStatusText.textContent = '未开通';
+                    vipStatusText.className = 'vip-status-text';
+                }
             }
         }
 
@@ -3164,7 +3168,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } else if (isIndexPage) {
         // 主页初始化
-        loadProfile();
+        // 先初始化用户认证状态，然后再加载 profile（这样 loadProfile 可以检查 currentUser）
+        initUserAuth().then(() => {
+            loadProfile();
+        });
         loadAnnouncement();
         loadFeaturedUsers();
         loadAdvertisements();
@@ -4620,7 +4627,7 @@ function showHeatModal(articleId, config) {
                     </button>
                 </div>
                 <div class="heat-custom">
-                    <label>自定义时长（${config.minHours}-${config.maxHours}小时）</label>
+                    <label for="heat-custom-hours">自定义时长（${config.minHours}-${config.maxHours}小时）</label>
                     <div class="heat-custom-input">
                         <input type="number" id="heat-custom-hours" min="${config.minHours}" max="${config.maxHours}" value="24">
                         <span>小时</span>
