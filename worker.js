@@ -810,28 +810,45 @@ async function handleRequest(request, env) {
       return jsonResponse({ isVip: false });
     }
 
-    const vipData = await env.MY_HOME_KV.get(STORAGE_KEYS.VIP_USERS);
-    const vipUsers = vipData ? JSON.parse(vipData) : [];
+    // 从 USERS 中读取VIP状态（新方式）
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const user = users.find(u => u.email === email);
     
-    const vipUser = vipUsers.find(u => u.email === email);
-    
-    if (!vipUser) {
+    if (!user || !user.vip || !user.vip.level) {
       return jsonResponse({ isVip: false });
     }
 
     // 检查是否过期
-    const now = new Date();
-    const expiryDate = new Date(vipUser.expiryDate);
-    
-    if (now > expiryDate) {
-      return jsonResponse({ isVip: false, expired: true });
-    }
+    if (user.vip.expireAt) {
+      const now = new Date();
+      let expiryDate;
+      
+      // 处理日期格式：可能是 YYYY-MM-DD 或 ISO 字符串
+      if (user.vip.expireAt.includes('T')) {
+        expiryDate = new Date(user.vip.expireAt);
+      } else {
+        // YYYY-MM-DD 格式，设置为当天的23:59:59
+        expiryDate = new Date(user.vip.expireAt + 'T23:59:59');
+      }
+      
+      if (now > expiryDate) {
+        return jsonResponse({ isVip: false, expired: true });
+      }
 
-    return jsonResponse({ 
-      isVip: true, 
-      level: vipUser.level,
-      expiryDate: vipUser.expiryDate
-    });
+      return jsonResponse({ 
+        isVip: true, 
+        level: user.vip.level,
+        expiryDate: user.vip.expireAt
+      });
+    } else {
+      // 永久VIP
+      return jsonResponse({ 
+        isVip: true, 
+        level: user.vip.level,
+        expiryDate: null
+      });
+    }
   }
 
   // 检查用户认证状态
@@ -841,15 +858,15 @@ async function handleRequest(request, env) {
       return jsonResponse({ isVerified: false });
     }
 
-    const verifiedData = await env.MY_HOME_KV.get(STORAGE_KEYS.VERIFIED_USERS);
-    const verifiedUsers = verifiedData ? JSON.parse(verifiedData) : [];
+    // 从 USERS 中读取认证状态（新方式）
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const user = users.find(u => u.email === email);
     
-    const verifiedUser = verifiedUsers.find(u => u.email === email);
-    
-    if (verifiedUser) {
+    if (user && user.verified) {
       return jsonResponse({ 
         isVerified: true,
-        name: verifiedUser.name || '认证用户'
+        name: user.nickname || '认证用户'
       });
     }
     
@@ -1273,6 +1290,93 @@ async function handleRequest(request, env) {
       return jsonResponse({ success: false, message: '请填写邮箱和密码' }, 400);
     }
 
+    // 首先检查是否是admin账号尝试登录前端
+    const adminData = await env.MY_HOME_KV.get(STORAGE_KEYS.ADMIN);
+    if (adminData) {
+      const admin = JSON.parse(adminData);
+      // 如果使用admin账号登录，检查是否需要创建前端账号
+      if (email === admin.username || email === 'admin@admin.com') {
+        if (password === admin.password) {
+          // Admin账号登录，检查是否已有对应的前端账号
+          const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+          const users = usersData ? JSON.parse(usersData) : [];
+          
+          // 查找admin对应的前端账号（使用admin@admin.com作为邮箱）
+          let adminUser = users.find(u => u.email === 'admin@admin.com' || (u.role === 'admin' && u.email.includes('admin')));
+          
+          if (!adminUser) {
+            // 自动创建admin的前端账号
+            const hashedPassword = await hashPassword(password);
+            adminUser = {
+              id: 'admin_' + Date.now().toString(36),
+              email: 'admin@admin.com',
+              password: hashedPassword,
+              nickname: '管理员',
+              avatar: '',
+              bio: '系统管理员',
+              role: 'admin',
+              status: 'active',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              articleCount: 0,
+              lastLoginAt: new Date().toISOString(),
+              coins: 10000, // Admin初始积分更多
+              level: 10, // Admin初始等级更高
+              exp: 0,
+              totalExp: 0,
+              checkinCount: 0,
+              lastCheckin: null,
+              vip: null,
+              verified: true, // Admin自动获得认证
+              verifiedAt: new Date().toISOString(),
+              badges: [],
+              heatQuota: 999 // Admin无限加热次数
+            };
+            users.push(adminUser);
+            await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+          } else {
+            // 更新最后登录时间
+            const userIndex = users.findIndex(u => u.id === adminUser.id);
+            users[userIndex].lastLoginAt = new Date().toISOString();
+            await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+          }
+
+          // 创建会话
+          const token = generateSessionToken();
+          const sessionsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_SESSIONS);
+          const sessions = sessionsData ? JSON.parse(sessionsData) : [];
+          
+          // 清除该用户的旧会话
+          const filteredSessions = sessions.filter(s => s.userId !== adminUser.id);
+          filteredSessions.push({
+            token,
+            email: adminUser.email,
+            userId: adminUser.id,
+            createdAt: new Date().toISOString()
+          });
+          
+          await env.MY_HOME_KV.put(STORAGE_KEYS.USER_SESSIONS, JSON.stringify(filteredSessions));
+
+          return jsonResponse({
+            success: true,
+            message: '登录成功',
+            token,
+            user: {
+              id: adminUser.id,
+              email: adminUser.email,
+              nickname: adminUser.nickname,
+              avatar: adminUser.avatar,
+              bio: adminUser.bio,
+              role: adminUser.role
+            }
+          });
+        } else {
+          return jsonResponse({ success: false, message: '密码错误' }, 400);
+        }
+      }
+    }
+
+    // 普通用户登录流程
     const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
     const users = usersData ? JSON.parse(usersData) : [];
 
