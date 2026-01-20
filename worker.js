@@ -1301,14 +1301,25 @@ async function handleRequest(request, env) {
     if (adminData && (email === 'admin@admin.com' || email === 'admin')) {
       const admin = JSON.parse(adminData);
       
+      // 从PROFILE中读取管理员个人资料信息
+      const profileData = await env.MY_HOME_KV.get(STORAGE_KEYS.PROFILE);
+      const profile = profileData ? JSON.parse(profileData) : {};
+      
       if (adminUser) {
         // 如果admin前端账号已存在，使用hash密码验证
         const hashedPassword = await hashPassword(password);
         if (adminUser.password === hashedPassword) {
-          // 密码正确，更新最后登录时间
+          // 密码正确，同步PROFILE信息到admin账号
           const userIndex = users.findIndex(u => u.id === adminUser.id);
+          if (profile.name) users[userIndex].nickname = profile.name;
+          if (profile.avatar) users[userIndex].avatar = profile.avatar;
+          if (profile.bio) users[userIndex].bio = profile.bio;
           users[userIndex].lastLoginAt = new Date().toISOString();
+          users[userIndex].updatedAt = new Date().toISOString();
           await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+          
+          // 更新adminUser对象以返回最新信息
+          adminUser = users[userIndex];
           
           // 创建会话
           const token = generateSessionToken();
@@ -1342,12 +1353,19 @@ async function handleRequest(request, env) {
         } else {
           // 如果hash密码不匹配，尝试使用admin明文密码验证（首次创建时）
           if (password === admin.password) {
-            // 更新admin前端账号的密码为hash密码
+            // 更新admin前端账号的密码为hash密码，并同步PROFILE信息
             const hashedPassword = await hashPassword(password);
             const userIndex = users.findIndex(u => u.id === adminUser.id);
             users[userIndex].password = hashedPassword;
+            if (profile.name) users[userIndex].nickname = profile.name;
+            if (profile.avatar) users[userIndex].avatar = profile.avatar;
+            if (profile.bio) users[userIndex].bio = profile.bio;
             users[userIndex].lastLoginAt = new Date().toISOString();
+            users[userIndex].updatedAt = new Date().toISOString();
             await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+            
+            // 更新adminUser对象以返回最新信息
+            adminUser = users[userIndex];
             
             // 创建会话
             const token = generateSessionToken();
@@ -1382,17 +1400,17 @@ async function handleRequest(request, env) {
           }
         }
       } else {
-        // Admin前端账号不存在，使用admin明文密码创建
+        // Admin前端账号不存在，使用admin明文密码创建，并从PROFILE读取信息
         if (password === admin.password) {
-          // 自动创建admin的前端账号
+          // 自动创建admin的前端账号，使用PROFILE中的信息
           const hashedPassword = await hashPassword(password);
           adminUser = {
             id: 'admin_' + Date.now().toString(36),
             email: 'admin@admin.com',
             password: hashedPassword,
-            nickname: '管理员',
-            avatar: '',
-            bio: '系统管理员',
+            nickname: profile.name || '管理员',
+            avatar: profile.avatar || '',
+            bio: profile.bio || '系统管理员',
             role: 'admin',
             status: 'active',
             createdAt: new Date().toISOString(),
@@ -1543,6 +1561,42 @@ async function handleRequest(request, env) {
     
     if (!user) {
       return jsonResponse({ success: false, message: '未登录', isLoggedIn: false }, 401);
+    }
+
+    // 如果是admin账号，从PROFILE中同步最新信息
+    if (user.role === 'admin' && (user.email === 'admin@admin.com' || user.email.includes('admin'))) {
+      const profileData = await env.MY_HOME_KV.get(STORAGE_KEYS.PROFILE);
+      const profile = profileData ? JSON.parse(profileData) : {};
+      
+      // 如果PROFILE中有更新，同步到用户账号
+      const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+      const users = usersData ? JSON.parse(usersData) : [];
+      const userIndex = users.findIndex(u => u.id === user.id);
+      
+      if (userIndex !== -1) {
+        let updated = false;
+        if (profile.name && users[userIndex].nickname !== profile.name) {
+          users[userIndex].nickname = profile.name;
+          updated = true;
+        }
+        if (profile.avatar && users[userIndex].avatar !== profile.avatar) {
+          users[userIndex].avatar = profile.avatar;
+          updated = true;
+        }
+        if (profile.bio && users[userIndex].bio !== profile.bio) {
+          users[userIndex].bio = profile.bio;
+          updated = true;
+        }
+        
+        if (updated) {
+          users[userIndex].updatedAt = new Date().toISOString();
+          await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+          // 更新user对象以返回最新信息
+          user.nickname = users[userIndex].nickname;
+          user.avatar = users[userIndex].avatar;
+          user.bio = users[userIndex].bio;
+        }
+      }
     }
 
     return jsonResponse({
@@ -3184,17 +3238,53 @@ async function handleRequest(request, env) {
     const today = new Date().toISOString().split('T')[0];
     const canCheckin = userData.lastCheckin !== today;
 
-    // 计算下一级需要的经验
-    const currentLevel = userData.level || 1;
-    const nextLevelExp = Math.pow(currentLevel, 2) * 50;
+    // 优先从 USER_LEVELS 读取等级和经验（新系统）
+    const userLevelsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_LEVELS);
+    const userLevels = userLevelsData ? JSON.parse(userLevelsData) : [];
+    const userLevel = userLevels.find(ul => ul.email === userData.email);
+    
+    const levelConfigData = await env.MY_HOME_KV.get(STORAGE_KEYS.LEVEL_CONFIG);
+    const levelConfig = levelConfigData ? JSON.parse(levelConfigData) : { levels: [] };
+    
+    let currentLevel = userData.level || 1;
+    let currentExp = userData.exp || 0;
+    let nextLevelExp = 100;
+    
+    if (userLevel) {
+      // 使用新系统的等级和经验
+      currentLevel = userLevel.level || 1;
+      currentExp = userLevel.exp || 0;
+      
+      // 使用等级配置计算下一级所需经验
+      const levels = levelConfig.levels || [];
+      const isNewFormat = levels.length > 0 && levels[0].required_xp !== undefined;
+      
+      if (isNewFormat) {
+        // 找到当前等级对应的配置
+        const currentLevelData = levels.find(l => l.level === currentLevel);
+        if (currentLevelData) {
+          // 找到下一级
+          const nextLevelData = levels.find(l => l.level === currentLevel + 1);
+          if (nextLevelData) {
+            nextLevelExp = nextLevelData.required_xp;
+          } else {
+            // 最高级，使用当前级所需经验 + 500
+            nextLevelExp = currentLevelData.required_xp + 500;
+          }
+        }
+      }
+    } else {
+      // 使用旧系统的计算方式
+      nextLevelExp = Math.pow(currentLevel, 2) * 50;
+    }
 
     return jsonResponse({
       success: true,
       stats: {
         coins: userData.coins || 0,
         level: currentLevel,
-        exp: userData.exp || 0,
-        totalExp: userData.totalExp || 0,
+        exp: currentExp,
+        totalExp: userData.totalExp || currentExp,
         nextLevelExp,
         checkinCount: userData.checkinCount || 0,
         lastCheckin: userData.lastCheckin,
@@ -3987,6 +4077,7 @@ async function handleRequest(request, env) {
         exp: parseInt(exp),
         checkinCount: 0
       });
+      newLevel = 1;
     } else {
       oldLevel = userLevels[userIndex].level || 1;
       userLevels[userIndex].exp += parseInt(exp);
@@ -4008,6 +4099,22 @@ async function handleRequest(request, env) {
     }
 
     await env.MY_HOME_KV.put(STORAGE_KEYS.USER_LEVELS, JSON.stringify(userLevels));
+    
+    // 同步更新 STORAGE_KEYS.USERS 中的等级和经验
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    const userInUsers = users.find(u => u.email === email);
+    
+    if (userInUsers) {
+      const userInUsersIndex = users.findIndex(u => u.email === email);
+      const userLevel = userLevels.find(ul => ul.email === email);
+      if (userLevel) {
+        users[userInUsersIndex].level = userLevel.level;
+        users[userInUsersIndex].exp = userLevel.exp;
+        users[userInUsersIndex].totalExp = userLevel.exp; // 同步累计经验
+        await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+      }
+    }
     
     // 如果升级了，创建通知
     if (newLevel > oldLevel) {

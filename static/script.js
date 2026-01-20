@@ -780,15 +780,22 @@ async function loadUserLevel(email) {
         // 获取等级配置以显示等级名称
         let levelTitle = `Lv.${result.level || 1}`;
         try {
-            const levelConfig = await apiRequest('/api/level-config');
-            if (levelConfig.levels && levelConfig.levels.length > 0) {
-                const currentLevelData = levelConfig.levels.find(l => l.level === (result.level || 1));
+            const levelConfigResponse = await apiRequest('/api/level-config');
+            // API返回的数据结构：{ leveling_rule: {...}, levels: [...] }
+            const levelConfig = levelConfigResponse;
+            
+            if (levelConfig && Array.isArray(levelConfig.levels) && levelConfig.levels.length > 0) {
+                const currentLevel = result.level || 1;
+                const currentLevelData = levelConfig.levels.find(l => l.level === currentLevel);
+                
                 if (currentLevelData && currentLevelData.title) {
-                    levelTitle = `${currentLevelData.badge || ''} ${currentLevelData.title}`;
+                    const badge = currentLevelData.badge ? `${currentLevelData.badge} ` : '';
+                    levelTitle = `${badge}${currentLevelData.title}`;
                 }
             }
         } catch (e) {
             // 忽略错误，使用默认显示
+            console.error('获取等级配置失败:', e);
         }
 
         if (levelEl) {
@@ -3492,7 +3499,30 @@ async function loadUserStats() {
             const expProgressEl = document.getElementById('exp-progress');
             const checkinBtn = document.getElementById('checkin-btn');
             
-            if (levelEl) levelEl.textContent = `Lv.${stats.level || 1}`;
+            // 获取等级配置以显示官品
+            let levelTitle = `Lv.${stats.level || 1}`;
+            try {
+                const levelConfigResponse = await apiRequest('/api/level-config');
+                // API返回的数据结构：{ leveling_rule: {...}, levels: [...] }
+                const levelConfig = levelConfigResponse;
+                
+                if (levelConfig && Array.isArray(levelConfig.levels) && levelConfig.levels.length > 0) {
+                    const currentLevel = stats.level || 1;
+                    const currentLevelData = levelConfig.levels.find(l => l.level === currentLevel);
+                    
+                    if (currentLevelData) {
+                        if (currentLevelData.title) {
+                            const badge = currentLevelData.badge ? `${currentLevelData.badge} ` : '';
+                            levelTitle = `${badge}${currentLevelData.title}`;
+                        }
+                    }
+                }
+            } catch (e) {
+                // 忽略错误，使用默认显示
+                console.error('获取等级配置失败:', e);
+            }
+            
+            if (levelEl) levelEl.textContent = levelTitle;
             if (coinsEl) coinsEl.textContent = stats.coins;
             if (currentExpEl) currentExpEl.textContent = stats.exp;
             if (nextLevelExpEl) nextLevelExpEl.textContent = stats.nextLevelExp;
