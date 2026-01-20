@@ -1292,55 +1292,24 @@ async function handleRequest(request, env) {
 
     // 首先检查是否是admin账号尝试登录前端
     const adminData = await env.MY_HOME_KV.get(STORAGE_KEYS.ADMIN);
-    if (adminData) {
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    
+    // 查找admin对应的前端账号（使用admin@admin.com作为邮箱）
+    let adminUser = users.find(u => u.email === 'admin@admin.com' || (u.role === 'admin' && u.email.includes('admin')));
+    
+    if (adminData && (email === 'admin@admin.com' || email === 'admin')) {
       const admin = JSON.parse(adminData);
-      // 如果使用admin账号登录，检查是否需要创建前端账号
-      if (email === admin.username || email === 'admin@admin.com') {
-        if (password === admin.password) {
-          // Admin账号登录，检查是否已有对应的前端账号
-          const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
-          const users = usersData ? JSON.parse(usersData) : [];
+      
+      if (adminUser) {
+        // 如果admin前端账号已存在，使用hash密码验证
+        const hashedPassword = await hashPassword(password);
+        if (adminUser.password === hashedPassword) {
+          // 密码正确，更新最后登录时间
+          const userIndex = users.findIndex(u => u.id === adminUser.id);
+          users[userIndex].lastLoginAt = new Date().toISOString();
+          await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
           
-          // 查找admin对应的前端账号（使用admin@admin.com作为邮箱）
-          let adminUser = users.find(u => u.email === 'admin@admin.com' || (u.role === 'admin' && u.email.includes('admin')));
-          
-          if (!adminUser) {
-            // 自动创建admin的前端账号
-            const hashedPassword = await hashPassword(password);
-            adminUser = {
-              id: 'admin_' + Date.now().toString(36),
-              email: 'admin@admin.com',
-              password: hashedPassword,
-              nickname: '管理员',
-              avatar: '',
-              bio: '系统管理员',
-              role: 'admin',
-              status: 'active',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              articleCount: 0,
-              lastLoginAt: new Date().toISOString(),
-              coins: 10000, // Admin初始积分更多
-              level: 10, // Admin初始等级更高
-              exp: 0,
-              totalExp: 0,
-              checkinCount: 0,
-              lastCheckin: null,
-              vip: null,
-              verified: true, // Admin自动获得认证
-              verifiedAt: new Date().toISOString(),
-              badges: [],
-              heatQuota: 999 // Admin无限加热次数
-            };
-            users.push(adminUser);
-            await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
-          } else {
-            // 更新最后登录时间
-            const userIndex = users.findIndex(u => u.id === adminUser.id);
-            users[userIndex].lastLoginAt = new Date().toISOString();
-            await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
-          }
-
           // 创建会话
           const token = generateSessionToken();
           const sessionsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_SESSIONS);
@@ -1371,15 +1340,115 @@ async function handleRequest(request, env) {
             }
           });
         } else {
+          // 如果hash密码不匹配，尝试使用admin明文密码验证（首次创建时）
+          if (password === admin.password) {
+            // 更新admin前端账号的密码为hash密码
+            const hashedPassword = await hashPassword(password);
+            const userIndex = users.findIndex(u => u.id === adminUser.id);
+            users[userIndex].password = hashedPassword;
+            users[userIndex].lastLoginAt = new Date().toISOString();
+            await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+            
+            // 创建会话
+            const token = generateSessionToken();
+            const sessionsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_SESSIONS);
+            const sessions = sessionsData ? JSON.parse(sessionsData) : [];
+            
+            const filteredSessions = sessions.filter(s => s.userId !== adminUser.id);
+            filteredSessions.push({
+              token,
+              email: adminUser.email,
+              userId: adminUser.id,
+              createdAt: new Date().toISOString()
+            });
+            
+            await env.MY_HOME_KV.put(STORAGE_KEYS.USER_SESSIONS, JSON.stringify(filteredSessions));
+
+            return jsonResponse({
+              success: true,
+              message: '登录成功',
+              token,
+              user: {
+                id: adminUser.id,
+                email: adminUser.email,
+                nickname: adminUser.nickname,
+                avatar: adminUser.avatar,
+                bio: adminUser.bio,
+                role: adminUser.role
+              }
+            });
+          } else {
+            return jsonResponse({ success: false, message: '密码错误' }, 400);
+          }
+        }
+      } else {
+        // Admin前端账号不存在，使用admin明文密码创建
+        if (password === admin.password) {
+          // 自动创建admin的前端账号
+          const hashedPassword = await hashPassword(password);
+          adminUser = {
+            id: 'admin_' + Date.now().toString(36),
+            email: 'admin@admin.com',
+            password: hashedPassword,
+            nickname: '管理员',
+            avatar: '',
+            bio: '系统管理员',
+            role: 'admin',
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            articleCount: 0,
+            lastLoginAt: new Date().toISOString(),
+            coins: 10000, // Admin初始积分更多
+            level: 10, // Admin初始等级更高
+            exp: 0,
+            totalExp: 0,
+            checkinCount: 0,
+            lastCheckin: null,
+            vip: null,
+            verified: true, // Admin自动获得认证
+            verifiedAt: new Date().toISOString(),
+            badges: [],
+            heatQuota: 999 // Admin无限加热次数
+          };
+          users.push(adminUser);
+          await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+          
+          // 创建会话
+          const token = generateSessionToken();
+          const sessionsData = await env.MY_HOME_KV.get(STORAGE_KEYS.USER_SESSIONS);
+          const sessions = sessionsData ? JSON.parse(sessionsData) : [];
+          
+          const filteredSessions = sessions.filter(s => s.userId !== adminUser.id);
+          filteredSessions.push({
+            token,
+            email: adminUser.email,
+            userId: adminUser.id,
+            createdAt: new Date().toISOString()
+          });
+          
+          await env.MY_HOME_KV.put(STORAGE_KEYS.USER_SESSIONS, JSON.stringify(filteredSessions));
+
+          return jsonResponse({
+            success: true,
+            message: '登录成功',
+            token,
+            user: {
+              id: adminUser.id,
+              email: adminUser.email,
+              nickname: adminUser.nickname,
+              avatar: adminUser.avatar,
+              bio: adminUser.bio,
+              role: adminUser.role
+            }
+          });
+        } else {
           return jsonResponse({ success: false, message: '密码错误' }, 400);
         }
       }
     }
 
-    // 普通用户登录流程
-    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
-    const users = usersData ? JSON.parse(usersData) : [];
-
+    // 普通用户登录流程（复用已获取的users数据）
     const hashedPassword = await hashPassword(password);
     const user = users.find(u => u.email === email && u.password === hashedPassword);
 
@@ -3610,37 +3679,48 @@ async function handleRequest(request, env) {
 
   // 获取所有 VIP 用户
   if (path === '/api/admin/vip-users' && method === 'GET') {
-    const vipUsers = await env.MY_HOME_KV.get(STORAGE_KEYS.VIP_USERS);
-    return jsonResponse(vipUsers ? JSON.parse(vipUsers) : []);
+    // 从 USERS 中读取VIP用户（新方式）
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
+    
+    // 筛选出有VIP的用户
+    const vipUsers = users
+      .filter(u => u.vip && u.vip.level)
+      .map(u => ({
+        email: u.email,
+        level: u.vip.level,
+        expiryDate: u.vip.expireAt ? (u.vip.expireAt.includes('T') ? u.vip.expireAt : u.vip.expireAt + 'T23:59:59') : null,
+        createdAt: u.createdAt
+      }));
+    
+    return jsonResponse(vipUsers);
   }
 
   // 添加 VIP 用户
   if (path === '/api/admin/vip-users' && method === 'POST') {
     const { email, level, days } = await request.json();
     
-    const vipData = await env.MY_HOME_KV.get(STORAGE_KEYS.VIP_USERS);
-    const vipUsers = vipData ? JSON.parse(vipData) : [];
+    // 从 USERS 中查找用户并授予VIP（新方式）
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
     
-    // 检查是否已存在
-    const existingIndex = vipUsers.findIndex(u => u.email === email);
+    const userIndex = users.findIndex(u => u.email === email);
     
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + days);
-    
-    const vipUser = {
-      email,
-      level,
-      expiryDate: expiryDate.toISOString(),
-      createdAt: new Date().toISOString()
-    };
-    
-    if (existingIndex !== -1) {
-      vipUsers[existingIndex] = vipUser;
-    } else {
-      vipUsers.push(vipUser);
+    if (userIndex === -1) {
+      return jsonResponse({ success: false, message: '用户不存在，请先注册' }, 404);
     }
     
-    await env.MY_HOME_KV.put(STORAGE_KEYS.VIP_USERS, JSON.stringify(vipUsers));
+    // 计算到期日期
+    let expireAt = null;
+    if (days && days > 0) {
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + days);
+      expireAt = expiryDate.toISOString().split('T')[0]; // YYYY-MM-DD格式
+    }
+    
+    // 授予VIP
+    users[userIndex].vip = { level, expireAt };
+    await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
     
     return jsonResponse({ success: true, message: 'VIP 用户添加成功' });
   }
@@ -3649,11 +3729,16 @@ async function handleRequest(request, env) {
   if (path === '/api/admin/vip-users' && method === 'DELETE') {
     const { email } = await request.json();
     
-    const vipData = await env.MY_HOME_KV.get(STORAGE_KEYS.VIP_USERS);
-    const vipUsers = vipData ? JSON.parse(vipData) : [];
+    // 从 USERS 中取消VIP（新方式）
+    const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
+    const users = usersData ? JSON.parse(usersData) : [];
     
-    const filteredUsers = vipUsers.filter(u => u.email !== email);
-    await env.MY_HOME_KV.put(STORAGE_KEYS.VIP_USERS, JSON.stringify(filteredUsers));
+    const userIndex = users.findIndex(u => u.email === email);
+    
+    if (userIndex !== -1) {
+      users[userIndex].vip = null;
+      await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
+    }
     
     return jsonResponse({ success: true, message: 'VIP 用户已删除' });
   }
