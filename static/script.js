@@ -193,12 +193,10 @@ async function loadProfile() {
             // 加载用户等级
             await loadUserLevel(profile.email);
         } else {
-            // 即使没有邮箱，也显示VIP状态为未开通
-            const vipStatusText = document.querySelector('#vip-status-info .vip-status-text');
-            if (vipStatusText) {
-                vipStatusText.textContent = '未开通';
-                vipStatusText.className = 'vip-status-text';
-                }
+            // 没有邮箱时，隐藏VIP卡片区域
+            const vipCardSection = document.querySelector('.vip-card-section');
+            if (vipCardSection) {
+                vipCardSection.style.display = 'none';
             }
         }
 
@@ -662,13 +660,35 @@ async function handleRedeemSubmit(e) {
 async function checkAndShowVipStatus(email) {
     try {
         const result = await apiRequest(`/api/vip/check?email=${encodeURIComponent(email)}`);
+        const vipCardSection = document.querySelector('.vip-card-section');
         const vipStatusEl = document.getElementById('vip-status-info');
         const vipStatusText = vipStatusEl?.querySelector('.vip-status-text');
         
+        // 如果没有VIP，隐藏整个VIP卡片区域
+        if (!result.isVip) {
+            if (vipCardSection) {
+                vipCardSection.style.display = 'none';
+            }
+            return;
+        }
+        
+        // 有VIP，显示VIP卡片区域
+        if (vipCardSection) {
+            vipCardSection.style.display = 'block';
+        }
+        
         if (!vipStatusEl || !vipStatusText) return;
         
-        if (result.isVip) {
-            const expiryDate = new Date(result.expiryDate);
+        if (result.expiryDate) {
+            // 解析日期，支持多种格式
+            let expiryDate;
+            if (result.expiryDate.includes('T')) {
+                expiryDate = new Date(result.expiryDate);
+            } else {
+                // YYYY-MM-DD 格式，设置为当天的23:59:59
+                expiryDate = new Date(result.expiryDate + 'T23:59:59');
+            }
+            
             const now = new Date();
             const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
             
@@ -680,11 +700,17 @@ async function checkAndShowVipStatus(email) {
                 vipStatusText.className = 'vip-status-text expired';
             }
         } else {
-            vipStatusText.textContent = '未开通';
-            vipStatusText.className = 'vip-status-text';
+            // 永久VIP
+            vipStatusText.textContent = `${result.level} · 永久有效`;
+            vipStatusText.className = 'vip-status-text active';
         }
     } catch (error) {
         console.error('检查VIP状态失败:', error);
+        // 出错时也隐藏VIP卡片区域
+        const vipCardSection = document.querySelector('.vip-card-section');
+        if (vipCardSection) {
+            vipCardSection.style.display = 'none';
+        }
     }
 }
 

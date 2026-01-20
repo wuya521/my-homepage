@@ -823,23 +823,44 @@ async function handleRequest(request, env) {
     if (user.vip.expireAt) {
       const now = new Date();
       let expiryDate;
+      let dateStr = user.vip.expireAt;
       
-      // 处理日期格式：可能是 YYYY-MM-DD 或 ISO 字符串
-      if (user.vip.expireAt.includes('T')) {
-        expiryDate = new Date(user.vip.expireAt);
+      // 处理日期格式：可能是 YYYY-MM-DD、YYYY/MM/DD 或 ISO 字符串
+      if (dateStr.includes('T')) {
+        // ISO 格式，直接解析
+        expiryDate = new Date(dateStr);
+      } else if (dateStr.includes('/')) {
+        // YYYY/MM/DD 格式，转换为 YYYY-MM-DD 格式
+        // 如果包含时间，保留时间部分；否则设置为23:59:59
+        if (dateStr.includes(' ')) {
+          const [datePart, timePart] = dateStr.split(' ');
+          // 将日期部分的 / 替换为 -
+          const normalizedDatePart = datePart.replace(/\//g, '-');
+          // 处理时间部分，如果只有 HH:MM，补充秒数
+          let normalizedTimePart = timePart;
+          if (timePart.split(':').length === 2) {
+            normalizedTimePart = timePart + ':59'; // 补充秒数
+          }
+          expiryDate = new Date(normalizedDatePart + 'T' + normalizedTimePart);
+        } else {
+          const normalizedDateStr = dateStr.replace(/\//g, '-');
+          expiryDate = new Date(normalizedDateStr + 'T23:59:59');
+        }
       } else {
         // YYYY-MM-DD 格式，设置为当天的23:59:59
-        expiryDate = new Date(user.vip.expireAt + 'T23:59:59');
+        expiryDate = new Date(dateStr + 'T23:59:59');
       }
       
       if (now > expiryDate) {
         return jsonResponse({ isVip: false, expired: true });
       }
 
+      // 统一返回 YYYY-MM-DD 格式
+      const normalizedDate = expiryDate.toISOString().split('T')[0];
       return jsonResponse({ 
         isVip: true, 
         level: user.vip.level,
-        expiryDate: user.vip.expireAt
+        expiryDate: normalizedDate
       });
     } else {
       // 永久VIP

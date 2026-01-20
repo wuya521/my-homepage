@@ -1564,6 +1564,7 @@ body {
 .vip-card-section {
     margin-top: var(--spacing-lg);
     animation: fadeInUp 0.6s ease-out 0.15s both;
+    display: none; /* 默认隐藏，有VIP时再显示 */
 }
 
 .vip-card {
