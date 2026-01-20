@@ -199,6 +199,7 @@ async function loadProfile() {
                 vipCardSection.style.display = 'none';
             }
         }
+        }
 
         // 加载时间线事件
         await loadTimeline();
