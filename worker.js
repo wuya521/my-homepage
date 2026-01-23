@@ -807,16 +807,23 @@ async function handleRequest(request, env) {
   if (path === '/api/vip/check' && method === 'GET') {
     const email = url.searchParams.get('email');
     if (!email) {
-      return jsonResponse({ isVip: false });
+      return jsonResponse({ isVip: false, debug: 'no email provided' });
     }
 
     // 从 USERS 中读取VIP状态（新方式）
     const usersData = await env.MY_HOME_KV.get(STORAGE_KEYS.USERS);
     const users = usersData ? JSON.parse(usersData) : [];
-    const user = users.find(u => u.email === email);
     
-    if (!user || !user.vip || !user.vip.level) {
-      return jsonResponse({ isVip: false });
+    // 使用 trim 和 toLowerCase 进行邮箱匹配，避免大小写和空格问题
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = users.find(u => u.email && u.email.trim().toLowerCase() === normalizedEmail);
+    
+    if (!user) {
+      return jsonResponse({ isVip: false, debug: `user not found for email: ${normalizedEmail}`, totalUsers: users.length });
+    }
+    
+    if (!user.vip || !user.vip.level) {
+      return jsonResponse({ isVip: false, debug: `user found but no VIP: ${JSON.stringify(user.vip)}` });
     }
 
     // 检查是否过期
@@ -3437,11 +3444,18 @@ async function handleRequest(request, env) {
     
     await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
     
-    // 返回用户邮箱，方便前端调试
+    // 返回用户邮箱和VIP信息，方便前端调试
     return jsonResponse({ 
       success: true, 
       message: level ? 'VIP已授予' : 'VIP已取消',
-      userEmail: users[userIndex].email // 返回用户邮箱，方便调试
+      userEmail: users[userIndex].email, // 返回用户邮箱，方便调试
+      vip: users[userIndex].vip, // 返回VIP信息，方便调试
+      debug: {
+        userId: userId,
+        email: users[userIndex].email,
+        vipLevel: users[userIndex].vip?.level,
+        expireAt: users[userIndex].vip?.expireAt
+      }
     });
   }
 

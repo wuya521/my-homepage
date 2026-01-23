@@ -3237,7 +3237,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // 主页初始化
         // 先初始化用户认证状态，然后再加载 profile（这样 loadProfile 可以检查 currentUser）
         initUserAuth().then(() => {
-        loadProfile();
+            // 确保 currentUser 已经设置后再加载 profile
+            setTimeout(() => {
+                loadProfile();
+            }, 100);
         });
         loadAnnouncement();
         loadFeaturedUsers();
@@ -3495,6 +3498,11 @@ function updateUserUI() {
         
         // 加载用户统计信息
         loadUserStats();
+        
+        // 如果用户已登录，也检查VIP状态（使用登录用户的邮箱）
+        if (currentUser && currentUser.email) {
+            checkAndShowVipStatus(currentUser.email);
+        }
     } else {
         // 未登录
         if (guestActions) guestActions.style.display = 'flex';
@@ -5282,11 +5290,22 @@ async function manageUserVip(userId, hasVip) {
             showMessage('forum-users-message', `VIP已授予${expireText}`, 'success');
             loadForumUsers();
             
-            // 如果用户在前台页面，提示刷新页面以查看VIP状态
-            console.log('VIP授予成功，用户邮箱:', result.userEmail);
+            // 详细的调试信息
+            console.log('✅ VIP授予成功！');
+            console.log('用户邮箱:', result.userEmail);
+            console.log('VIP信息:', result.vip);
+            console.log('调试信息:', result.debug);
             console.log('提示：如果用户在前台页面，需要刷新页面才能看到VIP状态');
+            
+            // 如果当前登录用户就是被授予VIP的用户，立即刷新VIP状态
+            if (currentUser && currentUser.email === result.userEmail) {
+                console.log('检测到当前登录用户，立即刷新VIP状态...');
+                setTimeout(() => {
+                    checkAndShowVipStatus(result.userEmail);
+                }, 500);
+            }
         } catch (error) {
-            console.error('授予VIP失败:', error);
+            console.error('❌ 授予VIP失败:', error);
             showMessage('forum-users-message', error.message || '操作失败', 'error');
         }
     }
