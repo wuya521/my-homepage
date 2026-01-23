@@ -3436,7 +3436,13 @@ async function handleRequest(request, env) {
     }
     
     await env.MY_HOME_KV.put(STORAGE_KEYS.USERS, JSON.stringify(users));
-    return jsonResponse({ success: true, message: level ? 'VIP已授予' : 'VIP已取消' });
+    
+    // 返回用户邮箱，方便前端调试
+    return jsonResponse({ 
+      success: true, 
+      message: level ? 'VIP已授予' : 'VIP已取消',
+      userEmail: users[userIndex].email // 返回用户邮箱，方便调试
+    });
   }
 
   // 授予/取消用户金V认证

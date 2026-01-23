@@ -660,13 +660,16 @@ async function handleRedeemSubmit(e) {
 // 检查并显示VIP状态（用于左侧VIP卡片）
 async function checkAndShowVipStatus(email) {
     try {
+        console.log('检查VIP状态，邮箱:', email);
         const result = await apiRequest(`/api/vip/check?email=${encodeURIComponent(email)}`);
+        console.log('VIP检查结果:', result);
         const vipCardSection = document.querySelector('.vip-card-section');
         const vipStatusEl = document.getElementById('vip-status-info');
         const vipStatusText = vipStatusEl?.querySelector('.vip-status-text');
         
         // 如果没有VIP，隐藏整个VIP卡片区域
         if (!result.isVip) {
+            console.log('用户没有VIP，隐藏VIP卡片区域');
             if (vipCardSection) {
                 vipCardSection.style.display = 'none';
             }
@@ -5069,7 +5072,7 @@ async function showAuthorPage(authorId) {
     // 显示加载状态
     document.getElementById('author-page-name').textContent = '加载中...';
     document.getElementById('author-page-bio').textContent = '';
-    document.getElementById('author-page-avatar').src = 'https://via.placeholder.com/80';
+    document.getElementById('author-page-avatar').src = generateRandomAvatar('loading');
     document.getElementById('author-articles-container').innerHTML = `
         <div class="article-loading">
             <span class="loading-spinner"></span>
@@ -5269,14 +5272,19 @@ async function manageUserVip(userId, hasVip) {
         }
         
         try {
-            await apiRequest(`/api/admin/forum-users/${userId}/vip`, {
+            const result = await apiRequest(`/api/admin/forum-users/${userId}/vip`, {
                 method: 'POST',
                 body: JSON.stringify({ level, expireAt })
             });
             const expireText = expireAt ? `，有效期至 ${expireAt}` : '（永久）';
             showMessage('forum-users-message', `VIP已授予${expireText}`, 'success');
             loadForumUsers();
+            
+            // 如果用户在前台页面，提示刷新页面以查看VIP状态
+            console.log('VIP授予成功，用户邮箱:', result.userEmail);
+            console.log('提示：如果用户在前台页面，需要刷新页面才能看到VIP状态');
         } catch (error) {
+            console.error('授予VIP失败:', error);
             showMessage('forum-users-message', error.message || '操作失败', 'error');
         }
     }
