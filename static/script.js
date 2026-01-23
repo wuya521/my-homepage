@@ -4369,10 +4369,19 @@ async function showArticleDetail(articleId) {
                 contentHtml = marked.parse(article.content);
             }
             
-            // 判断权限
-            const canEdit = currentUser && (currentUser.id === article.authorId || currentUser.role === 'admin');
-            const isOwner = currentUser && currentUser.id === article.authorId;
+            // 判断权限（使用字符串比较，避免类型不匹配）
+            const canEdit = currentUser && (String(currentUser.id) === String(article.authorId) || currentUser.role === 'admin');
+            const isOwner = currentUser && String(currentUser.id) === String(article.authorId);
             const isHeated = article.isHeated;
+            
+            // 调试信息
+            console.log('文章详情权限检查:', {
+                currentUserId: currentUser?.id,
+                articleAuthorId: article.authorId,
+                isOwner: isOwner,
+                canEdit: canEdit,
+                isHeated: isHeated
+            });
             
             // 计算加热剩余时间
             let heatTimeInfo = '';
@@ -4418,9 +4427,12 @@ async function showArticleDetail(articleId) {
                     ` : ''}
                     <div class="article-detail-actions">
                         ${isOwner && !isHeated ? `
-                            <button class="btn-heat-article" onclick="heatMyArticle('${article.id}')">
+                            <button class="btn-heat-article" onclick="heatMyArticle('${article.id.replace(/'/g, "\\'")}')">
                                 🔥 加热文章
                             </button>
+                        ` : ''}
+                        ${isOwner && isHeated ? `
+                            <span class="heat-status-info">🔥 文章已加热中</span>
                         ` : ''}
                         ${canEdit ? `
                             <button class="btn-edit-article" onclick="editArticle('${article.id}')">✏️ 编辑</button>
@@ -4672,9 +4684,30 @@ async function deleteArticle(articleId) {
 
 // 用户加热自己的文章
 async function heatMyArticle(articleId) {
+    console.log('🔥 加热文章被调用，articleId:', articleId);
+    console.log('当前用户:', currentUser);
+    console.log('用户Token:', userToken ? '存在' : '不存在');
+    
     if (!userToken) {
+        console.log('用户未登录，显示登录弹窗');
         showLoginModal();
         return;
+    }
+    
+    if (!currentUser) {
+        console.log('currentUser 未设置，尝试重新获取用户信息');
+        // 尝试重新获取用户信息
+        try {
+            await initUserAuth();
+            if (!currentUser) {
+                showToast('请先登录', 'error');
+                return;
+            }
+        } catch (error) {
+            console.error('获取用户信息失败:', error);
+            showToast('获取用户信息失败，请刷新页面重试', 'error');
+            return;
+        }
     }
     
     // 获取加热配置
@@ -4685,23 +4718,31 @@ async function heatMyArticle(articleId) {
         if (configData.success && configData.config) {
             config = configData.config;
         }
-    } catch (e) {}
+    } catch (e) {
+        console.warn('获取加热配置失败，使用默认配置:', e);
+    }
     
+    console.log('显示加热弹窗，配置:', config);
     // 弹窗选择加热时长
     showHeatModal(articleId, config);
 }
 
 // 显示加热选项弹窗
 function showHeatModal(articleId, config) {
+    console.log('显示加热弹窗，articleId:', articleId, 'config:', config);
+    
     const existingModal = document.getElementById('heat-modal');
-    if (existingModal) existingModal.remove();
+    if (existingModal) {
+        console.log('移除已存在的弹窗');
+        existingModal.remove();
+    }
     
     const modal = document.createElement('div');
     modal.id = 'heat-modal';
     modal.className = 'modal-overlay';
     
     // 转义 articleId 以防包含特殊字符
-    const safeArticleId = articleId.replace(/'/g, "\\'");
+    const safeArticleId = String(articleId).replace(/'/g, "\\'").replace(/"/g, '&quot;');
     
     modal.innerHTML = `
         <div class="heat-modal-content">
@@ -4743,6 +4784,7 @@ function showHeatModal(articleId, config) {
         </div>
     `;
     document.body.appendChild(modal);
+    console.log('加热弹窗已添加到DOM');
     
     // 点击遮罩层关闭
     modal.addEventListener('click', (e) => {
@@ -4769,7 +4811,12 @@ function closeHeatModal() {
 
 // 确认加热（快捷选项）
 async function confirmHeat(articleId, hours, cost) {
-    if (!confirm(`确定消耗 ${cost} 积分加热 ${hours} 小时吗？`)) return;
+    console.log('确认加热，articleId:', articleId, 'hours:', hours, 'cost:', cost);
+    if (!confirm(`确定消耗 ${cost} 积分加热 ${hours} 小时吗？`)) {
+        console.log('用户取消加热');
+        return;
+    }
+    console.log('用户确认加热，执行加热操作');
     await executeHeat(articleId, hours);
 }
 
@@ -4790,14 +4837,17 @@ async function confirmCustomHeat(articleId, costPerHour) {
 
 // 执行加热
 async function executeHeat(articleId, hours) {
+    console.log('执行加热，articleId:', articleId, 'hours:', hours);
     try {
         // 确保hours是数字类型
         const hoursNum = parseInt(hours);
         if (isNaN(hoursNum) || hoursNum < 1) {
+            console.error('无效的小时数:', hours);
             showToast('请输入有效的小时数', 'error');
             return;
         }
         
+        console.log('发送加热请求...');
         const response = await fetch(`${API_BASE}/api/articles/heat`, {
             method: 'POST',
             headers: {
@@ -4807,23 +4857,28 @@ async function executeHeat(articleId, hours) {
             body: JSON.stringify({ articleId, hours: hoursNum })
         });
         
+        console.log('加热请求响应状态:', response.status);
         const data = await response.json();
+        console.log('加热请求响应数据:', data);
         
         if (!response.ok) {
             // 检查是否是封禁或未授权
             if (response.status === 401 || response.status === 403) {
+                console.log('用户未授权或被封禁');
                 handleUserBanned();
                 return;
             }
         }
         
         if (data.success) {
+            console.log('加热成功:', data.message);
             closeHeatModal();
             closeArticleDetail();
             showToast(`🔥 ${data.message}`);
             loadArticles(1); // 刷新文章列表
             loadUserStats(); // 刷新用户积分
         } else {
+            console.error('加热失败:', data.message);
             showToast(data.message || '加热失败', 'error');
         }
     } catch (error) {
