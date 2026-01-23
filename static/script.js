@@ -184,14 +184,16 @@ async function loadProfile() {
         updateSocialLink('website-link', profile.website, profile.website);
 
         // 检查并显示金V认证标识
-        if (profile.email) {
-            await checkAndShowGoldVerified(profile.email);
+        // 优先使用登录用户的邮箱，如果没有登录则使用个人主页配置的邮箱
+        const emailToCheck = currentUser ? currentUser.email : profile.email;
+        if (emailToCheck) {
+            await checkAndShowGoldVerified(emailToCheck);
             // 检查并显示VIP状态
-            await checkAndShowVipStatus(profile.email);
+            await checkAndShowVipStatus(emailToCheck);
             // 加载用户勋章
-            await loadUserBadges(profile.email);
+            await loadUserBadges(emailToCheck);
             // 加载用户等级
-            await loadUserLevel(profile.email);
+            await loadUserLevel(emailToCheck);
         } else {
             // 没有邮箱时，隐藏VIP卡片区域
             const vipCardSection = document.querySelector('.vip-card-section');
