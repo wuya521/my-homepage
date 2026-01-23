@@ -4782,33 +4782,33 @@ function showHeatModal(articleId, config) {
             </div>
             <div class="heat-modal-body">
                 <p class="heat-tip">加热后文章将在列表中优先展示，标题显示金色闪光效果</p>
-                <div class="heat-options">
-                    <button class="heat-option" onclick="confirmHeat('${safeArticleId}', 6, ${config.costPerHour * 6})">
+                <div class="heat-options" data-article-id="${safeArticleId}" data-cost-per-hour="${config.costPerHour}">
+                    <button class="heat-option" data-hours="6" data-action="heat-quick">
                         <span class="heat-duration">6小时</span>
                         <span class="heat-cost">${config.costPerHour * 6} 积分</span>
                     </button>
-                    <button class="heat-option heat-option-popular" onclick="confirmHeat('${safeArticleId}', 12, ${config.costPerHour * 12})">
+                    <button class="heat-option heat-option-popular" data-hours="12" data-action="heat-quick">
                         <span class="popular-badge">推荐</span>
                         <span class="heat-duration">12小时</span>
                         <span class="heat-cost">${config.costPerHour * 12} 积分</span>
                     </button>
-                    <button class="heat-option" onclick="confirmHeat('${safeArticleId}', 24, ${config.costPerHour * 24})">
+                    <button class="heat-option" data-hours="24" data-action="heat-quick">
                         <span class="heat-duration">24小时</span>
                         <span class="heat-cost">${config.costPerHour * 24} 积分</span>
                     </button>
-                    <button class="heat-option" onclick="confirmHeat('${safeArticleId}', 48, ${config.costPerHour * 48})">
+                    <button class="heat-option" data-hours="48" data-action="heat-quick">
                         <span class="heat-duration">48小时</span>
                         <span class="heat-cost">${config.costPerHour * 48} 积分</span>
                     </button>
                 </div>
-                <div class="heat-custom">
+                <div class="heat-custom" data-article-id="${safeArticleId}" data-cost-per-hour="${config.costPerHour}">
                     <label for="heat-custom-hours">自定义时长（${config.minHours}-${config.maxHours}小时）</label>
                     <div class="heat-custom-input">
                         <input type="number" id="heat-custom-hours" min="${config.minHours}" max="${config.maxHours}" value="24">
                         <span>小时</span>
                         <span class="heat-custom-cost">= <span id="heat-custom-price">${config.costPerHour * 24}</span> 积分</span>
                     </div>
-                    <button class="btn-heat-confirm" onclick="confirmCustomHeat('${safeArticleId}', ${config.costPerHour})">确认加热</button>
+                    <button class="btn-heat-confirm" data-action="heat-custom">确认加热</button>
                 </div>
             </div>
         </div>
@@ -4823,6 +4823,46 @@ function showHeatModal(articleId, config) {
         }
     });
     
+    // 绑定弹窗内按钮事件（使用事件委托）
+    const heatOptions = modal.querySelector('.heat-options');
+    if (heatOptions) {
+        heatOptions.addEventListener('click', (e) => {
+            const button = e.target.closest('button.heat-option');
+            if (!button) return;
+            
+            const hours = parseInt(button.getAttribute('data-hours'));
+            const articleId = heatOptions.getAttribute('data-article-id');
+            const costPerHour = parseFloat(heatOptions.getAttribute('data-cost-per-hour'));
+            const cost = hours * costPerHour;
+            
+            console.log('快捷选项点击，hours:', hours, 'articleId:', articleId, 'cost:', cost);
+            e.preventDefault();
+            e.stopPropagation();
+            confirmHeat(articleId, hours, cost);
+        });
+    }
+    
+    const heatCustom = modal.querySelector('.heat-custom');
+    if (heatCustom) {
+        const confirmBtn = heatCustom.querySelector('.btn-heat-confirm');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', (e) => {
+                const articleId = heatCustom.getAttribute('data-article-id');
+                const costPerHour = parseFloat(heatCustom.getAttribute('data-cost-per-hour'));
+                const customInput = document.getElementById('heat-custom-hours');
+                
+                if (!customInput) return;
+                
+                const hours = parseInt(customInput.value);
+                console.log('自定义加热点击，hours:', hours, 'articleId:', articleId);
+                
+                e.preventDefault();
+                e.stopPropagation();
+                confirmCustomHeat(articleId, costPerHour);
+            });
+        }
+    }
+    
     // 监听自定义时长输入
     const customInput = document.getElementById('heat-custom-hours');
     const customPrice = document.getElementById('heat-custom-price');
@@ -4834,13 +4874,14 @@ function showHeatModal(articleId, config) {
     }
 }
 
-function closeHeatModal() {
+// 关闭加热弹窗 - 确保在全局作用域
+window.closeHeatModal = function closeHeatModal() {
     const modal = document.getElementById('heat-modal');
     if (modal) modal.remove();
 }
 
-// 确认加热（快捷选项）
-async function confirmHeat(articleId, hours, cost) {
+// 确认加热（快捷选项）- 确保在全局作用域
+window.confirmHeat = async function confirmHeat(articleId, hours, cost) {
     console.log('确认加热，articleId:', articleId, 'hours:', hours, 'cost:', cost);
     if (!confirm(`确定消耗 ${cost} 积分加热 ${hours} 小时吗？`)) {
         console.log('用户取消加热');
@@ -4850,8 +4891,8 @@ async function confirmHeat(articleId, hours, cost) {
     await executeHeat(articleId, hours);
 }
 
-// 确认加热（自定义时长）
-async function confirmCustomHeat(articleId, costPerHour) {
+// 确认加热（自定义时长）- 确保在全局作用域
+window.confirmCustomHeat = async function confirmCustomHeat(articleId, costPerHour) {
     const customInput = document.getElementById('heat-custom-hours');
     const hours = parseInt(customInput.value);
     
