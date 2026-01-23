@@ -4427,7 +4427,7 @@ async function showArticleDetail(articleId) {
                     ` : ''}
                     <div class="article-detail-actions">
                         ${isOwner && !isHeated ? `
-                            <button class="btn-heat-article" onclick="heatMyArticle('${article.id.replace(/'/g, "\\'")}')">
+                            <button class="btn-heat-article" data-article-id="${article.id}" data-action="heat">
                                 🔥 加热文章
                             </button>
                         ` : ''}
@@ -4435,12 +4435,42 @@ async function showArticleDetail(articleId) {
                             <span class="heat-status-info">🔥 文章已加热中</span>
                         ` : ''}
                         ${canEdit ? `
-                            <button class="btn-edit-article" onclick="editArticle('${article.id}')">✏️ 编辑</button>
-                            <button class="btn-delete-article" onclick="deleteArticle('${article.id}')">🗑️ 删除</button>
+                            <button class="btn-edit-article" data-article-id="${article.id}" data-action="edit">✏️ 编辑</button>
+                            <button class="btn-delete-article" data-article-id="${article.id}" data-action="delete">🗑️ 删除</button>
                         ` : ''}
                     </div>
                 </div>
             `;
+            
+            // 绑定按钮事件（使用事件委托）
+            const actionsContainer = container.querySelector('.article-detail-actions');
+            if (actionsContainer) {
+                actionsContainer.addEventListener('click', (e) => {
+                    const button = e.target.closest('button');
+                    if (!button) return;
+                    
+                    const action = button.getAttribute('data-action');
+                    const articleId = button.getAttribute('data-article-id');
+                    
+                    if (!articleId) return;
+                    
+                    console.log('按钮点击，action:', action, 'articleId:', articleId);
+                    
+                    if (action === 'heat') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        heatMyArticle(articleId);
+                    } else if (action === 'edit') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        editArticle(articleId);
+                    } else if (action === 'delete') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteArticle(articleId);
+                    }
+                });
+            }
         } else {
             container.innerHTML = `
                 <div class="article-empty">
@@ -4682,8 +4712,8 @@ async function deleteArticle(articleId) {
     }
 }
 
-// 用户加热自己的文章
-async function heatMyArticle(articleId) {
+// 用户加热自己的文章（确保在全局作用域）
+window.heatMyArticle = async function heatMyArticle(articleId) {
     console.log('🔥 加热文章被调用，articleId:', articleId);
     console.log('当前用户:', currentUser);
     console.log('用户Token:', userToken ? '存在' : '不存在');
